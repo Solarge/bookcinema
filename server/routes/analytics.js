@@ -3,28 +3,29 @@ import UsageLog from '../models/UsageLog.js'
 import Series from '../models/Series.js'
 import Asset from '../models/Asset.js'
 import { requireAuth } from '../middleware/auth.js'
+import { resolveWorkspace } from '../middleware/workspace.js'
 
 const router = Router()
-router.use(requireAuth)
+router.use(requireAuth, resolveWorkspace)
 
-// GET /api/analytics — usage summary
+// GET /api/analytics — usage summary for the active workspace
 router.get('/', async (req, res) => {
   try {
     const days = Number(req.query.days) || 30
-    const [stats] = await UsageLog.getUserStats(req.user._id, days)
-    const seriesCount = await Series.countDocuments({ userId: req.user._id })
-    const assetCount  = await Asset.countDocuments({ userId: req.user._id })
+    const [stats] = await UsageLog.getWorkspaceStats(req.workspace._id, days)
+    const seriesCount = await Series.countDocuments({ workspaceId: req.workspace._id })
+    const assetCount  = await Asset.countDocuments({ workspaceId: req.workspace._id })
     res.json({ stats: stats || { totalCost: 0, totalImages: 0, totalVideos: 0, totalVoice: 0, totalSeries: 0 }, seriesCount, assetCount, days })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// GET /api/analytics/history — daily breakdown
+// GET /api/analytics/history — daily breakdown for the active workspace
 router.get('/history', async (req, res) => {
   try {
     const days = Number(req.query.days) || 30
     const since = new Date(Date.now() - days * 86400000)
     const logs = await UsageLog.aggregate([
-      { $match: { userId: req.user._id, createdAt: { $gte: since } } },
+      { $match: { workspaceId: req.workspace._id, createdAt: { $gte: since } } },
       { $group: {
         _id:    { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
         cost:   { $sum: '$costUsd' },
@@ -38,11 +39,11 @@ router.get('/history', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// GET /api/analytics/providers — which providers are used most
+// GET /api/analytics/providers — provider breakdown for the active workspace
 router.get('/providers', async (req, res) => {
   try {
     const breakdown = await UsageLog.aggregate([
-      { $match: { userId: req.user._id } },
+      { $match: { workspaceId: req.workspace._id } },
       { $group: {
         _id:        { action: '$action', provider: '$provider' },
         count:      { $sum: 1 },
@@ -55,10 +56,10 @@ router.get('/providers', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// GET /api/analytics/export.csv
+// GET /api/analytics/export.csv — workspace usage export
 router.get('/export.csv', async (req, res) => {
   try {
-    const logs = await UsageLog.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(10000).lean()
+    const logs = await UsageLog.find({ workspaceId: req.workspace._id }).sort({ createdAt: -1 }).limit(10000).lean()
     const headers = ['Date', 'Action', 'Provider', 'Quality', 'Cost (USD)', 'Success']
     const rows = logs.map(l => [
       l.createdAt.toISOString().split('T')[0],

@@ -70,3 +70,25 @@ test('switch returns 403 (not 500) for a malformed workspace id', async () => {
   const res = await bearer(request(app()).post('/api/workspaces/switch'), token).send({ workspaceId: 'not-an-id' })
   assert.equal(res.status, 403)
 })
+
+test('PATCH member role rejects an invalid role with 400', async () => {
+  const { user, token } = await makeAuthedUser()
+  const memberId = new mongoose.Types.ObjectId()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, members: [{ userId: user._id, role: 'owner' }, { userId: memberId, role: 'member' }] })
+  const res = await bearer(request(app()).patch(`/api/workspaces/${org._id}/members/${memberId}`), token).send({ role: 'superadmin' })
+  assert.equal(res.status, 400)
+})
+
+test('PATCH cannot change the workspace owner role', async () => {
+  const { user, token } = await makeAuthedUser()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, members: [{ userId: user._id, role: 'owner' }] })
+  const res = await bearer(request(app()).patch(`/api/workspaces/${org._id}/members/${user._id}`), token).send({ role: 'member' })
+  assert.equal(res.status, 400)
+})
+
+test('DELETE cannot remove the workspace owner', async () => {
+  const { user, token } = await makeAuthedUser()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, members: [{ userId: user._id, role: 'owner' }] })
+  const res = await bearer(request(app()).delete(`/api/workspaces/${org._id}/members/${user._id}`), token)
+  assert.equal(res.status, 400)
+})

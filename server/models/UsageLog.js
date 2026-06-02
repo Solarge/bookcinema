@@ -35,4 +35,20 @@ usageLogSchema.statics.getUserStats = async function (userId, days = 30) {
   ])
 }
 
+// Static: aggregated stats for a workspace
+usageLogSchema.statics.getWorkspaceStats = async function (workspaceId, days = 30) {
+  const since = new Date(Date.now() - days * 86400000)
+  return this.aggregate([
+    { $match: { workspaceId: new mongoose.Types.ObjectId(workspaceId), createdAt: { $gte: since } } },
+    { $group: {
+      _id: null,
+      totalCost:   { $sum: '$costUsd' },
+      totalImages: { $sum: { $cond: [{ $eq: ['$action', 'generate_image'] }, 1, 0] } },
+      totalVideos: { $sum: { $cond: [{ $eq: ['$action', 'generate_video'] }, 1, 0] } },
+      totalVoice:  { $sum: { $cond: [{ $eq: ['$action', 'generate_voice'] }, 1, 0] } },
+      totalSeries: { $sum: { $cond: [{ $eq: ['$action', 'generate_text'] }, 1, 0] } },
+    }},
+  ])
+}
+
 export default mongoose.model('UsageLog', usageLogSchema)

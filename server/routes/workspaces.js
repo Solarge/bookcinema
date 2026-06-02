@@ -100,11 +100,15 @@ router.post('/accept-invite', async (req, res) => {
 // PATCH /api/workspaces/:id/members/:userId — change member role (owner)
 router.patch('/:id/members/:userId', async (req, res) => {
   try {
+    const { role } = req.body
+    if (!['owner', 'admin', 'member'].includes(role)) return res.status(400).json({ error: 'Invalid role' })
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(403).json({ error: 'Not workspace owner' })
     const ws = await Workspace.findOne({ _id: req.params.id, ownerId: req.user._id })
     if (!ws) return res.status(403).json({ error: 'Not workspace owner' })
+    if (req.params.userId === ws.ownerId.toString()) return res.status(400).json({ error: 'Cannot change the workspace owner role' })
     const member = ws.members.find(m => m.userId.toString() === req.params.userId)
     if (!member) return res.status(404).json({ error: 'Member not found' })
-    member.role = req.body.role
+    member.role = role
     await ws.save()
     res.json(ws)
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -115,6 +119,7 @@ router.delete('/:id/members/:userId', async (req, res) => {
   try {
     const ws = mongoose.isValidObjectId(req.params.id) ? await Workspace.findById(req.params.id) : null
     if (!ws || !['owner', 'admin'].includes(ws.getMemberRole(req.user._id))) return res.status(403).json({ error: 'Insufficient role' })
+    if (req.params.userId === ws.ownerId.toString()) return res.status(400).json({ error: 'Cannot remove the workspace owner' })
     ws.members = ws.members.filter(m => m.userId.toString() !== req.params.userId)
     await ws.save()
     res.json({ message: 'Member removed' })

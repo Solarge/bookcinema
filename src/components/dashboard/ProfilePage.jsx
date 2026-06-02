@@ -1,16 +1,20 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
-import { users as usersApi, analytics as analyticsApi } from '../../lib/api'
+import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi } from '../../lib/api'
 
 export default function ProfilePage({ onClose }) {
-  const { user, logout, updateUser } = useAuth()
+  const { user, logout, updateUser, activeWorkspace } = useAuth()
   const [tab, setTab]               = useState('profile') // profile | security | apikey | analytics
   const [name, setName]             = useState(user?.name ?? '')
   const [saving, setSaving]         = useState(false)
   const [msg, setMsg]               = useState('')
   const [apiKeyData, setApiKeyData] = useState(null)
   const [analyticsData, setAnalyticsData] = useState(null)
+  const [members, setMembers]             = useState(null)
+  const [wsList, setWsList]               = useState([])
+  const [inviteEmail, setInviteEmail]     = useState('')
+  const [newWsName, setNewWsName]         = useState('')
 
   async function saveProfile() {
     setSaving(true); setMsg('')
@@ -41,7 +45,18 @@ export default function ProfilePage({ onClose }) {
     } catch (err) { setMsg(err.message) }
   }
 
-  const TABS = ['profile', 'security', 'apikey', 'analytics']
+  async function loadWorkspace() {
+    try {
+      const [list, mems] = await Promise.all([
+        workspacesApi.list(),
+        workspacesApi.members(activeWorkspace),
+      ])
+      setWsList(list)
+      setMembers(mems)
+    } catch (err) { setMsg(err.message) }
+  }
+
+  const TABS = ['profile', 'security', 'apikey', 'workspace', 'analytics']
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose}>
@@ -60,7 +75,7 @@ export default function ProfilePage({ onClose }) {
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
           {TABS.map(t => (
-            <button key={t} onClick={() => { setTab(t); if (t === 'analytics') loadAnalytics() }} style={{
+            <button key={t} onClick={() => { setTab(t); if (t === 'analytics') loadAnalytics(); if (t === 'workspace') loadWorkspace() }} style={{
               flex: 1, background: 'transparent', border: 'none',
               borderBottom: t === tab ? '2px solid var(--gold)' : '2px solid transparent',
               color: t === tab ? 'var(--gold)' : 'var(--muted)',
@@ -108,6 +123,120 @@ export default function ProfilePage({ onClose }) {
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button onClick={generateApiKey} style={btn(false)}>Generate New Key</button>
                 <button onClick={revokeApiKey} style={{ ...btn(false), background: 'transparent', color: '#f08080', border: '1px solid #804040' }}>Revoke</button>
+              </div>
+            </div>
+          )}
+
+          {tab === 'workspace' && (
+            <div>
+              {/* Current workspace info */}
+              {(() => {
+                const ws = wsList.find(w => w._id === activeWorkspace)
+                return ws ? (
+                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '14px 16px', marginBottom: '20px' }}>
+                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '2px', marginBottom: '6px' }}>{ws.name}</div>
+                    <div style={{ display: 'flex', gap: '16px' }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Type: <span style={{ color: 'var(--cream)' }}>{ws.type}</span></span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Plan: <span style={{ color: 'var(--cream)' }}>{ws.plan}</span></span>
+                    </div>
+                  </div>
+                ) : null
+              })()}
+
+              {/* Members list */}
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Members</div>
+              {members === null ? (
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '16px' }}>Loading…</div>
+              ) : (
+                <div style={{ marginBottom: '20px' }}>
+                  {members.map((member, i) => {
+                    const memberUserId = member.userId?._id ?? member.userId
+                    const memberName   = member.userId?.name  ?? String(memberUserId)
+                    const memberEmail  = member.userId?.email ?? ''
+                    const isOwner      = member.role === 'owner'
+                    return (
+                      <div key={memberUserId ?? i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--cream)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memberName}</div>
+                          {memberEmail && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)' }}>{memberEmail}</div>}
+                        </div>
+                        {isOwner ? (
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '1px', textTransform: 'uppercase' }}>owner</span>
+                        ) : (
+                          <>
+                            <select
+                              value={member.role}
+                              onChange={async e => {
+                                try {
+                                  await workspacesApi.updateMember(activeWorkspace, memberUserId, { role: e.target.value })
+                                  await loadWorkspace()
+                                } catch (err) { setMsg(err.message) }
+                              }}
+                              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '4px 6px', cursor: 'pointer' }}
+                            >
+                              <option value="admin">admin</option>
+                              <option value="member">member</option>
+                            </select>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  await workspacesApi.removeMember(activeWorkspace, memberUserId)
+                                  await loadWorkspace()
+                                } catch (err) { setMsg(err.message) }
+                              }}
+                              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '4px 10px', background: 'transparent', border: '1px solid #804040', color: '#f08080', cursor: 'pointer' }}
+                            >Remove</button>
+                          </>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* Invite row */}
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Invite Member</div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+                <input
+                  type="email"
+                  placeholder="email@example.com"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  style={{ flex: 1, background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 12px', outline: 'none' }}
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await workspacesApi.invite(activeWorkspace, { email: inviteEmail, role: 'member' })
+                      setMsg(res.message)
+                      setInviteEmail('')
+                    } catch (err) { setMsg(err.message) }
+                  }}
+                  style={btn(false)}
+                >Invite</button>
+              </div>
+
+              {/* Create organization workspace row */}
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Create Organization</div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="Workspace name"
+                  value={newWsName}
+                  onChange={e => setNewWsName(e.target.value)}
+                  style={{ flex: 1, background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 12px', outline: 'none' }}
+                />
+                <button
+                  onClick={async () => {
+                    try {
+                      await workspacesApi.create({ name: newWsName })
+                      setMsg('Workspace created')
+                      setNewWsName('')
+                      await loadWorkspace()
+                    } catch (err) { setMsg(err.message) }
+                  }}
+                  style={btn(false)}
+                >Create</button>
               </div>
             </div>
           )}
