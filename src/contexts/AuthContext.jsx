@@ -1,12 +1,13 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
 import PropTypes from 'prop-types'
-import { auth as authApi, users as usersApi, setAccessToken, clearAccessToken } from '../lib/api'
+import { auth as authApi, users as usersApi, workspaces as workspacesApi, setAccessToken, clearAccessToken, setActiveWorkspace } from '../lib/api'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser]         = useState(null)
   const [loading, setLoading]   = useState(true)  // initial auth check
+  const [activeWorkspace, setActiveWorkspaceState] = useState(null)
 
   // On mount — try to refresh session from httpOnly cookie
   useEffect(() => {
@@ -15,7 +16,13 @@ export function AuthProvider({ children }) {
         setAccessToken(accessToken)
         return usersApi.me()
       })
-      .then(u => setUser(u))
+      .then(u => {
+        setUser(u)
+        if (u?.defaultWorkspaceId) {
+          setActiveWorkspace(u.defaultWorkspaceId)
+          setActiveWorkspaceState(u.defaultWorkspaceId)
+        }
+      })
       .catch(() => { clearAccessToken(); setUser(null) })
       .finally(() => setLoading(false))
   }, [])
@@ -31,6 +38,7 @@ export function AuthProvider({ children }) {
     const data = await authApi.login({ email, password })
     setAccessToken(data.accessToken)
     setUser(data.user)
+    if (data.user?.defaultWorkspaceId) { setActiveWorkspace(data.user.defaultWorkspaceId); setActiveWorkspaceState(data.user.defaultWorkspaceId) }
     return data.user
   }, [])
 
@@ -38,6 +46,7 @@ export function AuthProvider({ children }) {
     const data = await authApi.register({ name, email, password })
     setAccessToken(data.accessToken)
     setUser(data.user)
+    if (data.user?.defaultWorkspaceId) { setActiveWorkspace(data.user.defaultWorkspaceId); setActiveWorkspaceState(data.user.defaultWorkspaceId) }
     return data.user
   }, [])
 
@@ -45,13 +54,21 @@ export function AuthProvider({ children }) {
     try { await authApi.logout() } catch (_) {}
     clearAccessToken()
     setUser(null)
+    setActiveWorkspace(null)
+    setActiveWorkspaceState(null)
   }, [])
 
   const updateUser = useCallback((patch) => {
     setUser(prev => ({ ...prev, ...patch }))
   }, [])
 
-  const value = useMemo(() => ({ user, loading, login, register, logout, updateUser, isAdmin: user?.role === 'admin' }), [user, loading, login, register, logout, updateUser])
+  const switchWorkspace = useCallback(async (workspaceId) => {
+    await workspacesApi.switch(workspaceId)
+    setActiveWorkspace(workspaceId)
+    setActiveWorkspaceState(workspaceId)
+  }, [])
+
+  const value = useMemo(() => ({ user, loading, activeWorkspace, login, register, logout, updateUser, switchWorkspace, isAdmin: user?.role === 'admin' }), [user, loading, activeWorkspace, login, register, logout, updateUser, switchWorkspace])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
