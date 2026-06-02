@@ -8,7 +8,7 @@ const router = Router()
 router.get('/:token', async (req, res) => {
   try {
     const series = await Series.findOne({ shareToken: req.params.token, isPublic: true })
-      .select('-versions -userId -teamId')
+      .select('-versions -userId -workspaceId')
     if (!series) return res.status(404).json({ error: 'Share link not found or sharing has been disabled' })
 
     // Get publicly accessible assets
