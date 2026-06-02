@@ -22,7 +22,7 @@ const seriesSchema = new mongoose.Schema({
   }],
 
   // Public sharing
-  shareToken: { type: String, unique: true, sparse: true, default: null },
+  shareToken: { type: String, unique: true, sparse: true },
   isPublic:   { type: Boolean, default: false },
 
   // Generation metadata
