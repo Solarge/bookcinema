@@ -9,7 +9,7 @@ import { connectDB } from './db.js'
 import authRoutes      from './routes/auth.js'
 import seriesRoutes    from './routes/series.js'
 import assetRoutes     from './routes/assets.js'
-import teamRoutes      from './routes/teams.js'
+import workspaceRoutes from './routes/workspaces.js'
 import userRoutes      from './routes/users.js'
 import shareRoutes     from './routes/share.js'
 import analyticsRoutes from './routes/analytics.js'
@@ -33,7 +33,7 @@ app.use(cookieParser())
 app.use('/api/auth',      authRoutes)
 app.use('/api/series',    seriesRoutes)
 app.use('/api/assets',    assetRoutes)
-app.use('/api/teams',     teamRoutes)
+app.use('/api/workspaces', workspaceRoutes)
 app.use('/api/users',     userRoutes)
 app.use('/api/share',     shareRoutes)
 app.use('/api/analytics', analyticsRoutes)
