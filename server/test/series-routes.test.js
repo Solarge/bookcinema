@@ -49,3 +49,38 @@ test('series get 404s for a series in another workspace', async () => {
   const res = await authed(request(app()).get(`/api/series/${foreign._id}`), token, workspace._id)
   assert.equal(res.status, 404)
 })
+
+test('PUT 404s for a series in another workspace', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const foreign = await Series.create({ userId: user._id, workspaceId: new mongoose.Types.ObjectId(), title: 'F', fullOutput: {} })
+  const res = await authed(request(app()).put(`/api/series/${foreign._id}`), token, workspace._id).send({ title: 'Hacked' })
+  assert.equal(res.status, 404)
+})
+
+test('DELETE 404s for a series in another workspace', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const foreign = await Series.create({ userId: user._id, workspaceId: new mongoose.Types.ObjectId(), title: 'F', fullOutput: {} })
+  const res = await authed(request(app()).delete(`/api/series/${foreign._id}`), token, workspace._id)
+  assert.equal(res.status, 404)
+})
+
+test('duplicate 404s for a series in another workspace', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const foreign = await Series.create({ userId: user._id, workspaceId: new mongoose.Types.ObjectId(), title: 'F', fullOutput: {} })
+  const res = await authed(request(app()).post(`/api/series/${foreign._id}/duplicate`), token, workspace._id)
+  assert.equal(res.status, 404)
+})
+
+test('share 404s for a series in another workspace', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const foreign = await Series.create({ userId: user._id, workspaceId: new mongoose.Types.ObjectId(), title: 'F', fullOutput: {} })
+  const res = await authed(request(app()).post(`/api/series/${foreign._id}/share`), token, workspace._id)
+  assert.equal(res.status, 404)
+})
+
+test('unshare 404s for a series in another workspace', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const foreign = await Series.create({ userId: user._id, workspaceId: new mongoose.Types.ObjectId(), title: 'F', fullOutput: {} })
+  const res = await authed(request(app()).delete(`/api/series/${foreign._id}/share`), token, workspace._id)
+  assert.equal(res.status, 404)
+})

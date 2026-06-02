@@ -13,7 +13,7 @@ router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 20, search } = req.query
     const query = { workspaceId: req.workspace._id }
-    if (search) query.title = { $regex: search, $options: 'i' }
+    if (search) query.title = { $regex: String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), $options: 'i' }
     const [items, total] = await Promise.all([
       Series.find(query).select('-fullOutput -versions').sort({ updatedAt: -1 }).skip((page - 1) * limit).limit(Number(limit)),
       Series.countDocuments(query),
