@@ -1,0 +1,67 @@
+# (removed obsolete `version` key — Compose V2 ignores it)
+
+# MongoDB → MongoDB Atlas (cloud)
+# Redis  → Upstash (recommended cloud) OR secured local Redis below
+# Set REDIS_URL in server/.env.server to switch between them:
+#   Upstash: REDIS_URL=rediss://default:<token>@<host>.upstash.io:6380
+#   Local:   REDIS_URL=redis://:CHANGE_THIS_REDIS_PASSWORD@redis:6379
+
+services:
+
+  # ── Redis (local secured — only used if not using Upstash) ──────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: bookfilm-redis
+    restart: unless-stopped
+    user: "999:999"           # run as non-root (redis user in alpine image)
+    read_only: true           # read-only filesystem
+    tmpfs:
+      - /tmp                  # allow temp writes only in tmpfs
+    ports:
+      # DO NOT expose 6379 to host in production — remove this line
+      # Only uncomment for local dev
+      - '127.0.0.1:6379:6379'   # bind to loopback only, not 0.0.0.0
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./server/redis.conf:/usr/local/etc/redis/redis.conf:ro   # mount config read-only
+      - redis_data:/data
+    networks:
+      - bookfilm
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "CHANGE_THIS_REDIS_PASSWORD", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── BookFilm API Server ──────────────────────────────────────────────────────
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    container_name: bookfilm-server
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    env_file:
+      - server/.env.server
+    environment:
+      NODE_ENV: production
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - bookfilm
+    security_opt:
+      - no-new-privileges:true  # prevent privilege escalation
+    cap_drop:
+      - ALL                     # drop all Linux capabilities
+    cap_add:
+      - NET_BIND_SERVICE        # only allow binding to ports
+
+volumes:
+  redis_data:
+
+networks:
+  bookfilm:
+    driver: bridge
+    internal: false    # set to true in prod if server has its own outbound route

@@ -1,0 +1,21 @@
+FROM node:20-alpine
+
+WORKDIR /app/server
+
+# Install dependencies
+COPY server/package*.json ./
+RUN npm ci --omit=dev
+
+# Copy source
+COPY server/ ./
+
+# Non-root user for security
+RUN addgroup -S bookfilm && adduser -S bookfilm -G bookfilm
+USER bookfilm
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s \
+  CMD wget -qO- http://localhost:3001/health || exit 1
+
+CMD ["node", "index.js"]

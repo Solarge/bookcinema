@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create *)",
+      "Bash(cd \"c:/Users/Migrapay/Desktop\" && npm create vite@latest bookfilm-temp -- --template react 2>&1)",
+      "Read(//c/Users/Migrapay/Desktop/**)",
+      "Bash(npx tailwindcss *)",
+      "Bash(node_modules/.bin/tailwindcss init *)",
+      "Bash(git init *)",
+      "Bash(git checkout *)",
+      "Bash(git check-ignore *)"
+    ],
+    "additionalDirectories": [
+      "C:\\Users\\Migrapay\\Desktop\\bookfilm-temp"
+    ]
+  }
+}
