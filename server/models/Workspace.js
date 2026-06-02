@@ -1,4 +1,5 @@
 import mongoose from 'mongoose'
+import { v4 as uuidv4 } from 'uuid'
 
 const memberSchema = new mongoose.Schema({
   userId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
@@ -35,11 +36,13 @@ const workspaceSchema = new mongoose.Schema({
   migratedFromTeamId: { type: mongoose.Schema.Types.ObjectId, default: null, index: true },
 }, { timestamps: true })
 
-// Auto-generate a unique-ish slug from name (random suffix avoids collisions for personal workspaces)
+// Generate a unique slug from the name with a uuid-derived suffix.
+// Suffix gives ~48 bits of entropy so the unique index never realistically collides.
+// (Deliberately no isModified('name') guard: regenerate whenever slug is unset.)
 workspaceSchema.pre('save', function (next) {
   if (!this.slug) {
     const base = this.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'workspace'
-    this.slug = `${base}-${Math.random().toString(36).slice(2, 8)}`
+    this.slug = `${base}-${uuidv4().replace(/-/g, '').slice(0, 12)}`
   }
   next()
 })

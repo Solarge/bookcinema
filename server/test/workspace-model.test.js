@@ -32,3 +32,10 @@ test('rejects an invalid member role', async () => {
     members: [{ userId: uid, role: 'superuser' }],
   }))
 })
+
+test('generates a url-safe slug and unique slugs for identical names', async () => {
+  const a = await Workspace.create({ name: 'Acme Corp', type: 'organization', ownerId: new mongoose.Types.ObjectId(), members: [] })
+  const b = await Workspace.create({ name: 'Acme Corp', type: 'organization', ownerId: new mongoose.Types.ObjectId(), members: [] })
+  assert.match(a.slug, /^[a-z0-9-]+$/)
+  assert.notEqual(a.slug, b.slug)
+})
