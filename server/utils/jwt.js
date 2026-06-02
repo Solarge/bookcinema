@@ -17,6 +17,6 @@ export function verifyRefresh(token) {
   return jwt.verify(token, config.jwtRefreshSecret)
 }
 
-export function decodePayload(userId, email, role, teamId) {
-  return { userId, email, role, teamId }
+export function decodePayload(userId, email, role) {
+  return { userId, email, role }
 }
