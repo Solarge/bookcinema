@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { SettingsProvider, useSettings } from './contexts/SettingsContext'
 import { MediaProvider } from './contexts/MediaContext'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
@@ -10,7 +10,7 @@ import LoginPage from './components/auth/LoginPage'
 import RegisterPage from './components/auth/RegisterPage'
 import ProfilePage from './components/dashboard/ProfilePage'
 import { generateSeries } from './utils/textProviders/index'
-import { series as seriesApi } from './lib/api'
+import { series as seriesApi, workspaces as workspacesApi } from './lib/api'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
 
 // ── Auth gate wrapper ─────────────────────────────────────────────────────────
@@ -38,13 +38,36 @@ function AuthGate({ children }) {
 // ── Main app (inside auth + settings contexts) ────────────────────────────────
 function AppInner() {
   const { settings } = useSettings()
-  const { user } = useAuth()
+  const { user, switchWorkspace } = useAuth()
   const [page, setPage]                   = useState('home')
   const [uploadedText, setUploadedText]   = useState('')
   const [generatedSeries, setGeneratedSeries] = useState(null)
   const [errorMsg, setErrorMsg]           = useState(null)
   const [genrePreset, setGenrePreset]     = useState('cinematic')
   const [showProfile, setShowProfile]     = useState(false)
+  const [inviteMsg, setInviteMsg]         = useState(null)
+
+  // Accept a workspace invite if the URL carries ?token= (invite email link).
+  useEffect(() => {
+    const token = new URLSearchParams(window.location.search).get('token')
+    if (!token) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await workspacesApi.acceptInvite(token)
+        if (cancelled) return
+        if (res?.workspace?._id) await switchWorkspace(res.workspace._id)
+        setInviteMsg(`Joined ${res?.workspace?.name || 'workspace'}`)
+      } catch (err) {
+        if (!cancelled) setInviteMsg(`Invite error: ${err.message}`)
+      } finally {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('token')
+        window.history.replaceState({}, '', url.pathname + url.search)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [switchWorkspace])
 
   const handleGenerate = useCallback(async (bookText, preset = 'cinematic') => {
     setErrorMsg(null)
@@ -71,6 +94,14 @@ function AppInner() {
 
   return (
     <div className="film-grain" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      {inviteMsg && (
+        <div style={{ position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)', zIndex: 60,
+          background: 'var(--surface)', border: '1px solid var(--gold)', color: 'var(--cream)',
+          fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '8px 16px', letterSpacing: '1px' }}>
+          {inviteMsg}
+          <button onClick={() => setInviteMsg(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginLeft: '12px', fontSize: '14px' }}>×</button>
+        </div>
+      )}
       {/* User badge (when logged in) */}
       {user && page === 'home' && (
         <div style={{ position: 'fixed', top: '14px', left: '24px', zIndex: 50 }}>
