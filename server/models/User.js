@@ -11,7 +11,7 @@ const userSchema = new mongoose.Schema({
   plan:     { type: String, enum: ['free', 'pro', 'studio'], default: 'free' },
   credits:  { type: Number, default: 10 },     // manual credit system
 
-  teamId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Team', default: null },
+  defaultWorkspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', default: null },
 
   // API key for programmatic access (hashed)
   apiKeyHash:   { type: String, default: null, select: false },

@@ -1,8 +1,8 @@
 import mongoose from 'mongoose'
 
 const usageLogSchema = new mongoose.Schema({
-  userId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User',   required: true, index: true },
-  teamId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Team',   default: null },
+  userId:      { type: mongoose.Schema.Types.ObjectId, ref: 'User',      required: true, index: true },
+  workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', default: null, index: true },
   seriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'Series', default: null },
 
   action:   { type: String, required: true },  // 'generate_text' | 'generate_image' | 'generate_video' | 'generate_voice' | 'export'

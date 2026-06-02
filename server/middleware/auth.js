@@ -26,22 +26,6 @@ export function requireRole(...roles) {
   }
 }
 
-// Team membership check
-export function requireTeamRole(...roles) {
-  return async (req, res, next) => {
-    if (!req.user.teamId) return res.status(403).json({ error: 'Not part of a team' })
-    const Team = (await import('../models/Team.js')).default
-    const team = await Team.findById(req.user.teamId)
-    if (!team) return res.status(404).json({ error: 'Team not found' })
-    const memberRole = team.getMemberRole(req.user._id)
-    if (!memberRole || (roles.length && !roles.includes(memberRole))) {
-      return res.status(403).json({ error: 'Insufficient team role' })
-    }
-    req.team = team
-    next()
-  }
-}
-
 // Optional auth — attaches user if token present, continues if not
 export async function optionalAuth(req, res, next) {
   try {

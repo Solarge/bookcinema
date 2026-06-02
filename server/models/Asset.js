@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 const assetSchema = new mongoose.Schema({
   userId:   { type: mongoose.Schema.Types.ObjectId, ref: 'User',   required: true, index: true },
   seriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'Series', required: true, index: true },
-  teamId:   { type: mongoose.Schema.Types.ObjectId, ref: 'Team',   default: null },
+  workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
 
   type:    { type: String, enum: ['character_image', 'scene_video', 'dialogue_audio', 'export'], required: true },
   assetKey:{ type: String, required: true }, // e.g., 'char:sarah', 'ep1-s2', 'ep1-s2-d0'

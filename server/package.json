@@ -6,13 +6,16 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "test": "node --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "migrate:workspaces": "node scripts/backfill-workspaces.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
     "@aws-sdk/lib-storage": "^3.600.0",
     "@aws-sdk/s3-request-presigner": "^3.600.0",
     "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -25,5 +28,9 @@
     "nodemailer": "^6.9.14",
     "redis": "^6.0.0",
     "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^10.1.2",
+    "supertest": "^7.0.0"
   }
 }

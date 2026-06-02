@@ -6,6 +6,7 @@ import { sendEmail, passwordResetEmail } from '../utils/email.js'
 import { config } from '../config.js'
 import { authLimiter } from '../middleware/rateLimit.js'
 import { blacklistToken } from '../utils/redis.js'
+import { createPersonalWorkspace } from '../utils/workspace.js'
 
 const router = Router()
 
@@ -18,10 +19,17 @@ router.post('/register', authLimiter, async (req, res) => {
     const exists = await User.findOne({ email: email.toLowerCase() })
     if (exists) return res.status(409).json({ error: 'Email already registered' })
     const user = await User.create({ name, email, password })
-    const accessToken  = signAccess({ userId: user._id, email: user.email, role: user.role })
-    const refreshToken = signRefresh({ userId: user._id })
+    try {
+      await createPersonalWorkspace(user)
+    } catch (wsErr) {
+      await User.findByIdAndDelete(user._id) // roll back so the email isn't locked by a half-finished signup
+      throw wsErr
+    }
+    const fresh = await User.findById(user._id) // reload to include defaultWorkspaceId
+    const accessToken  = signAccess({ userId: fresh._id, email: fresh.email, role: fresh.role })
+    const refreshToken = signRefresh({ userId: fresh._id })
     res.cookie('refreshToken', refreshToken, cookieOpts())
-    res.status(201).json({ user: user.toSafeObject(), accessToken })
+    res.status(201).json({ user: fresh.toSafeObject(), accessToken })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }
@@ -37,7 +45,7 @@ router.post('/login', authLimiter, async (req, res) => {
     if (!user.isActive) return res.status(403).json({ error: 'Account deactivated' })
     user.lastLoginAt = new Date()
     await user.save()
-    const accessToken  = signAccess({ userId: user._id, email: user.email, role: user.role, teamId: user.teamId })
+    const accessToken = signAccess({ userId: user._id, email: user.email, role: user.role })
     const refreshToken = signRefresh({ userId: user._id })
     res.cookie('refreshToken', refreshToken, cookieOpts())
     res.json({ user: user.toSafeObject(), accessToken })
@@ -54,7 +62,7 @@ router.post('/refresh', async (req, res) => {
     const payload = verifyRefresh(token)
     const user = await User.findById(payload.userId)
     if (!user || !user.isActive) return res.status(401).json({ error: 'User not found' })
-    const accessToken = signAccess({ userId: user._id, email: user.email, role: user.role, teamId: user.teamId })
+    const accessToken = signAccess({ userId: user._id, email: user.email, role: user.role })
     res.json({ accessToken })
   } catch (_) {
     res.status(401).json({ error: 'Invalid refresh token' })

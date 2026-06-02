@@ -6,6 +6,7 @@ export const authLimiter = rateLimit({
   message: { error: 'Too many auth attempts. Try again in 15 minutes.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
 })
 
 export const apiLimiter = rateLimit({
@@ -14,6 +15,7 @@ export const apiLimiter = rateLimit({
   message: { error: 'Too many requests. Please slow down.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
 })
 
 export const generationLimiter = rateLimit({
@@ -22,6 +24,7 @@ export const generationLimiter = rateLimit({
   message: { error: 'Too many generation requests. Please wait.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
 })
 
 export const uploadLimiter = rateLimit({
@@ -30,4 +33,5 @@ export const uploadLimiter = rateLimit({
   message: { error: 'Too many uploads. Please wait.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
 })

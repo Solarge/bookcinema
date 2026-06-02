@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 const seriesSchema = new mongoose.Schema({
   userId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true, index: true },
-  teamId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Team',  default: null, index: true },
+  workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
 
   title:       { type: String, required: true, trim: true },
   author:      { type: String, default: '' },
@@ -21,8 +21,8 @@ const seriesSchema = new mongoose.Schema({
     note:       { type: String, default: '' },
   }],
 
-  // Public sharing
-  shareToken: { type: String, unique: true, sparse: true, default: null },
+  // Public sharing — partial index only on string values so explicit null docs don't collide
+  shareToken: { type: String, index: { unique: true, partialFilterExpression: { shareToken: { $type: 'string' } } } },
   isPublic:   { type: Boolean, default: false },
 
   // Generation metadata

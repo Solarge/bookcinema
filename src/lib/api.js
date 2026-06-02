@@ -7,9 +7,14 @@ export function setAccessToken(token) { _accessToken = token }
 export function getAccessToken()      { return _accessToken }
 export function clearAccessToken()    { _accessToken = null }
 
+let _workspaceId = null
+export function setActiveWorkspace(id) { _workspaceId = id }
+export function getActiveWorkspace()   { return _workspaceId }
+
 async function request(path, options = {}) {
   const headers = { 'Content-Type': 'application/json', ...options.headers }
   if (_accessToken) headers['Authorization'] = `Bearer ${_accessToken}`
+  if (_workspaceId) headers['X-Workspace-Id'] = _workspaceId
 
   let res = await fetch(`${BASE}${path}`, { ...options, headers, credentials: 'include' })
 
@@ -75,15 +80,17 @@ export const assets = {
   delete:      (id)         => del(`/api/assets/${id}`),
 }
 
-// ── Teams ─────────────────────────────────────────────────────────────────────
-export const teams = {
-  me:            ()           => get('/api/teams/me'),
-  create:        (data)       => post('/api/teams', data),
-  update:        (id, data)   => put(`/api/teams/${id}`, data),
-  invite:        (id, data)   => post(`/api/teams/${id}/invite`, data),
-  acceptInvite:  (token)      => post('/api/teams/accept-invite', { token }),
-  updateMember:  (id, uid, data) => patch(`/api/teams/${id}/members/${uid}`, data),
-  removeMember:  (id, uid)    => del(`/api/teams/${id}/members/${uid}`),
+// ── Workspaces ──────────────────────────────────────────────────────────────
+export const workspaces = {
+  list:          ()           => get('/api/workspaces'),
+  switch:        (workspaceId)=> post('/api/workspaces/switch', { workspaceId }),
+  members:       (id)         => get(`/api/workspaces/${id}/members`),
+  create:        (data)       => post('/api/workspaces', data),
+  update:        (id, data)   => put(`/api/workspaces/${id}`, data),
+  invite:        (id, data)   => post(`/api/workspaces/${id}/invite`, data),
+  acceptInvite:  (token)      => post('/api/workspaces/accept-invite', { token }),
+  updateMember:  (id, uid, data) => patch(`/api/workspaces/${id}/members/${uid}`, data),
+  removeMember:  (id, uid)    => del(`/api/workspaces/${id}/members/${uid}`),
 }
 
 // ── Users ─────────────────────────────────────────────────────────────────────
