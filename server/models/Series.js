@@ -21,8 +21,8 @@ const seriesSchema = new mongoose.Schema({
     note:       { type: String, default: '' },
   }],
 
-  // Public sharing
-  shareToken: { type: String, unique: true, sparse: true },
+  // Public sharing — partial index only on string values so explicit null docs don't collide
+  shareToken: { type: String, index: { unique: true, partialFilterExpression: { shareToken: { $type: 'string' } } } },
   isPublic:   { type: Boolean, default: false },
 
   // Generation metadata
