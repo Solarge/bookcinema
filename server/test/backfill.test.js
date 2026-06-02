@@ -37,5 +37,7 @@ test('unsets legacy explicit-null shareToken so the sparse unique index is satis
   await Series.collection.insertOne({ userId: u._id, title: 'L1', fullOutput: {}, shareToken: null, createdAt: new Date(), updatedAt: new Date() })
   await Series.collection.insertOne({ userId: u._id, title: 'L2', fullOutput: {}, shareToken: null, createdAt: new Date(), updatedAt: new Date() })
   await runBackfill()
-  assert.equal(await Series.collection.countDocuments({ shareToken: null }), 0)
+  assert.equal(await Series.collection.countDocuments({ shareToken: { $type: 'null' } }), 0)
+  const l1 = await Series.collection.findOne({ title: 'L1' })
+  assert.equal(l1.shareToken, undefined)
 })

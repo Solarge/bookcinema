@@ -1,4 +1,3 @@
-import { randomBytes } from 'crypto'
 import mongoose from 'mongoose'
 import { config } from '../config.js'
 import User from '../models/User.js'
@@ -56,16 +55,11 @@ export async function runBackfill() {
     }
   }
 
-  // 4. Clean up legacy explicit-null shareTokens. A sparse unique index skips ABSENT fields,
-  //    not explicit nulls, so old rows with shareToken:null collide. Replace each with a
-  //    unique token so countDocuments({ shareToken: null }) returns 0 after the migration.
-  const nullTokenDocs = await Series.collection.find({ shareToken: { $type: 10 } }).toArray()
-  for (const doc of nullTokenDocs) {
-    await Series.collection.updateOne(
-      { _id: doc._id },
-      { $set: { shareToken: randomBytes(8).toString('hex') } }
-    )
-  }
+  // 4. Clean up legacy explicit-null shareTokens so they don't linger as nulls.
+  //    `$type: 'null'` matches ONLY explicit BSON null (not absent fields). Unsetting
+  //    makes the field absent, which the partial unique index ignores. Never assign a
+  //    real token to a series that was never shared.
+  await Series.collection.updateMany({ shareToken: { $type: 'null' } }, { $unset: { shareToken: '' } })
 
   return { teams: teamWorkspaceMap.size, users: users.length }
 }
