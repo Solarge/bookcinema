@@ -39,7 +39,22 @@ test('resolveWorkspace attaches req.workspace using the default when no header',
   assert.equal(req.membership.role, 'owner')
 })
 
-test('resolveWorkspace 403s when user is not a member of requested workspace', async () => {
+test('resolveWorkspace prefers the X-Workspace-Id header over the default when the user is a member', async () => {
+  const { user } = await seed()
+  const other = await Workspace.create({
+    name: 'Org', type: 'organization', ownerId: new mongoose.Types.ObjectId(),
+    members: [{ userId: user._id, role: 'admin' }],
+  })
+  const req = { user, headers: { 'x-workspace-id': other._id.toString() } }
+  const res = mockRes()
+  let nexted = false
+  await resolveWorkspace(req, res, () => { nexted = true })
+  assert.equal(nexted, true)
+  assert.equal(req.workspace._id.toString(), other._id.toString())
+  assert.equal(req.membership.role, 'admin')
+})
+
+test('resolveWorkspace 404s (no existence oracle) when user is not a member of requested workspace', async () => {
   const { user } = await seed()
   const otherWs = await Workspace.create({
     name: 'Other', type: 'organization', ownerId: new mongoose.Types.ObjectId(),
@@ -47,13 +62,37 @@ test('resolveWorkspace 403s when user is not a member of requested workspace', a
   })
   const req = { user, headers: { 'x-workspace-id': otherWs._id.toString() } }
   const res = mockRes()
-  await resolveWorkspace(req, res, () => {})
-  assert.equal(res.statusCode, 403)
+  let nexted = false
+  await resolveWorkspace(req, res, () => { nexted = true })
+  assert.equal(res.statusCode, 404)
+  assert.equal(nexted, false)
 })
 
-test('requireWorkspaceRole allows matching role, blocks others', async () => {
-  const { user, ws } = await seed('member')
-  const req = { user, workspace: ws, membership: { role: 'member' } }
+test('resolveWorkspace 404s on a malformed workspace id', async () => {
+  const { user } = await seed()
+  const req = { user, headers: { 'x-workspace-id': 'not-an-objectid' } }
+  const res = mockRes()
+  await resolveWorkspace(req, res, () => {})
+  assert.equal(res.statusCode, 404)
+})
+
+test('resolveWorkspace 401s when req.user is missing', async () => {
+  const req = { headers: {} }
+  const res = mockRes()
+  await resolveWorkspace(req, res, () => {})
+  assert.equal(res.statusCode, 401)
+})
+
+test('requireWorkspaceRole allows a matching role', async () => {
+  const req = { membership: { role: 'admin' } }
+  const res = mockRes()
+  let allowed = false
+  requireWorkspaceRole('admin', 'owner')(req, res, () => { allowed = true })
+  assert.equal(allowed, true)
+})
+
+test('requireWorkspaceRole blocks a non-matching role', async () => {
+  const req = { membership: { role: 'member' } }
   const res = mockRes()
   let allowed = false
   requireWorkspaceRole('admin', 'owner')(req, res, () => { allowed = true })
