@@ -22,7 +22,8 @@ export async function resolveWorkspace(req, res, next) {
     req.membership = { role }
     next()
   } catch (err) {
-    return res.status(500).json({ error: err.message })
+    console.error('resolveWorkspace error:', err)
+    return res.status(500).json({ error: 'Server error' })
   }
 }
 
