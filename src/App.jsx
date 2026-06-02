@@ -10,7 +10,8 @@ import LoginPage from './components/auth/LoginPage'
 import RegisterPage from './components/auth/RegisterPage'
 import ProfilePage from './components/dashboard/ProfilePage'
 import { generateSeries } from './utils/textProviders/index'
-import { storage } from './utils/storage'
+import { series as seriesApi } from './lib/api'
+import WorkspaceSwitcher from './components/WorkspaceSwitcher'
 
 // ── Auth gate wrapper ─────────────────────────────────────────────────────────
 function AuthGate({ children }) {
@@ -27,9 +28,6 @@ function AuthGate({ children }) {
 
   // Not authenticated — show login/register
   if (!user) {
-    const USE_AUTH = import.meta.env.VITE_USE_AUTH === 'true'
-    if (!USE_AUTH) return children // Auth optional — skip if VITE_USE_AUTH != 'true'
-
     if (authView === 'register') return <RegisterPage onSwitchToLogin={() => setAuthView('login')} />
     return <LoginPage onSwitchToRegister={() => setAuthView('register')} onForgotPassword={() => {}} />
   }
@@ -55,11 +53,12 @@ function AppInner() {
       const series = await generateSeries(bookText, preset, settings)
       setGeneratedSeries(series)
       try {
-        storage.set(`series:${Date.now()}`, JSON.stringify({
+        await seriesApi.create({
           title: series.title, author: series.author, logline: series.logline,
-          generatedAt: new Date().toISOString(), fullOutput: series,
-        }))
-      } catch (storageErr) { console.warn('Library save failed:', storageErr) }
+          genrePreset: preset, language: settings.language ?? 'en',
+          textProvider: settings.textProvider, fullOutput: series,
+        })
+      } catch (saveErr) { console.warn('Library save failed:', saveErr) }
       setPage('results')
     } catch (err) {
       setErrorMsg(err.message || 'Generation failed. Please try again.')
@@ -73,6 +72,12 @@ function AppInner() {
   return (
     <div className="film-grain" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* User badge (when logged in) */}
+      {user && page === 'home' && (
+        <div style={{ position: 'fixed', top: '14px', left: '24px', zIndex: 50 }}>
+          <WorkspaceSwitcher />
+        </div>
+      )}
+
       {user && page === 'home' && (
         <button onClick={() => setShowProfile(true)} style={{
           position: 'fixed', top: '14px', right: '68px', zIndex: 50,
