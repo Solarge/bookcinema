@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import Asset from '../models/Asset.js'
+import Series from '../models/Series.js'
 import UsageLog from '../models/UsageLog.js'
 import { requireAuth } from '../middleware/auth.js'
 import { resolveWorkspace } from '../middleware/workspace.js'
@@ -24,6 +25,11 @@ router.post('/:seriesId/image', uploadLimiter, (req, res, next) => {
 }, async (req, res) => {
   try {
     const file = req.file
+    const ownsSeries = await Series.exists({ _id: req.params.seriesId, workspaceId: req.workspace._id })
+    if (!ownsSeries) {
+      if (file?.key) await deleteObject(file.key)
+      return res.status(404).json({ error: 'Series not found' })
+    }
     const { assetKey, provider, quality, aspectRatio, prompt, costUsd } = req.body
     const asset = await Asset.create({
       userId:      req.user._id,
@@ -50,6 +56,11 @@ router.post('/:seriesId/video', uploadLimiter, (req, res, next) => {
 }, async (req, res) => {
   try {
     const file = req.file
+    const ownsSeries = await Series.exists({ _id: req.params.seriesId, workspaceId: req.workspace._id })
+    if (!ownsSeries) {
+      if (file?.key) await deleteObject(file.key)
+      return res.status(404).json({ error: 'Series not found' })
+    }
     const { assetKey, provider, quality, aspectRatio, prompt, costUsd } = req.body
     const asset = await Asset.create({
       userId: req.user._id, workspaceId: req.workspace._id, seriesId: req.params.seriesId,
@@ -69,6 +80,11 @@ router.post('/:seriesId/audio', uploadLimiter, (req, res, next) => {
 }, async (req, res) => {
   try {
     const file = req.file
+    const ownsSeries = await Series.exists({ _id: req.params.seriesId, workspaceId: req.workspace._id })
+    if (!ownsSeries) {
+      if (file?.key) await deleteObject(file.key)
+      return res.status(404).json({ error: 'Series not found' })
+    }
     const { assetKey, provider, costUsd } = req.body
     const asset = await Asset.create({
       userId: req.user._id, workspaceId: req.workspace._id, seriesId: req.params.seriesId,

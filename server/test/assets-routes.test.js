@@ -65,3 +65,16 @@ test('public share response excludes workspaceId and userId', async () => {
   assert.equal(res.body.series.workspaceId, undefined)
   assert.equal(res.body.series.userId, undefined)
 })
+
+test('public share excludes assets from other workspaces', async () => {
+  const { user, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'Pub', fullOutput: {}, shareToken: 'tok-xw', isPublic: true })
+  // legit asset in the series' workspace
+  await Asset.create({ ...assetBase(series._id), userId: user._id, workspaceId: workspace._id })
+  // injected asset with same seriesId but a DIFFERENT workspace
+  await Asset.create({ ...assetBase(series._id), userId: user._id, workspaceId: new mongoose.Types.ObjectId() })
+
+  const res = await request(shareApp()).get('/api/share/tok-xw')
+  assert.equal(res.status, 200)
+  assert.equal(res.body.assets.length, 1)
+})

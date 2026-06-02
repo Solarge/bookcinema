@@ -52,3 +52,21 @@ test('POST /api/workspaces/switch 403s for a non-member workspace', async () => 
   const res = await bearer(request(app()).post('/api/workspaces/switch'), token).send({ workspaceId: foreign._id.toString() })
   assert.equal(res.status, 403)
 })
+
+test('invite returns 403 (not 404) for a non-member / nonexistent workspace', async () => {
+  const { token } = await makeAuthedUser()
+  const res = await bearer(request(app()).post(`/api/workspaces/${new mongoose.Types.ObjectId()}/invite`), token).send({ email: 'x@y.com' })
+  assert.equal(res.status, 403)
+})
+
+test('remove-member returns 403 for a non-member / nonexistent workspace', async () => {
+  const { token } = await makeAuthedUser()
+  const res = await bearer(request(app()).delete(`/api/workspaces/${new mongoose.Types.ObjectId()}/members/${new mongoose.Types.ObjectId()}`), token)
+  assert.equal(res.status, 403)
+})
+
+test('switch returns 403 (not 500) for a malformed workspace id', async () => {
+  const { token } = await makeAuthedUser()
+  const res = await bearer(request(app()).post('/api/workspaces/switch'), token).send({ workspaceId: 'not-an-id' })
+  assert.equal(res.status, 403)
+})

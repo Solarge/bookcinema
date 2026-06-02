@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import crypto from 'crypto'
+import mongoose from 'mongoose'
 import Workspace from '../models/Workspace.js'
 import User from '../models/User.js'
 import { requireAuth } from '../middleware/auth.js'
@@ -21,6 +22,7 @@ router.get('/', async (req, res) => {
 router.post('/switch', async (req, res) => {
   try {
     const { workspaceId } = req.body
+    if (!mongoose.isValidObjectId(workspaceId)) return res.status(403).json({ error: 'Not a member of this workspace' })
     const ws = await Workspace.findById(workspaceId)
     if (!ws || !ws.hasMember(req.user._id)) return res.status(403).json({ error: 'Not a member of this workspace' })
     await User.findByIdAndUpdate(req.user._id, { defaultWorkspaceId: ws._id })
@@ -67,9 +69,8 @@ router.put('/:id', async (req, res) => {
 router.post('/:id/invite', async (req, res) => {
   try {
     const { email, role = 'member' } = req.body
-    const ws = await Workspace.findById(req.params.id)
-    if (!ws) return res.status(404).json({ error: 'Workspace not found' })
-    if (!['owner', 'admin'].includes(ws.getMemberRole(req.user._id))) return res.status(403).json({ error: 'Need admin role to invite' })
+    const ws = mongoose.isValidObjectId(req.params.id) ? await Workspace.findById(req.params.id) : null
+    if (!ws || !['owner', 'admin'].includes(ws.getMemberRole(req.user._id))) return res.status(403).json({ error: 'Not authorized' })
     const token = crypto.randomBytes(20).toString('hex')
     const expiresAt = new Date(Date.now() + 7 * 86400000)
     ws.invites = ws.invites.filter(i => i.email !== email.toLowerCase())
@@ -112,9 +113,8 @@ router.patch('/:id/members/:userId', async (req, res) => {
 // DELETE /api/workspaces/:id/members/:userId — remove member (owner/admin)
 router.delete('/:id/members/:userId', async (req, res) => {
   try {
-    const ws = await Workspace.findById(req.params.id)
-    if (!ws) return res.status(404).json({ error: 'Workspace not found' })
-    if (!['owner', 'admin'].includes(ws.getMemberRole(req.user._id))) return res.status(403).json({ error: 'Insufficient role' })
+    const ws = mongoose.isValidObjectId(req.params.id) ? await Workspace.findById(req.params.id) : null
+    if (!ws || !['owner', 'admin'].includes(ws.getMemberRole(req.user._id))) return res.status(403).json({ error: 'Insufficient role' })
     ws.members = ws.members.filter(m => m.userId.toString() !== req.params.userId)
     await ws.save()
     res.json({ message: 'Member removed' })
