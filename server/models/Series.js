@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 
 const seriesSchema = new mongoose.Schema({
   userId:  { type: mongoose.Schema.Types.ObjectId, ref: 'User',  required: true, index: true },
-  teamId:  { type: mongoose.Schema.Types.ObjectId, ref: 'Team',  default: null, index: true },
+  workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
 
   title:       { type: String, required: true, trim: true },
   author:      { type: String, default: '' },
