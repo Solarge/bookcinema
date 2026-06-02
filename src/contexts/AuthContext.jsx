@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
 
   // Listen for auto-logout events (from api.js 401 handler)
   useEffect(() => {
-    const handler = () => { setUser(null); clearAccessToken() }
+    const handler = () => { setUser(null); clearAccessToken(); setActiveWorkspace(null); setActiveWorkspaceState(null) }
     window.addEventListener('auth:logout', handler)
     return () => window.removeEventListener('auth:logout', handler)
   }, [])
