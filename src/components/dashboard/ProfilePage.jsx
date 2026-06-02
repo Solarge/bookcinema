@@ -46,6 +46,7 @@ export default function ProfilePage({ onClose }) {
   }
 
   async function loadWorkspace() {
+    if (!activeWorkspace) return
     try {
       const [list, mems] = await Promise.all([
         workspacesApi.list(),

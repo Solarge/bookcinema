@@ -101,7 +101,7 @@ router.post('/accept-invite', async (req, res) => {
 router.patch('/:id/members/:userId', async (req, res) => {
   try {
     const { role } = req.body
-    if (!['owner', 'admin', 'member'].includes(role)) return res.status(400).json({ error: 'Invalid role' })
+    if (!['admin', 'member'].includes(role)) return res.status(400).json({ error: 'Invalid role' })
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(403).json({ error: 'Not workspace owner' })
     const ws = await Workspace.findOne({ _id: req.params.id, ownerId: req.user._id })
     if (!ws) return res.status(403).json({ error: 'Not workspace owner' })

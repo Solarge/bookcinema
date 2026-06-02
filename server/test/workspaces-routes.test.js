@@ -92,3 +92,11 @@ test('DELETE cannot remove the workspace owner', async () => {
   const res = await bearer(request(app()).delete(`/api/workspaces/${org._id}/members/${user._id}`), token)
   assert.equal(res.status, 400)
 })
+
+test('PATCH cannot promote a member to owner', async () => {
+  const { user, token } = await makeAuthedUser()
+  const memberId = new mongoose.Types.ObjectId()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, members: [{ userId: user._id, role: 'owner' }, { userId: memberId, role: 'member' }] })
+  const res = await bearer(request(app()).patch(`/api/workspaces/${org._id}/members/${memberId}`), token).send({ role: 'owner' })
+  assert.equal(res.status, 400)
+})
