@@ -19,7 +19,12 @@ router.post('/register', authLimiter, async (req, res) => {
     const exists = await User.findOne({ email: email.toLowerCase() })
     if (exists) return res.status(409).json({ error: 'Email already registered' })
     const user = await User.create({ name, email, password })
-    await createPersonalWorkspace(user)
+    try {
+      await createPersonalWorkspace(user)
+    } catch (wsErr) {
+      await User.findByIdAndDelete(user._id) // roll back so the email isn't locked by a half-finished signup
+      throw wsErr
+    }
     const fresh = await User.findById(user._id) // reload to include defaultWorkspaceId
     const accessToken  = signAccess({ userId: fresh._id, email: fresh.email, role: fresh.role })
     const refreshToken = signRefresh({ userId: fresh._id })
