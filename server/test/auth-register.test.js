@@ -23,7 +23,7 @@ function app() {
 test('register creates a personal workspace and returns defaultWorkspaceId', async () => {
   const res = await request(app())
     .post('/api/auth/register')
-    .send({ name: 'Jane', email: 'jane@x.com', password: 'password123' })
+    .send({ name: 'Jane', email: 'jane@x.com', password: 'password123', consent: true })
 
   assert.equal(res.status, 201)
   assert.ok(res.body.user.defaultWorkspaceId, 'user has a default workspace')

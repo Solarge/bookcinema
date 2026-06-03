@@ -63,4 +63,52 @@ router.get('/me/api-key', async (req, res) => {
   res.json({ prefix: user.apiKeyPrefix || null, hasKey: !!user.apiKeyPrefix })
 })
 
+// GET /api/users/me/export — GDPR data access (downloadable JSON)
+router.get('/me/export', async (req, res) => {
+  try {
+    const Workspace = (await import('../models/Workspace.js')).default
+    const Series = (await import('../models/Series.js')).default
+    const UsageLog = (await import('../models/UsageLog.js')).default
+    const workspaces = await Workspace.find({ 'members.userId': req.user._id }).lean()
+    const wsIds = workspaces.map(w => w._id)
+    const series = await Series.find({ workspaceId: { $in: wsIds } }).select('-versions').lean()
+    const usage = await UsageLog.find({ userId: req.user._id }).lean()
+    res.setHeader('Content-Disposition', 'attachment; filename=bookfilm-my-data.json')
+    res.json({ exportedAt: new Date().toISOString(), user: req.user.toSafeObject(), workspaces, series, usage })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// DELETE /api/users/me — GDPR erasure
+router.delete('/me', async (req, res) => {
+  try {
+    const Workspace = (await import('../models/Workspace.js')).default
+    const Series = (await import('../models/Series.js')).default
+    const Asset = (await import('../models/Asset.js')).default
+    const Job = (await import('../models/Job.js')).default
+    const UsageLog = (await import('../models/UsageLog.js')).default
+    const CreditTransaction = (await import('../models/CreditTransaction.js')).default
+
+    // Block if the user solely-owns an organization workspace that has other members.
+    const ownedOrgs = await Workspace.find({ ownerId: req.user._id, type: 'organization' })
+    const blocking = ownedOrgs.find(w => (w.members || []).some(m => m.userId.toString() !== req.user._id.toString()))
+    if (blocking) return res.status(409).json({ error: 'Transfer or remove members from your organization workspaces before deleting your account' })
+
+    // Erase the user's personal workspace(s) + their data.
+    const personalWs = await Workspace.find({ ownerId: req.user._id, type: 'personal' })
+    const wsIds = personalWs.map(w => w._id)
+    if (wsIds.length) {
+      await Series.deleteMany({ workspaceId: { $in: wsIds } })
+      await Asset.deleteMany({ workspaceId: { $in: wsIds } })
+      await Job.deleteMany({ workspaceId: { $in: wsIds } })
+      await CreditTransaction.deleteMany({ workspaceId: { $in: wsIds } })
+      await Workspace.deleteMany({ _id: { $in: wsIds } })
+    }
+    await UsageLog.deleteMany({ userId: req.user._id })
+    // Remove the user from any org memberships they belong to.
+    await Workspace.updateMany({ 'members.userId': req.user._id }, { $pull: { members: { userId: req.user._id } } })
+    await User.findByIdAndDelete(req.user._id)
+    res.json({ message: 'Account deleted' })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 export default router
