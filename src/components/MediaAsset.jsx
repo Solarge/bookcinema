@@ -31,7 +31,7 @@ function useWatermarkedUrl(sourceUrl, plan) {
   return displayUrl
 }
 
-export function ImageAsset({ asset, onGenerate, onApprovalChange, label = 'Generate Image', disabled, plan = 'free' }) {
+export function ImageAsset({ asset, onGenerate, onApprovalChange, label = 'Generate Image', disabled, disabledHint, plan = 'free' }) {
   const { status, localUrl, error, approvalStatus } = asset ?? {}
   const displayUrl = useWatermarkedUrl(localUrl, plan)
   return (
@@ -65,6 +65,7 @@ export function ImageAsset({ asset, onGenerate, onApprovalChange, label = 'Gener
               <button onClick={onGenerate} disabled={disabled || status === 'generating'} style={primaryBtn(disabled)}>
                 {status === 'error' ? '↺ Retry' : label}
               </button>
+              {disabled && disabledHint && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textAlign: 'center', padding: '0 12px' }}>{disabledHint}</div>}
             </>
           )}
         </div>
