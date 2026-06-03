@@ -61,8 +61,8 @@ export async function runBackfill() {
   //    real token to a series that was never shared.
   await Series.collection.updateMany({ shareToken: { $type: 'null' } }, { $unset: { shareToken: '' } })
 
-  // Ensure every workspace has a creditBalance (pre-#2 docs had none → locked out of managed gen).
-  await Workspace.updateMany({ creditBalance: { $exists: false } }, { $set: { creditBalance: 25 } })
+  // Ensure every workspace has the two-bucket credit fields (pre-#4 T1 docs had creditBalance → seed monthly bucket).
+  await Workspace.updateMany({ monthlyCredits: { $exists: false } }, { $set: { monthlyCredits: 25, purchasedCredits: 0 } })
 
   return { teams: teamWorkspaceMap.size, users: users.length }
 }

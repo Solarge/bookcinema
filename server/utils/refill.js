@@ -14,10 +14,11 @@ export async function applyMonthlyRefill(workspace, { now = new Date() } = {}) {
   const allowance = planCredits(workspace.plan)
   const updated = await Workspace.findByIdAndUpdate(
     workspace._id,
-    { $set: { creditBalance: allowance, creditPeriod: period } },
+    { $set: { monthlyCredits: allowance, creditPeriod: period } },
     { new: true },
   )
   if (!updated) return workspace // workspace not found (e.g. deleted mid-request / test stub) — no-op
-  await CreditTransaction.create({ workspaceId: workspace._id, amount: allowance, reason: 'grant', balanceAfter: allowance, note: `monthly refill ${period}` })
+  const balanceAfter = updated.monthlyCredits + updated.purchasedCredits
+  await CreditTransaction.create({ workspaceId: workspace._id, amount: allowance, reason: 'grant', balanceAfter, note: `monthly refill ${period}` })
   return updated
 }

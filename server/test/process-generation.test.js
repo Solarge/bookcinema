@@ -58,7 +58,7 @@ test('processGeneration uploads media result to S3 and stores resultUrl (done)',
 test('processGeneration does NOT refund on failure (refund is terminal-only in the worker)', async () => {
   const { default: Workspace } = await import('../models/Workspace.js')
   const owner = new mongoose.Types.ObjectId()
-  const w = await Workspace.create({ name: 'W', type: 'personal', ownerId: owner, members: [{ userId: owner, role: 'owner' }], creditBalance: 0 })
+  const w = await Workspace.create({ name: 'W', type: 'personal', ownerId: owner, members: [{ userId: owner, role: 'owner' }], monthlyCredits: 0, purchasedCredits: 0 })
   const job = await Job.create({ workspaceId: w._id, createdBy: owner, type: 'text', tier: 'premium', status: 'queued' })
   const failing = () => ({ provider: 'anthropic', adapter: { generate: async () => { throw new Error('boom') } } })
   await assert.rejects(() => processGeneration({ jobId: String(job._id), type: 'text', tier: 'premium', payload: {}, workspaceId: String(w._id), createdBy: String(owner) }, { resolveFn: failing }))

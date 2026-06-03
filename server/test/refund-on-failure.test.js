@@ -8,7 +8,7 @@ import CreditTransaction from '../models/CreditTransaction.js'
 import { maybeRefundOnFailure } from '../worker/refundOnFailure.js'
 
 before(startTestDB); after(stopTestDB); beforeEach(clearTestDB)
-async function ws() { const u = new mongoose.Types.ObjectId(); return Workspace.create({ name: 'W', type: 'personal', ownerId: u, members: [{ userId: u, role: 'owner' }], creditBalance: 0 }) }
+async function ws() { const u = new mongoose.Types.ObjectId(); return Workspace.create({ name: 'W', type: 'personal', ownerId: u, members: [{ userId: u, role: 'owner' }], monthlyCredits: 0, purchasedCredits: 0 }) }
 
 test('refunds on terminal failure (attemptsMade >= attempts)', async () => {
   const w = await ws()

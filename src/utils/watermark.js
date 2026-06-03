@@ -12,30 +12,38 @@ export async function applyWatermark(imageUrl, text = 'BookFilm Studio', plan = 
     const img = new Image()
     img.crossOrigin = 'anonymous'
     img.onload = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width  = img.naturalWidth  || img.width
-      canvas.height = img.naturalHeight || img.height
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0)
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width  = img.naturalWidth  || img.width
+        canvas.height = img.naturalHeight || img.height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0)
 
-      // Diagonal watermark text
-      ctx.save()
-      ctx.translate(canvas.width / 2, canvas.height / 2)
-      ctx.rotate(-Math.PI / 6)
-      ctx.font = `${Math.max(16, canvas.width * 0.04)}px Arial`
-      ctx.fillStyle = 'rgba(255,255,255,0.18)'
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
+        // Diagonal watermark text
+        ctx.save()
+        ctx.translate(canvas.width / 2, canvas.height / 2)
+        ctx.rotate(-Math.PI / 6)
+        ctx.font = `${Math.max(16, canvas.width * 0.04)}px Arial`
+        ctx.fillStyle = 'rgba(255,255,255,0.18)'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
 
-      // Repeat across canvas
-      for (let y = -canvas.height; y < canvas.height; y += 120) {
-        for (let x = -canvas.width; x < canvas.width; x += 200) {
-          ctx.fillText(text, x, y)
+        // Repeat across canvas
+        for (let y = -canvas.height; y < canvas.height; y += 120) {
+          for (let x = -canvas.width; x < canvas.width; x += 200) {
+            ctx.fillText(text, x, y)
+          }
         }
-      }
-      ctx.restore()
+        ctx.restore()
 
-      canvas.toBlob(blob => resolve(blob ? URL.createObjectURL(blob) : imageUrl), 'image/jpeg', 0.92)
+        canvas.toBlob(
+          (blob) => resolve(blob ? URL.createObjectURL(blob) : imageUrl),
+          'image/jpeg',
+          0.92,
+        )
+      } catch (_) {
+        resolve(imageUrl) // tainted canvas / any draw error → fall back to original
+      }
     }
     img.onerror = () => resolve(imageUrl)
     img.src = imageUrl

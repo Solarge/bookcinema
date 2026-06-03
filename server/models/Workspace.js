@@ -25,8 +25,12 @@ const workspaceSchema = new mongoose.Schema({
   // Managed-generation beta allowlist — gates which tenants may spend platform money
   managedBeta: { type: Boolean, default: false },
 
-  creditBalance: { type: Number, default: 25, min: 0 },
+  monthlyCredits:   { type: Number, default: 25, min: 0 },
+  purchasedCredits: { type: Number, default: 0,  min: 0 },
   creditPeriod: { type: String, default: null },
+
+  stripeCustomerId:     { type: String, default: null },
+  stripeSubscriptionId: { type: String, default: null },
 
   members: [memberSchema],
   invites: [inviteSchema],
@@ -49,6 +53,10 @@ workspaceSchema.pre('save', function (next) {
   }
   next()
 })
+
+workspaceSchema.virtual('creditBalance').get(function () { return (this.monthlyCredits || 0) + (this.purchasedCredits || 0) })
+workspaceSchema.set('toJSON', { virtuals: true })
+workspaceSchema.set('toObject', { virtuals: true })
 
 workspaceSchema.methods.hasMember = function (userId) {
   return this.members.some(m => m.userId.toString() === userId.toString())

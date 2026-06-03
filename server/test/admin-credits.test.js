@@ -19,7 +19,7 @@ async function adminToken() {
 
 test('admin can grant credits to a workspace', async () => {
   const token = await adminToken()
-  const w = await Workspace.create({ name: 'W', type: 'personal', ownerId: new mongoose.Types.ObjectId(), creditBalance: 5 })
+  const w = await Workspace.create({ name: 'W', type: 'personal', ownerId: new mongoose.Types.ObjectId(), monthlyCredits: 5 })
   const res = await request(app()).patch(`/api/admin/workspaces/${w._id}/credits`).set('Authorization', `Bearer ${token}`).send({ amount: 50 })
   assert.equal(res.status, 200)
   assert.equal(res.body.balance, 55)

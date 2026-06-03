@@ -9,7 +9,7 @@ import { debitCredits, refundCredits, grantCredits } from '../utils/credits.js'
 before(startTestDB); after(stopTestDB); beforeEach(clearTestDB)
 async function ws(balance) {
   const uid = new mongoose.Types.ObjectId()
-  return Workspace.create({ name: 'W', type: 'personal', ownerId: uid, members: [{ userId: uid, role: 'owner' }], creditBalance: balance })
+  return Workspace.create({ name: 'W', type: 'personal', ownerId: uid, members: [{ userId: uid, role: 'owner' }], monthlyCredits: balance })
 }
 
 test('debitCredits succeeds when balance is sufficient and writes a ledger row', async () => {
@@ -37,4 +37,14 @@ test('grantCredits adds credits + ledger row', async () => {
   const r = await grantCredits(w._id, 50, { note: 'beta grant' })
   assert.equal(r.balance, 50)
   assert.equal(await CreditTransaction.countDocuments({ workspaceId: w._id, reason: 'grant' }), 1)
+})
+test('debit draws from monthly first, then purchased', async () => {
+  const u = new mongoose.Types.ObjectId()
+  const w = await Workspace.create({ name: 'W', type: 'personal', ownerId: u, members: [{ userId: u, role: 'owner' }], monthlyCredits: 2, purchasedCredits: 5 })
+  const r = await debitCredits(w._id, 4, { type: 'image', tier: 'standard' })
+  assert.equal(r.ok, true)
+  const reloaded = await Workspace.findById(w._id)
+  assert.equal(reloaded.monthlyCredits, 0)
+  assert.equal(reloaded.purchasedCredits, 3)
+  assert.equal(reloaded.creditBalance, 3)
 })
