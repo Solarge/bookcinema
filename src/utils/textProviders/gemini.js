@@ -5,7 +5,7 @@ import { buildSystemPrompt } from './systemPrompt'
 // Google renames/retires model aliases regularly, so a configured model can start
 // returning 404. We self-heal: on a 404 we list the key's available models and retry
 // with a valid generateContent-capable one (preferring a "flash" model).
-export async function generateSeries(bookText, genrePresetKey, { apiKey, model = 'gemini-2.0-flash' }, langCode = 'en') {
+export async function generateSeries(bookText, genrePresetKey, { apiKey, model = 'gemini-2.5-flash' }, langCode = 'en') {
   if (!apiKey) throw new Error('Gemini API key not set. Get one free at aistudio.google.com')
 
   const systemPrompt = buildSystemPrompt(genrePresetKey, langCode)
@@ -32,7 +32,9 @@ async function callGemini(model, apiKey, systemPrompt, userText) {
       system_instruction: { parts: [{ text: systemPrompt }] },
       contents: [{ parts: [{ text: userText }] }],
       generationConfig: {
-        maxOutputTokens: 8000,
+        // A full 7-episode series JSON is large and token-dense; give plenty of headroom.
+        // Clamped to the model's max automatically (2.5 models allow far more than 2.0/1.5).
+        maxOutputTokens: 65536,
         temperature: 0.7,
         responseMimeType: 'application/json',
       },
@@ -47,7 +49,11 @@ async function callGemini(model, apiKey, systemPrompt, userText) {
   }
 
   const data = await res.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const candidate = data.candidates?.[0]
+  const text = candidate?.content?.parts?.[0]?.text ?? ''
+  if (candidate?.finishReason === 'MAX_TOKENS') {
+    throw new Error(`Gemini response was cut off (hit the model's output limit on "${model}"). Use a Gemini 2.5 model (longer output) in Settings, or shorten the input book text.`)
+  }
   return parseJson(text)
 }
 
@@ -66,7 +72,9 @@ async function pickAvailableModel(apiKey, exclude) {
     let s = 0
     if (name.includes('flash')) s += 4
     if (!/exp|preview|thinking|vision|tts|embedding|image/i.test(name)) s += 2
-    if (/latest|\d\.\d/.test(name)) s += 1
+    // Prefer newer versions — they allow much larger output (needed for the full series JSON).
+    const ver = Number.parseFloat((name.match(/(\d+\.\d+)/) || [])[1] || '0')
+    s += ver // e.g. 2.5 > 2.0 > 1.5
     return s
   }
   return usable.sort((a, b) => score(b) - score(a))[0]
