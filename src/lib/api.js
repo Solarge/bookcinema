@@ -113,9 +113,11 @@ export const analytics = {
 
 // ── Managed generation ──────────────────────────────────────────────────────
 export const managed = {
-  generateText: (data) => post('/api/generate/text', data), // { bookText, genrePreset, language, tier } -> { jobId }
-  getJob:       (id)   => get(`/api/jobs/${id}`),
-  listJobs:     ()     => get('/api/jobs'),
+  generateText:  (data) => post('/api/generate/text',  data), // { bookText, genrePreset, language, tier } -> { jobId }
+  generateImage: (data) => post('/api/generate/image', data), // { prompt, aspectRatio, tier } -> { jobId }
+  generateVoice: (data) => post('/api/generate/voice', data), // { text, voiceId, tier } -> { jobId }
+  getJob:        (id)   => get(`/api/jobs/${id}`),
+  listJobs:      ()     => get('/api/jobs'),
 }
 
 // Poll a job until it reaches a terminal state (done|failed) or times out.

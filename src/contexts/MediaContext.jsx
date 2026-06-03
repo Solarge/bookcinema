@@ -5,6 +5,7 @@ import { getImageProvider, getVideoProvider, getVoiceProvider } from '../utils/m
 import { fetchAndStore } from '../utils/assetStore'
 import { getCost, getVoiceCost, loadSessionCost, saveSessionCost } from '../utils/costTracker'
 import { getPreset } from '../utils/genrePresets'
+import { managed as managedApi, pollJob } from '../lib/api'
 
 const MediaContext = createContext(null)
 
@@ -59,24 +60,32 @@ export function MediaProvider({ children, seriesSlug = 'default' }) {
     const key = char.id
     setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'generating', error: null } }))
     try {
-      const provider = settings.imageProvider
-      const apiKey   = getApiKey(provider === 'fal.ai' ? 'falai' : provider)
-      if (!apiKey && !['comfyui', 'a1111'].includes(provider)) throw new Error(`No API key set for ${provider}. Add it in Settings ⚙`)
-      const preset = getPreset(settings.genrePreset)
-      const { url } = await getImageProvider(provider)({
-        prompt,
-        aspectRatio:          settings.aspectRatio,
-        imageQuality:         settings.imageQuality,
-        apiKey,
-        styleHint:            preset.fluxStyle,
-        characterReferenceUrl: variationIndex > 0 ? portraitRefs.current[char.id] : undefined,
-        ...localArgs(settings, provider),
-      })
+      let url
+      if (settings.mode === 'managed') {
+        const { jobId } = await managedApi.generateImage({ prompt, aspectRatio: settings.aspectRatio, tier: settings.managedTier || 'standard' })
+        const job = await pollJob(jobId)
+        if (job.status !== 'done' || !job.result?.url) throw new Error(job.error || 'Managed image generation failed')
+        url = job.result.url
+      } else {
+        const provider = settings.imageProvider
+        const apiKey   = getApiKey(provider === 'fal.ai' ? 'falai' : provider)
+        if (!apiKey && !['comfyui', 'a1111'].includes(provider)) throw new Error(`No API key set for ${provider}. Add it in Settings ⚙`)
+        const preset = getPreset(settings.genrePreset)
+        ;({ url } = await getImageProvider(provider)({
+          prompt,
+          aspectRatio:           settings.aspectRatio,
+          imageQuality:          settings.imageQuality,
+          apiKey,
+          styleHint:             preset.fluxStyle,
+          characterReferenceUrl: variationIndex > 0 ? portraitRefs.current[char.id] : undefined,
+          ...localArgs(settings, provider),
+        }))
+      }
       const storeKey = mediaKey('char-img', seriesSlug, char.id, variationIndex)
       const localUrl = await fetchAndStore(storeKey, url)
       if (variationIndex === 0) portraitRefs.current[char.id] = localUrl || url
       setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
-      addCost('image', provider, settings.imageQuality)
+      if (settings.mode !== 'managed') addCost('image', settings.imageProvider, settings.imageQuality) // managed cost tracked server-side
     } catch (err) {
       setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
     }
@@ -117,21 +126,25 @@ export function MediaProvider({ children, seriesSlug = 'default' }) {
     const key = `ep${epNum}-s${sceneNum}-d${dIdx}`
     setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'generating', error: null } }))
     try {
-      const provider   = settings.voiceProvider
-      const providerKey = provider === 'openaitts' ? 'openai' : provider === 'googletts' ? 'googletts' : provider
-      const apiKey     = getApiKey(providerKey)
-      if (!apiKey && !['kokoro', 'xtts'].includes(provider)) throw new Error(`No API key set for ${provider}. Add it in Settings ⚙`)
-      const { audioBlob, audioUrl } = await getVoiceProvider(provider)({
-        text:    line,
-        voiceId,
-        apiKey,
-        imageQuality: settings.imageQuality,
-        ...localArgs(settings, provider),
-      })
       const storeKey = mediaKey('dialogue-audio', seriesSlug, `ep${epNum}`, `s${sceneNum}`, `d${dIdx}`)
-      if (audioBlob) await fetchAndStore(storeKey, audioBlob)
+      let audioUrl
+      if (settings.mode === 'managed') {
+        const { jobId } = await managedApi.generateVoice({ text: line, voiceId, tier: settings.managedTier || 'standard' })
+        const job = await pollJob(jobId)
+        if (job.status !== 'done' || !job.result?.url) throw new Error(job.error || 'Managed voice generation failed')
+        audioUrl = job.result.url
+        await fetchAndStore(storeKey, audioUrl)
+      } else {
+        const provider    = settings.voiceProvider
+        const providerKey  = provider === 'openaitts' ? 'openai' : provider === 'googletts' ? 'googletts' : provider
+        const apiKey       = getApiKey(providerKey)
+        if (!apiKey && !['kokoro', 'xtts'].includes(provider)) throw new Error(`No API key set for ${provider}. Add it in Settings ⚙`)
+        const result = await getVoiceProvider(provider)({ text: line, voiceId, apiKey, imageQuality: settings.imageQuality, ...localArgs(settings, provider) })
+        audioUrl = result.audioUrl
+        if (result.audioBlob) await fetchAndStore(storeKey, result.audioBlob)
+      }
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl, error: null } }))
-      addVoiceCost(line, provider)
+      if (settings.mode !== 'managed') addVoiceCost(line, settings.voiceProvider) // managed cost tracked server-side
     } catch (err) {
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
     }
