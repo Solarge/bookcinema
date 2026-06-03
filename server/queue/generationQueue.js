@@ -28,10 +28,10 @@ export function getGenerationQueue() {
 }
 
 // queueOverride lets tests inject a fake queue (no Redis needed).
-export async function addGenerationJob({ type, tier, payload, workspaceId, createdBy }, queueOverride) {
+export async function addGenerationJob({ jobId, type, tier, payload, workspaceId, createdBy }, queueOverride) {
   const queue = queueOverride || getGenerationQueue()
   if (!queue) throw new Error('Generation queue unavailable (REDIS_URL not set)')
-  return queue.add('generate', { type, tier, payload, workspaceId, createdBy }, {
+  return queue.add('generate', { jobId, type, tier, payload, workspaceId, createdBy }, {
     attempts: 2,
     backoff: { type: 'exponential', delay: 2000 },
     removeOnComplete: 100,

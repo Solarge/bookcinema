@@ -6,9 +6,10 @@ import { addGenerationJob } from '../queue/generationQueue.js'
 test('addGenerationJob enqueues a job with the expected name + payload', async () => {
   const calls = []
   const fakeQueue = { add: async (name, data, opts) => { calls.push({ name, data, opts }); return { id: 'job1' } } }
-  const job = await addGenerationJob({ type: 'text', tier: 'standard', payload: { bookText: 'x' }, workspaceId: 'w1', createdBy: 'u1' }, fakeQueue)
+  const job = await addGenerationJob({ jobId: 'job-123', type: 'text', tier: 'standard', payload: { bookText: 'x' }, workspaceId: 'w1', createdBy: 'u1' }, fakeQueue)
   assert.equal(job.id, 'job1')
   assert.equal(calls[0].name, 'generate')
+  assert.equal(calls[0].data.jobId, 'job-123')
   assert.equal(calls[0].data.type, 'text')
   assert.equal(calls[0].data.tier, 'standard')
   assert.equal(calls[0].data.workspaceId, 'w1')

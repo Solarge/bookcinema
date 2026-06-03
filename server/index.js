@@ -14,6 +14,8 @@ import userRoutes      from './routes/users.js'
 import shareRoutes     from './routes/share.js'
 import analyticsRoutes from './routes/analytics.js'
 import adminRoutes     from './routes/admin.js'
+import generateRoutes  from './routes/generate.js'
+import jobsRoutes      from './routes/jobs.js'
 
 const app = express()
 
@@ -38,6 +40,8 @@ app.use('/api/users',     userRoutes)
 app.use('/api/share',     shareRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/admin',     adminRoutes)
+app.use('/api/generate', generateRoutes)
+app.use('/api/jobs',     jobsRoutes)
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }))
