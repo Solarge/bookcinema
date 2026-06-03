@@ -10,7 +10,7 @@ import LoginPage from './components/auth/LoginPage'
 import RegisterPage from './components/auth/RegisterPage'
 import ProfilePage from './components/dashboard/ProfilePage'
 import { generateSeries } from './utils/textProviders/index'
-import { series as seriesApi, workspaces as workspacesApi } from './lib/api'
+import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob } from './lib/api'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
 
 // ── Auth gate wrapper ─────────────────────────────────────────────────────────
@@ -73,13 +73,23 @@ function AppInner() {
     setErrorMsg(null)
     setPage('loading')
     try {
-      const series = await generateSeries(bookText, preset, settings)
+      let series
+      if (settings.mode === 'managed') {
+        const { jobId } = await managedApi.generateText({ bookText, genrePreset: preset, language: settings.language ?? 'en', tier: settings.managedTier || 'standard' })
+        const job = await pollJob(jobId)
+        if (job.status !== 'done') throw new Error(job.error || 'Managed generation failed')
+        series = typeof job.result?.text === 'string' ? JSON.parse(job.result.text) : job.result?.text
+        if (!series?.title) throw new Error('Empty or invalid generation result')
+      } else {
+        series = await generateSeries(bookText, preset, settings)
+      }
       setGeneratedSeries(series)
       try {
         await seriesApi.create({
           title: series.title, author: series.author, logline: series.logline,
           genrePreset: preset, language: settings.language ?? 'en',
-          textProvider: settings.textProvider, fullOutput: series,
+          textProvider: settings.mode === 'managed' ? `managed:${settings.managedTier || 'standard'}` : settings.textProvider,
+          fullOutput: series,
         })
       } catch (saveErr) { console.warn('Library save failed:', saveErr) }
       setPage('results')

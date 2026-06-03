@@ -111,6 +111,25 @@ export const analytics = {
   exportCSV: ()          => `${BASE}/api/analytics/export.csv`,
 }
 
+// ── Managed generation ──────────────────────────────────────────────────────
+export const managed = {
+  generateText: (data) => post('/api/generate/text', data), // { bookText, genrePreset, language, tier } -> { jobId }
+  getJob:       (id)   => get(`/api/jobs/${id}`),
+  listJobs:     ()     => get('/api/jobs'),
+}
+
+// Poll a job until it reaches a terminal state (done|failed) or times out.
+export async function pollJob(jobId, { intervalMs = 2000, timeoutMs = 180000, onUpdate } = {}) {
+  const start = Date.now()
+  for (;;) {
+    const job = await managed.getJob(jobId)
+    if (onUpdate) onUpdate(job)
+    if (job.status === 'done' || job.status === 'failed') return job
+    if (Date.now() - start > timeoutMs) throw new Error('Generation timed out')
+    await new Promise(r => setTimeout(r, intervalMs))
+  }
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const admin = {
   users:        (p)         => get(`/api/admin/users?${new URLSearchParams(p)}`),

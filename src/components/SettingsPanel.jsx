@@ -140,6 +140,45 @@ export default function SettingsPanel({ onClose }) {
 
         <div style={{ padding: '20px', flex: 1 }}>
 
+          {/* ── GENERATION MODE ─────────────────────────────────────── */}
+          <Section title="Generation Mode">
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+              {[['byok', 'BYO Key'], ['managed', 'Managed']].map(([val, label]) => (
+                <button key={val} onClick={() => updateSettings({ mode: val })} style={{
+                  flex: 1, padding: '8px 10px',
+                  background: settings.mode === val ? 'rgba(200,146,42,0.12)' : 'transparent',
+                  border: `1px solid ${settings.mode === val ? 'var(--gold)' : 'var(--border)'}`,
+                  color: settings.mode === val ? 'var(--gold)' : 'var(--muted)',
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+                  letterSpacing: '1px', cursor: 'pointer', textTransform: 'uppercase',
+                }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {settings.mode === 'managed' && (
+              <>
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+                  {[['standard', 'Standard'], ['premium', 'Premium']].map(([val, label]) => (
+                    <button key={val} onClick={() => updateSettings({ managedTier: val })} style={{
+                      flex: 1, padding: '7px 10px',
+                      background: settings.managedTier === val ? 'rgba(200,146,42,0.12)' : 'transparent',
+                      border: `1px solid ${settings.managedTier === val ? 'var(--gold)' : 'var(--border)'}`,
+                      color: settings.managedTier === val ? 'var(--gold)' : 'var(--muted)',
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+                      letterSpacing: '1px', cursor: 'pointer', textTransform: 'uppercase',
+                    }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', lineHeight: '1.6' }}>
+                  Managed mode runs generation on our servers (no API key needed). Requires your workspace to be enabled for managed beta.
+                </div>
+              </>
+            )}
+          </Section>
+
           {/* ── TEXT GENERATION ─────────────────────────────────────── */}
           <Section title="Text Generation (Series Script)">
             {Object.entries(TEXT_PROVIDERS).map(([key, p]) => (
