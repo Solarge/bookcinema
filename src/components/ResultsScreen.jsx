@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useSettings } from '../contexts/SettingsContext'
 import { useMedia } from '../contexts/MediaContext'
+import { useAuth } from '../contexts/AuthContext'
 import { exportHtml } from '../utils/exportHtml'
 import { exportZip } from '../utils/zipExport'
 import { generateSeriesBibleHtml } from '../utils/seriesBible'
@@ -74,7 +75,7 @@ function charColor(id, chars) { return roleColor(chars.find(c => c.id === id)?.r
 function charName(id, chars)  { return chars.find(c => c.id === id)?.name || id }
 
 // ── Character Bible ────────────────────────────────────────────────────────
-function CharacterBible({ characters, seriesTitle, onUpdateChar }) {
+function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }) {
   const { settings } = useSettings()
   const { characters: charMedia, generateCharacterImage, setCharApproval } = useMedia()
 
@@ -92,6 +93,7 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar }) {
                 onGenerate={() => generateCharacterImage(char, char.midjourney_prompt)}
                 onApprovalChange={s => setCharApproval(char.id, s)}
                 disabled={!canGen}
+                plan={plan}
               />
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
                 <span style={{ fontFamily: "'Cinzel', serif", fontSize: '18px', color: 'var(--cream)' }}>
@@ -343,6 +345,7 @@ function BatchCostModal({ series, settings, onConfirm, onCancel }) {
 // ── ResultsScreen root ─────────────────────────────────────────────────────
 export default function ResultsScreen({ series: initialSeries, onNewBook }) {
   const { settings } = useSettings()
+  const { activeWorkspacePlan } = useAuth()
   const { sessionCost, generateBatch, characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia, generateSceneVideo } = useMedia()
   const [series, setSeries] = useState(initialSeries)
   const [showSettings, setShowSettings] = useState(false)
@@ -385,7 +388,7 @@ export default function ResultsScreen({ series: initialSeries, onNewBook }) {
 
   async function handleZipExport() {
     setZipping(true)
-    try { await exportZip(series, mediaState) } finally { setZipping(false) }
+    try { await exportZip(series, mediaState, undefined, activeWorkspacePlan) } finally { setZipping(false) }
   }
 
   function handleBibleExport() {
@@ -448,7 +451,7 @@ export default function ResultsScreen({ series: initialSeries, onNewBook }) {
             <p style={{ color: '#c8b890', fontSize: '17px' }}>{series_hook}</p>
           </div>
 
-          <CharacterBible characters={characters} seriesTitle={title} onUpdateChar={updateChar} />
+          <CharacterBible characters={characters} seriesTitle={title} onUpdateChar={updateChar} plan={activeWorkspacePlan} />
 
           {episodes.map(ep => (
             <EpisodeSection

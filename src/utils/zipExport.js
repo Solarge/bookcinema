@@ -1,6 +1,7 @@
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { generateSeriesBibleHtml } from './seriesBible'
+import { applyWatermark, shouldWatermark } from './watermark'
 
 function slugify(str) {
   return String(str).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -15,7 +16,19 @@ async function blobFromUrl(url) {
   }
 }
 
-export async function exportZip(series, mediaState = {}, onProgress) {
+// Returns a blob for a (possibly watermarked) image URL.
+// When watermarking is needed, applyWatermark returns a new blob: URL —
+// we fetch that to get the final blob, then revoke the temporary object URL.
+async function imageBlobForExport(url, plan) {
+  if (!shouldWatermark(plan)) return blobFromUrl(url)
+  const watermarkedUrl = await applyWatermark(url, 'BookFilm Studio', plan)
+  if (watermarkedUrl === url) return blobFromUrl(url) // watermark had no effect (error path)
+  const blob = await blobFromUrl(watermarkedUrl)
+  URL.revokeObjectURL(watermarkedUrl)
+  return blob
+}
+
+export async function exportZip(series, mediaState = {}, onProgress, plan = 'free') {
   const zip = new JSZip()
   const root = zip.folder(slugify(series.title))
   let done = 0
@@ -31,7 +44,7 @@ export async function exportZip(series, mediaState = {}, onProgress) {
     const url = asset?.localUrl || asset?.remoteUrl
     if (url) {
       tasks.push(
-        blobFromUrl(url).then(blob => {
+        imageBlobForExport(url, plan).then(blob => {
           if (blob) charsFolder.file(`${slugify(char.name)}-portrait.jpg`, blob)
           onProgress?.(++done)
         })

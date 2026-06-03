@@ -1,12 +1,44 @@
+import { useState, useEffect, useRef } from 'react'
 import ApprovalBadge from './ApprovalBadge'
+import { applyWatermark, shouldWatermark } from '../utils/watermark'
 
-export function ImageAsset({ asset, onGenerate, onApprovalChange, label = 'Generate Image', disabled }) {
+// Resolves the display URL for an image, applying a watermark when the plan requires it.
+// Returns the original url while the watermark is being applied, then switches to the
+// watermarked blob URL.  Revokes the previous object URL on cleanup to avoid memory leaks.
+function useWatermarkedUrl(sourceUrl, plan) {
+  const [displayUrl, setDisplayUrl] = useState(sourceUrl)
+  const prevObjUrl = useRef(null)
+
+  useEffect(() => {
+    setDisplayUrl(sourceUrl) // reset immediately when source changes
+    if (!sourceUrl || !shouldWatermark(plan)) {
+      if (prevObjUrl.current) { URL.revokeObjectURL(prevObjUrl.current); prevObjUrl.current = null }
+      return
+    }
+    let cancelled = false
+    applyWatermark(sourceUrl, 'BookFilm Studio', plan).then(url => {
+      if (cancelled) {
+        if (url !== sourceUrl) { URL.revokeObjectURL(url) }
+        return
+      }
+      if (prevObjUrl.current) { URL.revokeObjectURL(prevObjUrl.current) }
+      prevObjUrl.current = url === sourceUrl ? null : url
+      setDisplayUrl(url)
+    })
+    return () => { cancelled = true }
+  }, [sourceUrl, plan])
+
+  return displayUrl
+}
+
+export function ImageAsset({ asset, onGenerate, onApprovalChange, label = 'Generate Image', disabled, plan = 'free' }) {
   const { status, localUrl, error, approvalStatus } = asset ?? {}
+  const displayUrl = useWatermarkedUrl(localUrl, plan)
   return (
     <div style={{ marginBottom: '12px' }}>
       {localUrl ? (
         <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-          <img src={localUrl} alt="Generated character" style={{ width: '100%', maxWidth: '300px', display: 'block', border: '1px solid var(--border)' }} />
+          <img src={displayUrl} alt="Generated character" style={{ width: '100%', maxWidth: '300px', display: 'block', border: '1px solid var(--border)' }} />
           <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
             {onApprovalChange && <ApprovalBadge status={approvalStatus} onChange={onApprovalChange} />}
             <button onClick={onGenerate} disabled={status === 'generating' || disabled} style={smallBtn('#c8922a', '#080b10')}>↺ Regen</button>
