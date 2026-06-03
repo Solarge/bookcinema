@@ -69,9 +69,22 @@ router.get('/me/export', async (req, res) => {
     const Workspace = (await import('../models/Workspace.js')).default
     const Series = (await import('../models/Series.js')).default
     const UsageLog = (await import('../models/UsageLog.js')).default
-    const workspaces = await Workspace.find({ 'members.userId': req.user._id }).lean()
-    const wsIds = workspaces.map(w => w._id)
-    const series = await Series.find({ workspaceId: { $in: wsIds } }).select('-versions').lean()
+    const rawWorkspaces = await Workspace.find({ 'members.userId': req.user._id }).lean()
+    // Redact other members' PII and the org's billing identifiers — a GDPR export is the
+    // caller's own data, not their colleagues' or the org's Stripe records.
+    const uid = req.user._id.toString()
+    const workspaces = rawWorkspaces.map((w) => ({
+      _id: w._id,
+      name: w.name,
+      slug: w.slug,
+      type: w.type,
+      plan: w.plan,
+      myRole: (w.members || []).find((m) => m.userId?.toString() === uid)?.role || null,
+      memberCount: (w.members || []).length,
+      createdAt: w.createdAt,
+    }))
+    // Only the caller's OWN series — not other members' content in shared org workspaces.
+    const series = await Series.find({ userId: req.user._id }).select('-versions').lean()
     const usage = await UsageLog.find({ userId: req.user._id }).lean()
     res.setHeader('Content-Disposition', 'attachment; filename=bookfilm-my-data.json')
     res.json({ exportedAt: new Date().toISOString(), user: req.user.toSafeObject(), workspaces, series, usage })
