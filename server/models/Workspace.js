@@ -26,6 +26,7 @@ const workspaceSchema = new mongoose.Schema({
   managedBeta: { type: Boolean, default: false },
 
   creditBalance: { type: Number, default: 25, min: 0 },
+  creditPeriod: { type: String, default: null },
 
   members: [memberSchema],
   invites: [inviteSchema],
