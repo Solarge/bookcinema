@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
-import { storage } from '../utils/storage'
+import { series as seriesApi } from '../lib/api'
 
 function formatDate(iso) {
   try { return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) } catch (_) { return iso }
@@ -23,43 +23,63 @@ RenameInput.propTypes = { value: PropTypes.string.isRequired, onSave: PropTypes.
 export default function LibraryScreen({ onView, onBack }) {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
-  const [renaming, setRenaming] = useState(null) // key being renamed
+  const [error, setError] = useState(null)
+  const [renaming, setRenaming] = useState(null) // _id being renamed
+  const [viewing, setViewing] = useState(null)   // _id currently being fetched for view
 
   useEffect(() => {
-    const keys = storage.list('series:')
-    const loaded = keys
-      .map(key => {
-        try {
-          const raw = storage.get(key)
-          if (!raw) return null
-          return { key, ...JSON.parse(raw) }
-        } catch (_) { return null }
+    seriesApi.list()
+      .then(res => setItems(res.items))
+      .catch(err => {
+        console.warn('LibraryScreen: failed to load series', err)
+        setError('Failed to load library. Please try again.')
       })
-      .filter(Boolean)
-      .sort((a, b) => new Date(b.generatedAt) - new Date(a.generatedAt))
-    setItems(loaded)
-    setLoading(false)
+      .finally(() => setLoading(false))
   }, [])
 
-  function handleDelete(key) {
-    storage.delete(key)
-    setItems(prev => prev.filter(i => i.key !== key))
+  async function handleView(item) {
+    if (viewing === item._id) return
+    setViewing(item._id)
+    try {
+      const full = await seriesApi.get(item._id)
+      onView(full.fullOutput)
+    } catch (err) {
+      console.warn('LibraryScreen: failed to fetch series', err)
+      setError('Failed to load series. Please try again.')
+    } finally {
+      setViewing(null)
+    }
   }
 
-  function handleRename(key, newTitle) {
-    const item = items.find(i => i.key === key)
-    if (!item) return
-    const updated = { ...item, title: newTitle }
-    storage.set(key, JSON.stringify(updated))
-    setItems(prev => prev.map(i => i.key === key ? { ...i, title: newTitle } : i))
-    setRenaming(null)
+  async function handleDelete(id) {
+    try {
+      await seriesApi.delete(id)
+      setItems(prev => prev.filter(i => i._id !== id))
+    } catch (err) {
+      console.warn('LibraryScreen: failed to delete series', err)
+      setError('Failed to delete series. Please try again.')
+    }
   }
 
-  function handleDuplicate(item) {
-    const newKey = `series:${Date.now()}`
-    const copy = { ...item, key: newKey, title: `${item.title} (copy)`, generatedAt: new Date().toISOString() }
-    storage.set(newKey, JSON.stringify(copy))
-    setItems(prev => [copy, ...prev])
+  async function handleRename(id, newTitle) {
+    try {
+      await seriesApi.update(id, { title: newTitle })
+      setItems(prev => prev.map(i => i._id === id ? { ...i, title: newTitle } : i))
+      setRenaming(null)
+    } catch (err) {
+      console.warn('LibraryScreen: failed to rename series', err)
+      setError('Failed to rename series. Please try again.')
+    }
+  }
+
+  async function handleDuplicate(item) {
+    try {
+      const copy = await seriesApi.duplicate(item._id)
+      setItems(prev => [copy, ...prev])
+    } catch (err) {
+      console.warn('LibraryScreen: failed to duplicate series', err)
+      setError('Failed to duplicate series. Please try again.')
+    }
   }
 
   return (
@@ -74,9 +94,15 @@ export default function LibraryScreen({ onView, onBack }) {
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>{items.length} series</span>
         </div>
 
+        {error && (
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#c04040', padding: '12px 16px', border: '1px solid #3a1818', marginBottom: '24px' }}>
+            {error}
+          </div>
+        )}
+
         {loading && <div style={{ textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--muted)', padding: '60px 0' }}>Loading...</div>}
 
-        {!loading && items.length === 0 && (
+        {!loading && items.length === 0 && !error && (
           <div style={{ textAlign: 'center', padding: '80px 24px', border: '1px dashed var(--border)' }}>
             <div style={{ fontSize: '40px', marginBottom: '20px', opacity: 0.3 }}>📚</div>
             <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '22px', color: 'var(--muted)', marginBottom: '8px' }}>No series yet</div>
@@ -87,7 +113,7 @@ export default function LibraryScreen({ onView, onBack }) {
         {!loading && items.length > 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px' }}>
             {items.map(item => (
-              <div key={item.key} style={{ background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+              <div key={item._id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', overflow: 'hidden' }}>
                 {/* Cover */}
                 <div style={{ height: '130px', background: 'linear-gradient(135deg, #0e1219 0%, #1a1208 50%, #2a1808 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid var(--border)', position: 'relative', overflow: 'hidden' }}>
                   <div style={{ position: 'absolute', inset: 0, opacity: 0.07, background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(200,146,42,0.3) 2px, rgba(200,146,42,0.3) 3px)' }} />
@@ -95,10 +121,10 @@ export default function LibraryScreen({ onView, onBack }) {
                 </div>
 
                 <div style={{ padding: '16px' }}>
-                  {renaming === item.key ? (
-                    <RenameInput value={item.title} onSave={v => handleRename(item.key, v)} onCancel={() => setRenaming(null)} />
+                  {renaming === item._id ? (
+                    <RenameInput value={item.title} onSave={v => handleRename(item._id, v)} onCancel={() => setRenaming(null)} />
                   ) : (
-                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: '15px', color: 'var(--cream)', marginBottom: '4px', cursor: 'pointer' }} onDoubleClick={() => setRenaming(item.key)}>
+                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: '15px', color: 'var(--cream)', marginBottom: '4px', cursor: 'pointer' }} onDoubleClick={() => setRenaming(item._id)}>
                       {item.title}
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#4a5a6a', marginLeft: '8px' }} title="Double-click to rename">✎</span>
                     </div>
@@ -107,15 +133,17 @@ export default function LibraryScreen({ onView, onBack }) {
                   {item.logline && (
                     <p style={{ fontStyle: 'italic', fontSize: '13px', color: 'var(--muted)', marginBottom: '10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.logline}</p>
                   )}
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#3a4a5a', letterSpacing: '1px', marginBottom: '12px' }}>{formatDate(item.generatedAt)}</div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#3a4a5a', letterSpacing: '1px', marginBottom: '12px' }}>{formatDate(item.updatedAt)}</div>
 
                   {/* Action buttons */}
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px' }}>
-                    <button onClick={() => onView(item.fullOutput)} style={primaryBtn}>View</button>
+                    <button onClick={() => handleView(item)} disabled={viewing === item._id} style={primaryBtn}>
+                      {viewing === item._id ? '...' : 'View'}
+                    </button>
                     <button onClick={() => handleDuplicate(item)} style={secondaryBtn} title="Duplicate series">⊕ Copy</button>
-                    <button onClick={() => handleDelete(item.key)} style={dangerBtn}>Delete</button>
+                    <button onClick={() => handleDelete(item._id)} style={dangerBtn}>Delete</button>
                   </div>
-                  <button onClick={() => setRenaming(item.key)} style={{ ...secondaryBtn, width: '100%', marginTop: '6px' }}>✎ Rename</button>
+                  <button onClick={() => setRenaming(item._id)} style={{ ...secondaryBtn, width: '100%', marginTop: '6px' }}>✎ Rename</button>
                 </div>
               </div>
             ))}

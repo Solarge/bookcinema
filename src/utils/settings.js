@@ -6,6 +6,10 @@ export const DEFAULT_SETTINGS = {
   textModel:    '',            // overrides provider default model (optional)
   language:     'en',          // output language code (en | es | fr | de | zh | etc.)
 
+  // ── Managed generation (server-side, platform keys) ──────────
+  mode:        'byok',     // 'byok' (client-side, your keys) | 'managed' (server-side, platform keys)
+  managedTier: 'standard', // 'standard' | 'premium'
+
   // ── Image generation ─────────────────────────────────────────
   imageProvider: 'fal.ai',    // fal.ai | openai | replicate | stabilityai | comfyui | a1111
   imageQuality:  'hd',        // standard | hd | ultra

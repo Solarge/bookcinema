@@ -70,3 +70,50 @@ test('switch returns 403 (not 500) for a malformed workspace id', async () => {
   const res = await bearer(request(app()).post('/api/workspaces/switch'), token).send({ workspaceId: 'not-an-id' })
   assert.equal(res.status, 403)
 })
+
+test('PATCH member role rejects an invalid role with 400', async () => {
+  const { user, token } = await makeAuthedUser()
+  const memberId = new mongoose.Types.ObjectId()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, members: [{ userId: user._id, role: 'owner' }, { userId: memberId, role: 'member' }] })
+  const res = await bearer(request(app()).patch(`/api/workspaces/${org._id}/members/${memberId}`), token).send({ role: 'superadmin' })
+  assert.equal(res.status, 400)
+})
+
+test('PATCH cannot change the workspace owner role', async () => {
+  const { user, token } = await makeAuthedUser()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, members: [{ userId: user._id, role: 'owner' }] })
+  const res = await bearer(request(app()).patch(`/api/workspaces/${org._id}/members/${user._id}`), token).send({ role: 'member' })
+  assert.equal(res.status, 400)
+})
+
+test('DELETE cannot remove the workspace owner', async () => {
+  const { user, token } = await makeAuthedUser()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, members: [{ userId: user._id, role: 'owner' }] })
+  const res = await bearer(request(app()).delete(`/api/workspaces/${org._id}/members/${user._id}`), token)
+  assert.equal(res.status, 400)
+})
+
+test('PATCH cannot promote a member to owner', async () => {
+  const { user, token } = await makeAuthedUser()
+  const memberId = new mongoose.Types.ObjectId()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, members: [{ userId: user._id, role: 'owner' }, { userId: memberId, role: 'member' }] })
+  const res = await bearer(request(app()).patch(`/api/workspaces/${org._id}/members/${memberId}`), token).send({ role: 'owner' })
+  assert.equal(res.status, 400)
+})
+
+test('PUT workspace settings ignores whiteLabel unless plan is studio', async () => {
+  const { user, token } = await makeAuthedUser()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, plan: 'pro', members: [{ userId: user._id, role: 'owner' }] })
+  const res = await bearer(request(app()).put(`/api/workspaces/${org._id}`), token).send({ settings: { whiteLabel: { appName: 'Mine' } } })
+  assert.equal(res.status, 200)
+  const ws = await Workspace.findById(org._id)
+  assert.deepEqual(ws.settings.whiteLabel, {})
+})
+test('PUT workspace settings allows whiteLabel on studio plan', async () => {
+  const { user, token } = await makeAuthedUser()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, plan: 'studio', members: [{ userId: user._id, role: 'owner' }] })
+  const res = await bearer(request(app()).put(`/api/workspaces/${org._id}`), token).send({ settings: { whiteLabel: { appName: 'Mine' } } })
+  assert.equal(res.status, 200)
+  const ws = await Workspace.findById(org._id)
+  assert.equal(ws.settings.whiteLabel.appName, 'Mine')
+})

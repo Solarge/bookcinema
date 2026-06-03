@@ -1,5 +1,13 @@
-// Add a subtle watermark to a blob image using Canvas API
-export async function applyWatermark(imageUrl, text = 'BookFilm Studio') {
+import { planFeatures } from './planFeatures.js'
+
+// Returns true when the given plan should have a watermark applied
+export function shouldWatermark(plan = 'free') { return planFeatures(plan).watermark }
+
+// Add a subtle watermark to a blob image using Canvas API.
+// Pass the active workspace plan as the third argument; defaults to 'free'
+// so existing call-sites (which omit the argument) remain watermarked.
+export async function applyWatermark(imageUrl, text = 'BookFilm Studio', plan = 'free') {
+  if (!shouldWatermark(plan)) return imageUrl
   return new Promise((resolve) => {
     const img = new Image()
     img.crossOrigin = 'anonymous'
@@ -34,7 +42,8 @@ export async function applyWatermark(imageUrl, text = 'BookFilm Studio') {
   })
 }
 
-export function isWatermarkMode(settings) {
-  // Watermark in free mode (no subscription) — Phase 2 will wire to actual plan
-  return settings?.watermarkEnabled ?? false
+export function isWatermarkMode(settings, plan = 'free') {
+  // Plan-driven: watermark is on for free plan; settings.watermarkEnabled can still
+  // force it on explicitly (e.g. for testing), but the plan gate is authoritative.
+  return shouldWatermark(plan) || (settings?.watermarkEnabled ?? false)
 }

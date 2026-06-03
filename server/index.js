@@ -14,6 +14,8 @@ import userRoutes      from './routes/users.js'
 import shareRoutes     from './routes/share.js'
 import analyticsRoutes from './routes/analytics.js'
 import adminRoutes     from './routes/admin.js'
+import generateRoutes  from './routes/generate.js'
+import jobsRoutes      from './routes/jobs.js'
 
 const app = express()
 
@@ -23,7 +25,7 @@ app.use(cors({
   origin: config.clientUrl,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Workspace-Id'],
 }))
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
@@ -38,6 +40,8 @@ app.use('/api/users',     userRoutes)
 app.use('/api/share',     shareRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/admin',     adminRoutes)
+app.use('/api/generate', generateRoutes)
+app.use('/api/jobs',     jobsRoutes)
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }))

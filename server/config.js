@@ -32,13 +32,41 @@ export const config = {
     from:     process.env.SMTP_FROM || 'noreply@bookfilm.studio',
   },
 
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || null,
+    from:         process.env.EMAIL_FROM      || process.env.SMTP_FROM || 'noreply@bookfilm.studio',
+    fromName:     process.env.EMAIL_FROM_NAME || 'BookFilm Studio',
+  },
+
   redis: {
     // Upstash:  rediss://default:<token>@<host>.upstash.io:6380
     // Local:    redis://:password@localhost:6379
     url: process.env.REDIS_URL || null,
   },
 
+  // Managed-generation provider keys (platform-held). Missing keys disable only
+  // the affected tier — they do NOT block server boot (unlike the required() vars).
+  providerKeys: {
+    groq:       process.env.GROQ_API_KEY        || null,
+    anthropic:  process.env.ANTHROPIC_API_KEY   || null,
+    replicate:  process.env.REPLICATE_API_TOKEN || null,
+    falai:      process.env.FALAI_KEY           || null,
+    openai:     process.env.OPENAI_API_KEY      || null,
+    elevenlabs: process.env.ELEVENLABS_KEY      || null,
+  },
+
   admin: {
     email: process.env.ADMIN_EMAIL || '',
+  },
+
+  managed: {
+    enabled:        process.env.MANAGED_GENERATION_ENABLED !== 'false', // default ON
+    maxConcurrent:  Number(process.env.MANAGED_MAX_CONCURRENT) || 3,
+    starterCredits: Number(process.env.MANAGED_STARTER_CREDITS) || 25,
+    caps: {
+      text:  Number(process.env.MANAGED_CAP_TEXT_DAILY)  || 20,
+      image: Number(process.env.MANAGED_CAP_IMAGE_DAILY) || 50,
+      voice: Number(process.env.MANAGED_CAP_VOICE_DAILY) || 100,
+    },
   },
 }

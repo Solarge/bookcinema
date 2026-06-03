@@ -12,9 +12,23 @@ function getTransport() {
 }
 
 export async function sendEmail({ to, subject, html }) {
+  const resendKey = process.env.RESEND_API_KEY || config.email.resendApiKey
+  if (resendKey) {
+    const from = `${config.email.fromName} <${config.email.from}>`
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${resendKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to, subject, html }),
+    })
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '')
+      throw new Error(`Resend email failed (${res.status}): ${detail}`)
+    }
+    return
+  }
   const transport = getTransport()
   if (!transport) {
-    console.info(`[Email skipped — no SMTP] To: ${to}  Subject: ${subject}`)
+    console.info(`[Email skipped — no provider configured] To: ${to}  Subject: ${subject}`)
     return
   }
   await transport.sendMail({ from: config.smtp.from, to, subject, html })
