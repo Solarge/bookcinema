@@ -54,3 +54,16 @@ test('processGeneration uploads media result to S3 and stores resultUrl (done)',
   assert.match(uploadedKey, new RegExp(`generated/${wsId}/${job._id}\\.mp3`))
   assert.equal(await UsageLog.countDocuments({ workspaceId: wsId, action: 'generate_voice', success: true }), 1)
 })
+
+test('processGeneration refunds credits to the workspace on failure', async () => {
+  const { default: Workspace } = await import('../models/Workspace.js')
+  const { default: CreditTransaction } = await import('../models/CreditTransaction.js')
+  const owner = new mongoose.Types.ObjectId()
+  const w = await Workspace.create({ name: 'W', type: 'personal', ownerId: owner, members: [{ userId: owner, role: 'owner' }], creditBalance: 0 })
+  const job = await Job.create({ workspaceId: w._id, createdBy: owner, type: 'text', tier: 'premium', status: 'queued' })
+  const failing = () => ({ provider: 'anthropic', adapter: { generate: async () => { throw new Error('boom') } } })
+  await assert.rejects(() => processGeneration({ jobId: String(job._id), type: 'text', tier: 'premium', payload: {}, workspaceId: String(w._id), createdBy: String(owner) }, { resolveFn: failing }))
+  const reloaded = await Workspace.findById(w._id)
+  assert.equal(reloaded.creditBalance, 3) // text premium = 3 refunded
+  assert.equal(await CreditTransaction.countDocuments({ workspaceId: w._id, reason: 'refund' }), 1)
+})

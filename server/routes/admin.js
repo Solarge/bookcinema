@@ -3,6 +3,7 @@ import User from '../models/User.js'
 import Series from '../models/Series.js'
 import UsageLog from '../models/UsageLog.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
+import { grantCredits } from '../utils/credits.js'
 
 const router = Router()
 router.use(requireAuth, requireRole('admin'))
@@ -52,6 +53,17 @@ router.patch('/users/:id/deactivate', async (req, res) => {
     const user = await User.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true })
     if (!user) return res.status(404).json({ error: 'User not found' })
     res.json({ message: `User ${user.email} deactivated` })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// PATCH /api/admin/workspaces/:id/credits — grant (positive) or deduct (negative) workspace credits
+router.patch('/workspaces/:id/credits', async (req, res) => {
+  try {
+    const amount = Number(req.body.amount)
+    if (!Number.isFinite(amount) || amount === 0) return res.status(400).json({ error: 'amount must be a non-zero number' })
+    const r = await grantCredits(req.params.id, amount, { note: req.body.note || 'admin grant' })
+    if (!r.ok) return res.status(404).json({ error: 'Workspace not found' })
+    res.json({ workspaceId: req.params.id, balance: r.balance })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

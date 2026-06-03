@@ -105,3 +105,29 @@ test('POST /image 403 when workspace not allowlisted', async () => {
     .send({ prompt: 'x', tier: 'standard' })
   assert.equal(res.status, 403)
 })
+
+test('POST /text 402 when the workspace is out of credits', async () => {
+  const { token, workspace } = await betaUser()
+  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 0 })
+  const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/text'), token, workspace._id)
+    .send({ bookText: 'x', tier: 'standard' })
+  assert.equal(res.status, 402)
+})
+
+test('POST /text debits credits on enqueue (text standard = 1)', async () => {
+  const { token, workspace } = await betaUser()
+  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 5 })
+  const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/text'), token, workspace._id)
+    .send({ bookText: 'x', tier: 'standard' })
+  assert.equal(res.status, 202)
+  assert.equal((await Workspace.findById(workspace._id)).creditBalance, 4)
+})
+
+test('POST /image debits cost-weighted credits (image standard = 4)', async () => {
+  const { token, workspace } = await betaUser()
+  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 10 })
+  const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/image'), token, workspace._id)
+    .send({ prompt: 'a fox', tier: 'standard' })
+  assert.equal(res.status, 202)
+  assert.equal((await Workspace.findById(workspace._id)).creditBalance, 6)
+})
