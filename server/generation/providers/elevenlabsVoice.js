@@ -1,11 +1,9 @@
-import { config } from '../../config.js'
-
 const ELEVEN_URL = 'https://api.elevenlabs.io/v1/text-to-speech'
 export const DEFAULT_VOICE = 'pNInz6obpgDQGcFmaJgB' // narrator
 export const DEFAULT_MODEL = 'eleven_multilingual_v2'
 
 export async function generate({ text, voiceId }) {
-  const apiKey = config.providerKeys.elevenlabs || process.env.ELEVENLABS_KEY
+  const apiKey = process.env.ELEVENLABS_KEY
   if (!apiKey) throw new Error('ElevenLabs is not configured (ELEVENLABS_KEY missing)')
   const vid = voiceId || DEFAULT_VOICE
   const res = await fetch(`${ELEVEN_URL}/${vid}`, {
