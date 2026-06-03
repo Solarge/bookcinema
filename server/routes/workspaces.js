@@ -6,7 +6,8 @@ import User from '../models/User.js'
 import { requireAuth } from '../middleware/auth.js'
 import { sendEmail, teamInviteEmail } from '../utils/email.js'
 import { config } from '../config.js'
-import { planFeatures } from '../plans.js'
+import { planFeatures, planMaxSeats } from '../plans.js'
+import { syncSeats } from '../utils/seats.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -76,6 +77,9 @@ router.post('/:id/invite', async (req, res) => {
     const { email, role = 'member' } = req.body
     const ws = mongoose.isValidObjectId(req.params.id) ? await Workspace.findById(req.params.id) : null
     if (!ws || !['owner', 'admin'].includes(ws.getMemberRole(req.user._id))) return res.status(403).json({ error: 'Not authorized' })
+    if (ws.type === 'organization' && planMaxSeats(ws.plan) != null && ws.members.length >= planMaxSeats(ws.plan)) {
+      return res.status(402).json({ error: 'Upgrade to a paid plan to add team members', code: 'seat_limit' })
+    }
     const token = crypto.randomBytes(20).toString('hex')
     const expiresAt = new Date(Date.now() + 7 * 86400000)
     ws.invites = ws.invites.filter(i => i.email !== email.toLowerCase())
@@ -95,9 +99,15 @@ router.post('/accept-invite', async (req, res) => {
     if (!ws) return res.status(400).json({ error: 'Invalid or expired invitation' })
     const invite = ws.invites.find(i => i.token === token)
     if (invite.email !== req.user.email.toLowerCase()) return res.status(403).json({ error: 'Invitation is for a different email' })
-    if (!ws.hasMember(req.user._id)) ws.members.push({ userId: req.user._id, role: invite.role })
+    if (!ws.hasMember(req.user._id)) {
+      if (ws.type === 'organization' && planMaxSeats(ws.plan) != null && ws.members.length >= planMaxSeats(ws.plan)) {
+        return res.status(402).json({ error: 'Upgrade to a paid plan to add team members', code: 'seat_limit' })
+      }
+      ws.members.push({ userId: req.user._id, role: invite.role })
+    }
     ws.invites = ws.invites.filter(i => i.token !== token)
     await ws.save()
+    await syncSeats(ws, { stripe: req.app.locals.stripe })
     res.json({ workspace: ws, message: 'Joined workspace successfully' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -127,6 +137,7 @@ router.delete('/:id/members/:userId', async (req, res) => {
     if (req.params.userId === ws.ownerId.toString()) return res.status(400).json({ error: 'Cannot remove the workspace owner' })
     ws.members = ws.members.filter(m => m.userId.toString() !== req.params.userId)
     await ws.save()
+    await syncSeats(ws, { stripe: req.app.locals.stripe })
     res.json({ message: 'Member removed' })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
