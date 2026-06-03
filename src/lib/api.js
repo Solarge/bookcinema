@@ -143,6 +143,17 @@ export const billing = {
   portal:   ()     => get('/api/billing/portal'),          // -> { url }
 }
 
+// ── Social Distribution ───────────────────────────────────────────────────────
+export const social = {
+  providers:  ()         => get('/api/social/providers'),
+  connect:    (platform) => get(`/api/social/${platform}/connect`),
+  accounts:   ()         => get('/api/social/accounts'),
+  disconnect: (id)       => del(`/api/social/accounts/${id}`),
+  createPost: (data)     => post('/api/social/posts', data),
+  posts:      ()         => get('/api/social/posts'),
+  cancelPost: (id)       => del(`/api/social/posts/${id}`),
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const admin = {
   users:                 (p)              => get(`/api/admin/users?${new URLSearchParams(p)}`),

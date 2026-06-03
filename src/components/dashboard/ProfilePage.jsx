@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
 import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi } from '../../lib/api'
 import { planFeatures } from '../../utils/planFeatures'
+import DistributionPanel from '../social/DistributionPanel'
 
 const PLAN_SUMMARIES = {
   free:   'Standard tiers only · watermark on exports',
@@ -64,7 +65,7 @@ export default function ProfilePage({ onClose }) {
     } catch (err) { setMsg(err.message) }
   }
 
-  const TABS = ['profile', 'security', 'apikey', 'workspace', 'analytics']
+  const TABS = ['profile', 'security', 'apikey', 'workspace', 'analytics', 'distribution']
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose}>
@@ -435,6 +436,10 @@ export default function ProfilePage({ onClose }) {
                 ⬇ Export CSV
               </a>
             </div>
+          )}
+
+          {tab === 'distribution' && (
+            <DistributionPanel onMsg={setMsg} />
           )}
         </div>
       </div>
