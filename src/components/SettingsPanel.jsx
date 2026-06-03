@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useSettings } from '../contexts/SettingsContext'
+import { useAuth } from '../contexts/AuthContext'
 import { IMAGE_PROVIDERS, VIDEO_PROVIDERS, VOICE_PROVIDERS } from '../utils/mediaProviders/index'
 import { TEXT_PROVIDERS } from '../utils/textProviders/index'
 import { PROVIDER_COSTS, isFree } from '../utils/costTracker'
 import { GENRE_PRESETS } from '../utils/genrePresets'
 import { LANGUAGES } from '../utils/languageConfig'
+import { planFeatures } from '../utils/planFeatures'
 
 // ── Cost badge ─────────────────────────────────────────────────────────────
 function CostBadge({ free }) {
@@ -123,6 +125,8 @@ const GENERATION_MODES = {
 
 export default function SettingsPanel({ onClose }) {
   const { settings, updateSettings } = useSettings()
+  const { activeWorkspacePlan } = useAuth()
+  const hasPremium = planFeatures(activeWorkspacePlan).premium
 
   const setKey     = (name, val) => updateSettings({ apiKeys:   { [name]: val } })
   const setUrl     = (name, val) => updateSettings({ localUrls: { [name]: val } })
@@ -159,18 +163,35 @@ export default function SettingsPanel({ onClose }) {
             {settings.mode === 'managed' && (
               <>
                 <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-                  {[['standard', 'Standard'], ['premium', 'Premium']].map(([val, label]) => (
-                    <button key={val} onClick={() => updateSettings({ managedTier: val })} style={{
-                      flex: 1, padding: '7px 10px',
-                      background: settings.managedTier === val ? 'rgba(200,146,42,0.12)' : 'transparent',
-                      border: `1px solid ${settings.managedTier === val ? 'var(--gold)' : 'var(--border)'}`,
-                      color: settings.managedTier === val ? 'var(--gold)' : 'var(--muted)',
-                      fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
-                      letterSpacing: '1px', cursor: 'pointer', textTransform: 'uppercase',
-                    }}>
-                      {label}
-                    </button>
-                  ))}
+                  {[['standard', 'Standard'], ['premium', 'Premium']].map(([val, label]) => {
+                    const isLocked = val === 'premium' && !hasPremium
+                    const isActive = settings.managedTier === val
+                    return (
+                      <button
+                        key={val}
+                        onClick={() => { if (!isLocked) updateSettings({ managedTier: val }) }}
+                        disabled={isLocked}
+                        title={isLocked ? 'Requires Pro or Studio plan' : undefined}
+                        style={{
+                          flex: 1, padding: '7px 10px',
+                          background: isActive && !isLocked ? 'rgba(200,146,42,0.12)' : 'transparent',
+                          border: `1px solid ${isActive && !isLocked ? 'var(--gold)' : 'var(--border)'}`,
+                          color: isLocked ? 'var(--muted)' : isActive ? 'var(--gold)' : 'var(--muted)',
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+                          letterSpacing: '1px',
+                          cursor: isLocked ? 'not-allowed' : 'pointer',
+                          textTransform: 'uppercase',
+                          opacity: isLocked ? 0.5 : 1,
+                          position: 'relative',
+                        }}
+                      >
+                        {label}
+                        {isLocked && (
+                          <span style={{ marginLeft: '5px', fontSize: '8px', color: 'var(--muted)', letterSpacing: '0.5px' }}>🔒 Pro</span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', lineHeight: '1.6' }}>
                   Managed mode runs generation on our servers (no API key needed). Requires your workspace to be enabled for managed beta.

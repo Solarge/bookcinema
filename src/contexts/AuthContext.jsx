@@ -8,6 +8,19 @@ export function AuthProvider({ children }) {
   const [user, setUser]         = useState(null)
   const [loading, setLoading]   = useState(true)  // initial auth check
   const [activeWorkspace, setActiveWorkspaceState] = useState(null)
+  const [activeWorkspacePlan, setActiveWorkspacePlan] = useState('free')
+
+  // Fetch workspace list and resolve the plan for a given workspace id
+  const resolveWorkspacePlan = useCallback(async (workspaceId) => {
+    if (!workspaceId) { setActiveWorkspacePlan('free'); return }
+    try {
+      const list = await workspacesApi.list()
+      const found = list.find(w => w._id === workspaceId || w._id?.toString() === workspaceId?.toString())
+      setActiveWorkspacePlan(found?.plan || 'free')
+    } catch (_) {
+      setActiveWorkspacePlan('free')
+    }
+  }, [])
 
   // On mount — try to refresh session from httpOnly cookie
   useEffect(() => {
@@ -21,15 +34,22 @@ export function AuthProvider({ children }) {
         if (u?.defaultWorkspaceId) {
           setActiveWorkspace(u.defaultWorkspaceId)
           setActiveWorkspaceState(u.defaultWorkspaceId)
+          resolveWorkspacePlan(u.defaultWorkspaceId)
         }
       })
       .catch(() => { clearAccessToken(); setUser(null) })
       .finally(() => setLoading(false))
-  }, [])
+  }, [resolveWorkspacePlan])
 
   // Listen for auto-logout events (from api.js 401 handler)
   useEffect(() => {
-    const handler = () => { setUser(null); clearAccessToken(); setActiveWorkspace(null); setActiveWorkspaceState(null) }
+    const handler = () => {
+      setUser(null)
+      clearAccessToken()
+      setActiveWorkspace(null)
+      setActiveWorkspaceState(null)
+      setActiveWorkspacePlan('free')
+    }
     window.addEventListener('auth:logout', handler)
     return () => window.removeEventListener('auth:logout', handler)
   }, [])
@@ -38,17 +58,25 @@ export function AuthProvider({ children }) {
     const data = await authApi.login({ email, password })
     setAccessToken(data.accessToken)
     setUser(data.user)
-    if (data.user?.defaultWorkspaceId) { setActiveWorkspace(data.user.defaultWorkspaceId); setActiveWorkspaceState(data.user.defaultWorkspaceId) }
+    if (data.user?.defaultWorkspaceId) {
+      setActiveWorkspace(data.user.defaultWorkspaceId)
+      setActiveWorkspaceState(data.user.defaultWorkspaceId)
+      resolveWorkspacePlan(data.user.defaultWorkspaceId)
+    }
     return data.user
-  }, [])
+  }, [resolveWorkspacePlan])
 
   const register = useCallback(async (name, email, password) => {
     const data = await authApi.register({ name, email, password })
     setAccessToken(data.accessToken)
     setUser(data.user)
-    if (data.user?.defaultWorkspaceId) { setActiveWorkspace(data.user.defaultWorkspaceId); setActiveWorkspaceState(data.user.defaultWorkspaceId) }
+    if (data.user?.defaultWorkspaceId) {
+      setActiveWorkspace(data.user.defaultWorkspaceId)
+      setActiveWorkspaceState(data.user.defaultWorkspaceId)
+      resolveWorkspacePlan(data.user.defaultWorkspaceId)
+    }
     return data.user
-  }, [])
+  }, [resolveWorkspacePlan])
 
   const logout = useCallback(async () => {
     try { await authApi.logout() } catch (_) {}
@@ -56,6 +84,7 @@ export function AuthProvider({ children }) {
     setUser(null)
     setActiveWorkspace(null)
     setActiveWorkspaceState(null)
+    setActiveWorkspacePlan('free')
   }, [])
 
   const updateUser = useCallback((patch) => {
@@ -66,9 +95,10 @@ export function AuthProvider({ children }) {
     await workspacesApi.switch(workspaceId)
     setActiveWorkspace(workspaceId)
     setActiveWorkspaceState(workspaceId)
-  }, [])
+    resolveWorkspacePlan(workspaceId)
+  }, [resolveWorkspacePlan])
 
-  const value = useMemo(() => ({ user, loading, activeWorkspace, login, register, logout, updateUser, switchWorkspace, isAdmin: user?.role === 'admin' }), [user, loading, activeWorkspace, login, register, logout, updateUser, switchWorkspace])
+  const value = useMemo(() => ({ user, loading, activeWorkspace, activeWorkspacePlan, login, register, logout, updateUser, switchWorkspace, isAdmin: user?.role === 'admin' }), [user, loading, activeWorkspace, activeWorkspacePlan, login, register, logout, updateUser, switchWorkspace])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

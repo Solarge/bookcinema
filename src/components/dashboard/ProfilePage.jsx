@@ -2,6 +2,13 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
 import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi } from '../../lib/api'
+import { planFeatures } from '../../utils/planFeatures'
+
+const PLAN_SUMMARIES = {
+  free:   'Standard tiers only · watermark on exports',
+  pro:    'Premium tiers unlocked · no watermark',
+  studio: 'Premium tiers + white-label · no watermark',
+}
 
 export default function ProfilePage({ onClose }) {
   const { user, logout, updateUser, activeWorkspace } = useAuth()
@@ -154,6 +161,16 @@ export default function ProfilePage({ onClose }) {
                           Out of credits — managed generation is paused. Ask an admin to grant credits.
                         </div>
                       )}
+                    </div>
+                    {/* Plan summary */}
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '2px' }}>Plan</span>
+                        <span style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: planFeatures(ws.plan).premium ? 'var(--gold)' : 'var(--cream)', letterSpacing: '1.5px', textTransform: 'capitalize' }}>{ws.plan || 'free'}</span>
+                      </div>
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', lineHeight: '1.6' }}>
+                        {PLAN_SUMMARIES[ws.plan] || PLAN_SUMMARIES.free}
+                      </div>
                     </div>
                   </div>
                 ) : null
