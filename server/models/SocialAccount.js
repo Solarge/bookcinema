@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const PLATFORMS = ['youtube', 'tiktok', 'meta', 'twitter', 'linkedin']
+const PLATFORMS = ['youtube', 'tiktok', 'instagram', 'facebook', 'x', 'linkedin']
 
 const socialAccountSchema = new mongoose.Schema({
   workspaceId: {

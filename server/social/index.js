@@ -1,19 +1,21 @@
-import * as youtube  from './providers/youtube.js'
-import * as tiktok   from './providers/tiktok.js'
-import * as metaP    from './providers/meta.js'
-import * as twitter  from './providers/twitter.js'
-import * as linkedin from './providers/linkedin.js'
+import * as youtube   from './providers/youtube.js'
+import * as tiktok    from './providers/tiktok.js'
+import * as instagram from './providers/instagram.js'
+import * as facebook  from './providers/facebook.js'
+import * as x        from './providers/x.js'
+import * as linkedin  from './providers/linkedin.js'
 
 /**
  * Registry of all social platform providers.
  * Key matches platform enum used in SocialAccount + ScheduledPost models.
  */
 export const SOCIAL_PROVIDERS = new Map([
-  ['youtube',  youtube],
-  ['tiktok',   tiktok],
-  ['meta',     metaP],
-  ['twitter',  twitter],
-  ['linkedin', linkedin],
+  ['youtube',   youtube],
+  ['tiktok',    tiktok],
+  ['instagram', instagram],
+  ['facebook',  facebook],
+  ['x',         x],
+  ['linkedin',  linkedin],
 ])
 
 /**

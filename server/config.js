@@ -73,13 +73,17 @@ export const config = {
         clientId:     process.env.TIKTOK_CLIENT_KEY    || '',
         clientSecret: process.env.TIKTOK_CLIENT_SECRET || '',
       },
-      meta: {
+      instagram: {
         clientId:     process.env.META_APP_ID     || '',
         clientSecret: process.env.META_APP_SECRET || '',
       },
-      twitter: {
-        clientId:     process.env.TWITTER_CLIENT_ID     || '',
-        clientSecret: process.env.TWITTER_CLIENT_SECRET || '',
+      facebook: {
+        clientId:     process.env.META_APP_ID     || '',
+        clientSecret: process.env.META_APP_SECRET || '',
+      },
+      x: {
+        clientId:     process.env.X_CLIENT_ID     || process.env.TWITTER_CLIENT_ID     || '',
+        clientSecret: process.env.X_CLIENT_SECRET || process.env.TWITTER_CLIENT_SECRET || '',
       },
       linkedin: {
         clientId:     process.env.LINKEDIN_CLIENT_ID     || '',

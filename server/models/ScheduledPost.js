@@ -1,6 +1,6 @@
 import mongoose from 'mongoose'
 
-const PLATFORMS = ['youtube', 'tiktok', 'meta', 'twitter', 'linkedin']
+const PLATFORMS = ['youtube', 'tiktok', 'instagram', 'facebook', 'x', 'linkedin']
 
 const TARGET_STATUSES = ['pending', 'posting', 'posted', 'failed', 'skipped']
 

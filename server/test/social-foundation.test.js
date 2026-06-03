@@ -91,13 +91,13 @@ test('SocialAccount.toClient() omits accessTokenEnc and refreshTokenEnc', async 
 // 3. Social provider registry
 // ---------------------------------------------------------------------------
 
-test('SOCIAL_PROVIDERS contains all 5 platforms', () => {
+test('SOCIAL_PROVIDERS contains all 6 platforms', () => {
   const keys = Array.from(SOCIAL_PROVIDERS.keys())
-  assert.deepEqual(keys.sort(), ['linkedin', 'meta', 'tiktok', 'twitter', 'youtube'])
+  assert.deepEqual(keys.sort(), ['facebook', 'instagram', 'linkedin', 'tiktok', 'x', 'youtube'])
 })
 
 test('getProvider returns a module for each known platform', () => {
-  for (const key of ['youtube', 'tiktok', 'meta', 'twitter', 'linkedin']) {
+  for (const key of ['youtube', 'tiktok', 'instagram', 'facebook', 'x', 'linkedin']) {
     const provider = getProvider(key)
     assert.ok(provider,                  `${key}: module returned`)
     assert.ok(provider.meta,             `${key}: meta exported`)
@@ -112,9 +112,9 @@ test('getProvider throws on an unknown platform key', () => {
   assert.throws(() => getProvider('snapchat'), /Unknown social platform/)
 })
 
-test('listConfigured returns 5 entries', () => {
+test('listConfigured returns 6 entries', () => {
   const list = listConfigured()
-  assert.equal(list.length, 5)
+  assert.equal(list.length, 6)
   for (const entry of list) {
     assert.ok(entry.key,   'key present')
     assert.ok(entry.label, 'label present')
@@ -123,27 +123,36 @@ test('listConfigured returns 5 entries', () => {
 })
 
 test('isConfigured() is false when env vars are not set', () => {
-  // Make sure none of the platform env vars are set
+  // Env pairs: [idKey, secretKey, platformKey]
   const envPairs = [
-    ['YOUTUBE_CLIENT_ID',     'YOUTUBE_CLIENT_SECRET'],
-    ['TIKTOK_CLIENT_KEY',     'TIKTOK_CLIENT_SECRET'],
-    ['META_APP_ID',           'META_APP_SECRET'],
-    ['TWITTER_CLIENT_ID',     'TWITTER_CLIENT_SECRET'],
-    ['LINKEDIN_CLIENT_ID',    'LINKEDIN_CLIENT_SECRET'],
+    ['YOUTUBE_CLIENT_ID',  'YOUTUBE_CLIENT_SECRET',  'youtube'],
+    ['TIKTOK_CLIENT_KEY',  'TIKTOK_CLIENT_SECRET',   'tiktok'],
+    ['META_APP_ID',        'META_APP_SECRET',         'instagram'],
+    ['META_APP_ID',        'META_APP_SECRET',         'facebook'],
+    ['X_CLIENT_ID',        'X_CLIENT_SECRET',         'x'],
+    ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET',  'linkedin'],
   ]
-  for (const [idKey, secretKey] of envPairs) {
+  for (const [idKey, secretKey, platformKey] of envPairs) {
     const saved = { id: process.env[idKey], secret: process.env[secretKey] }
     delete process.env[idKey]
     delete process.env[secretKey]
-    // Re-test after deletion — should be false
-    const [, provider] = Array.from(SOCIAL_PROVIDERS.entries()).find(([k]) => {
-      const p = SOCIAL_PROVIDERS.get(k)
-      return p.meta.configEnv.includes(idKey)
-    })
-    assert.equal(provider.isConfigured(), false, `${idKey} unset → isConfigured() false`)
+    // Also clear legacy Twitter env names when testing x
+    let savedTwitterId, savedTwitterSecret
+    if (platformKey === 'x') {
+      savedTwitterId     = process.env.TWITTER_CLIENT_ID
+      savedTwitterSecret = process.env.TWITTER_CLIENT_SECRET
+      delete process.env.TWITTER_CLIENT_ID
+      delete process.env.TWITTER_CLIENT_SECRET
+    }
+    const provider = getProvider(platformKey)
+    assert.equal(provider.isConfigured(), false, `${platformKey}: isConfigured() false when env unset`)
     // Restore
     if (saved.id     !== undefined) process.env[idKey]    = saved.id
     if (saved.secret !== undefined) process.env[secretKey] = saved.secret
+    if (platformKey === 'x') {
+      if (savedTwitterId     !== undefined) process.env.TWITTER_CLIENT_ID     = savedTwitterId
+      if (savedTwitterSecret !== undefined) process.env.TWITTER_CLIENT_SECRET = savedTwitterSecret
+    }
   }
 })
 
@@ -168,6 +177,70 @@ test('isConfigured() becomes true after env vars are set, false after deletion',
   // Restore
   if (savedId     !== undefined) process.env.YOUTUBE_CLIENT_ID     = savedId
   if (savedSecret !== undefined) process.env.YOUTUBE_CLIENT_SECRET = savedSecret
+})
+
+test('instagram + facebook isConfigured() toggle on META_APP_ID + META_APP_SECRET', () => {
+  const instagram = getProvider('instagram')
+  const facebook  = getProvider('facebook')
+
+  const savedId     = process.env.META_APP_ID
+  const savedSecret = process.env.META_APP_SECRET
+  delete process.env.META_APP_ID
+  delete process.env.META_APP_SECRET
+
+  assert.equal(instagram.isConfigured(), false, 'instagram: false when META vars absent')
+  assert.equal(facebook.isConfigured(),  false, 'facebook: false when META vars absent')
+
+  process.env.META_APP_ID     = 'test-meta-app-id'
+  process.env.META_APP_SECRET = 'test-meta-app-secret'
+  assert.equal(instagram.isConfigured(), true, 'instagram: true after META vars set')
+  assert.equal(facebook.isConfigured(),  true, 'facebook: true after META vars set')
+
+  delete process.env.META_APP_ID
+  delete process.env.META_APP_SECRET
+  assert.equal(instagram.isConfigured(), false, 'instagram: false after META vars deleted')
+  assert.equal(facebook.isConfigured(),  false, 'facebook: false after META vars deleted')
+
+  // Restore
+  if (savedId     !== undefined) process.env.META_APP_ID     = savedId
+  if (savedSecret !== undefined) process.env.META_APP_SECRET = savedSecret
+})
+
+test('x isConfigured() accepts both X_CLIENT_* and legacy TWITTER_CLIENT_* env names', () => {
+  const xProvider = getProvider('x')
+
+  // Clear all variants
+  const saved = {
+    X_CLIENT_ID:          process.env.X_CLIENT_ID,
+    X_CLIENT_SECRET:      process.env.X_CLIENT_SECRET,
+    TWITTER_CLIENT_ID:    process.env.TWITTER_CLIENT_ID,
+    TWITTER_CLIENT_SECRET: process.env.TWITTER_CLIENT_SECRET,
+  }
+  for (const k of Object.keys(saved)) delete process.env[k]
+
+  assert.equal(xProvider.isConfigured(), false, 'false when all X/Twitter env vars absent')
+
+  // New-style env names
+  process.env.X_CLIENT_ID     = 'x-id'
+  process.env.X_CLIENT_SECRET = 'x-secret'
+  assert.equal(xProvider.isConfigured(), true, 'true with X_CLIENT_* vars')
+
+  delete process.env.X_CLIENT_ID
+  delete process.env.X_CLIENT_SECRET
+
+  // Legacy env names
+  process.env.TWITTER_CLIENT_ID     = 'tw-id'
+  process.env.TWITTER_CLIENT_SECRET = 'tw-secret'
+  assert.equal(xProvider.isConfigured(), true, 'true with legacy TWITTER_CLIENT_* vars')
+
+  delete process.env.TWITTER_CLIENT_ID
+  delete process.env.TWITTER_CLIENT_SECRET
+  assert.equal(xProvider.isConfigured(), false, 'false after all vars deleted')
+
+  // Restore
+  for (const [k, v] of Object.entries(saved)) {
+    if (v !== undefined) process.env[k] = v
+  }
 })
 
 // ---------------------------------------------------------------------------
