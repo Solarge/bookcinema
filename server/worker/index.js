@@ -3,6 +3,7 @@ import { connectDB } from '../db.js'
 import { Worker } from 'bullmq'
 import { GENERATION_QUEUE } from '../queue/generationQueue.js'
 import { processGeneration } from './processGeneration.js'
+import { maybeRefundOnFailure } from './refundOnFailure.js'
 
 if (!config.redis.url) { console.error('Worker requires REDIS_URL'); process.exit(1) }
 
@@ -17,5 +18,8 @@ const connection = {
 await connectDB()
 const worker = new Worker(GENERATION_QUEUE, async (job) => processGeneration(job.data), { connection, concurrency: config.managed.maxConcurrent, lockDuration: 150000 })
 worker.on('completed', (j) => console.log('✓ job done', j.id))
-worker.on('failed', (j, err) => console.warn('✗ job failed', j?.id, err?.message))
+worker.on('failed', async (job, err) => {
+  console.warn('✗ job failed', job?.id, err?.message)
+  await maybeRefundOnFailure(job)
+})
 console.log('✓ Generation worker listening on queue:', GENERATION_QUEUE)

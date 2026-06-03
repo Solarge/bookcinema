@@ -2,8 +2,6 @@ import Job from '../models/Job.js'
 import UsageLog from '../models/UsageLog.js'
 import { resolve as defaultResolve } from '../generation/resolve.js'
 import { uploadBuffer as defaultUpload } from '../utils/s3.js'
-import { creditCost } from '../generation/creditCost.js'
-import { refundCredits } from '../utils/credits.js'
 
 export async function processGeneration(data, deps = {}) {
   const resolveFn = deps.resolveFn || defaultResolve
@@ -31,7 +29,6 @@ export async function processGeneration(data, deps = {}) {
     const msg = (err?.message || 'generation failed').slice(0, 500)
     await Job.findByIdAndUpdate(jobId, { status: 'failed', errorMessage: msg })
     await UsageLog.create({ userId: createdBy, workspaceId, action: 'generate_' + type, provider, success: false, errorMessage: msg })
-    try { await refundCredits(workspaceId, creditCost(type, tier), { jobId, type, tier }) } catch (_) { /* refund best-effort */ }
     throw err
   }
 }
