@@ -78,3 +78,30 @@ test('POST /voice 403 when workspace not allowlisted', async () => {
     .send({ text: 'hi', tier: 'standard' })
   assert.equal(res.status, 403)
 })
+
+test('POST /image creates a queued image job and enqueues it (202)', async () => {
+  const { token, workspace } = await betaUser()
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bulli1' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/image'), token, workspace._id)
+    .send({ prompt: 'a cinematic fox portrait', aspectRatio: '9:16', tier: 'standard' })
+  assert.equal(res.status, 202)
+  const job = await Job.findById(res.body.jobId)
+  assert.equal(job.type, 'image')
+  assert.equal(enq[0].type, 'image')
+  assert.equal(enq[0].payload.prompt, 'a cinematic fox portrait')
+})
+
+test('POST /image 400 on missing prompt', async () => {
+  const { token, workspace } = await betaUser()
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/image'), token, workspace._id)
+    .send({ tier: 'standard' })
+  assert.equal(res.status, 400)
+})
+
+test('POST /image 403 when workspace not allowlisted', async () => {
+  const { token, workspace } = await makeAuthedUser()
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/image'), token, workspace._id)
+    .send({ prompt: 'x', tier: 'standard' })
+  assert.equal(res.status, 403)
+})
