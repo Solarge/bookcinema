@@ -102,6 +102,43 @@ export default function ProfilePage({ onClose }) {
               <Field label="Plan" value={user?.plan} disabled />
               <Field label="Credits" value={String(user?.credits ?? 0)} disabled />
               <button onClick={saveProfile} disabled={saving} style={btn(saving)}>{saving ? 'Saving…' : 'Save Profile'}</button>
+
+              {/* Data & Privacy */}
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>Data &amp; Privacy</div>
+
+                <button
+                  onClick={async () => {
+                    setMsg('')
+                    try {
+                      const data = await usersApi.exportData()
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = 'bookfilm-my-data.json'
+                      document.body.appendChild(a)
+                      a.click()
+                      a.remove()
+                      URL.revokeObjectURL(url)
+                      setMsg('Data export downloaded.')
+                    } catch (err) { setMsg(err.message) }
+                  }}
+                  style={{ ...btn(false), marginBottom: '10px', display: 'block', width: '100%' }}
+                >Export My Data</button>
+
+                <button
+                  onClick={async () => {
+                    if (!window.confirm('Permanently delete your account and all your data? This cannot be undone.')) return
+                    setMsg('')
+                    try {
+                      await usersApi.deleteAccount()
+                      logout()
+                    } catch (err) { setMsg(err.message) }
+                  }}
+                  style={{ display: 'block', width: '100%', background: 'transparent', color: '#f08080', border: '1px solid #804040', padding: '10px 20px', fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}
+                >Delete Account</button>
+              </div>
             </div>
           )}
 

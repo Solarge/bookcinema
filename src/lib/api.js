@@ -95,12 +95,14 @@ export const workspaces = {
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const users = {
-  me:           ()     => get('/api/users/me'),
-  update:       (data) => put('/api/users/me', data),
-  changePass:   (data) => put('/api/users/me/password', data),
-  getApiKey:    ()     => get('/api/users/me/api-key'),
-  generateKey:  ()     => post('/api/users/me/api-key', {}),
-  revokeKey:    ()     => del('/api/users/me/api-key'),
+  me:            ()     => get('/api/users/me'),
+  update:        (data) => put('/api/users/me', data),
+  changePass:    (data) => put('/api/users/me/password', data),
+  getApiKey:     ()     => get('/api/users/me/api-key'),
+  generateKey:   ()     => post('/api/users/me/api-key', {}),
+  revokeKey:     ()     => del('/api/users/me/api-key'),
+  exportData:    ()     => get('/api/users/me/export'),
+  deleteAccount: ()     => del('/api/users/me'),
 }
 
 // ── Analytics ─────────────────────────────────────────────────────────────────

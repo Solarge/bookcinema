@@ -66,8 +66,8 @@ export function AuthProvider({ children }) {
     return data.user
   }, [resolveWorkspacePlan])
 
-  const register = useCallback(async (name, email, password) => {
-    const data = await authApi.register({ name, email, password })
+  const register = useCallback(async (name, email, password, consent) => {
+    const data = await authApi.register({ name, email, password, consent })
     setAccessToken(data.accessToken)
     setUser(data.user)
     if (data.user?.defaultWorkspaceId) {
