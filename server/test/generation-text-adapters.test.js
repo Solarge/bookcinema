@@ -40,3 +40,12 @@ test('anthropicText.generate throws when key missing', async () => {
   delete process.env.ANTHROPIC_API_KEY
   await assert.rejects(() => anthropicGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /Anthropic/)
 })
+
+test('groqText.generate tolerates trailing prose after a ```json fence', async () => {
+  process.env.GROQ_API_KEY = 'test-key'
+  globalThis.fetch = async () => ({ ok: true, status: 200, json: async () => ({
+    choices: [{ message: { content: '```json\n{"title":"Fenced","characters":[],"episodes":[]}\n```\n\nNote: hope this helps!' } }],
+  }) })
+  const series = await groqGenerate({ bookText: 'b', genrePreset: 'cinematic', language: 'en' })
+  assert.equal(series.title, 'Fenced')
+})

@@ -8,14 +8,20 @@ let _queue = null
 export function getGenerationQueue() {
   if (_queue) return _queue
   if (!config.redis.url) return null
-  const url = new URL(config.redis.url)
+  let url
+  try {
+    url = new URL(config.redis.url)
+  } catch {
+    console.warn('Invalid REDIS_URL — generation queue disabled')
+    return null
+  }
   _queue = new Queue(GENERATION_QUEUE, {
     connection: {
       host: url.hostname,
       port: Number(url.port) || 6379,
       password: url.password || undefined,
       tls: config.redis.url.startsWith('rediss://') ? {} : undefined,
-      maxRetriesPerRequest: null, // required by BullMQ
+      maxRetriesPerRequest: null,
     },
   })
   return _queue

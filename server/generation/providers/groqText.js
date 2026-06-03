@@ -1,7 +1,8 @@
 import { buildSystemPrompt } from '../systemPrompt.js'
+import { parseSeriesJson } from '../parseSeriesJson.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
-const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
+export const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
 
 export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', model = DEFAULT_MODEL }) {
   // Read from env every call so tests (and runtime key rotation) take effect immediately.
@@ -25,10 +26,5 @@ export async function generate({ bookText, genrePreset = 'cinematic', language =
     throw new Error(err?.error?.message || `Groq API error ${res.status}`)
   }
   const data = await res.json()
-  return parseJson(data.choices?.[0]?.message?.content)
-}
-
-function parseJson(raw) {
-  const cleaned = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-  try { return JSON.parse(cleaned) } catch (e) { throw new Error(`Groq response parse error: ${e.message}`) }
+  return parseSeriesJson(data.choices?.[0]?.message?.content)
 }

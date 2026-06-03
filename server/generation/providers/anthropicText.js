@@ -1,7 +1,8 @@
 import { buildSystemPrompt } from '../systemPrompt.js'
+import { parseSeriesJson } from '../parseSeriesJson.js'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
+export const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
 
 export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', model = DEFAULT_MODEL }) {
   // Read from env every call so tests (and runtime key rotation) take effect immediately.
@@ -22,14 +23,5 @@ export async function generate({ bookText, genrePreset = 'cinematic', language =
     throw new Error(err?.error?.message || `Anthropic API error ${res.status}`)
   }
   const data = await res.json()
-  return parseJson(data.content?.[0]?.text, data.stop_reason)
-}
-
-function parseJson(raw, stopReason) {
-  const cleaned = String(raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
-  try { return JSON.parse(cleaned) }
-  catch (e) {
-    if (stopReason === 'max_tokens') throw new Error('Response cut off — try a shorter book.')
-    throw new Error(`Anthropic response parse error: ${e.message}`)
-  }
+  return parseSeriesJson(data.content?.[0]?.text, data.stop_reason)
 }
