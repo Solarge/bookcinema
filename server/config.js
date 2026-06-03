@@ -58,4 +58,14 @@ export const config = {
   admin: {
     email: process.env.ADMIN_EMAIL || '',
   },
+
+  managed: {
+    enabled:       process.env.MANAGED_GENERATION_ENABLED !== 'false', // default ON
+    maxConcurrent: Number(process.env.MANAGED_MAX_CONCURRENT) || 3,
+    caps: {
+      text:  Number(process.env.MANAGED_CAP_TEXT_DAILY)  || 20,
+      image: Number(process.env.MANAGED_CAP_IMAGE_DAILY) || 50,
+      voice: Number(process.env.MANAGED_CAP_VOICE_DAILY) || 100,
+    },
+  },
 }
