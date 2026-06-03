@@ -74,3 +74,13 @@ test('webhook: bad signature (constructEvent throws) → 400', async () => {
   const r = await request(app).post('/api/billing/webhook').set('Content-Type', 'application/json').send('{}')
   assert.equal(r.status, 400)
 })
+
+test('webhook rolls back the idempotency mark when applying throws (Stripe retry can re-apply)', async () => {
+  const { default: ProcessedWebhookEvent } = await import('../models/ProcessedWebhookEvent.js')
+  config.stripe.prices.studio = 'price_studio'
+  const evt = { id: 'evt_err', type: 'customer.subscription.updated', data: { object: { id: 'sub_e', status: 'active', customer: 'cus_z', metadata: { workspaceId: 'not-an-objectid' }, items: { data: [{ price: { id: 'price_studio' } }] } } } }
+  const app = webhookApp((body) => JSON.parse(body.toString()))
+  const r = await request(app).post('/api/billing/webhook').set('Content-Type', 'application/json').send(JSON.stringify(evt))
+  assert.equal(r.status, 500)
+  assert.equal(await ProcessedWebhookEvent.countDocuments({ eventId: 'evt_err' }), 0) // mark rolled back → retryable
+})

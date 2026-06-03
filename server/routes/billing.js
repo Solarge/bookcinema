@@ -30,7 +30,10 @@ billingRouter.post('/checkout', async (req, res) => {
 
     let customerId = req.workspace.stripeCustomerId
     if (!customerId) {
-      const customer = await stripe.customers.create({ metadata: { workspaceId: String(req.workspace._id) } })
+      const customer = await stripe.customers.create(
+        { metadata: { workspaceId: String(req.workspace._id) } },
+        { idempotencyKey: `ws-customer-${req.workspace._id}` },
+      )
       customerId = customer.id
       await Workspace.findByIdAndUpdate(req.workspace._id, { stripeCustomerId: customerId })
     }
@@ -98,5 +101,9 @@ export async function webhookHandler(req, res) {
       if (ws) await Workspace.findByIdAndUpdate(ws._id, { plan: 'free' })
     }
     res.json({ received: true })
-  } catch (err) { console.error('webhook handler error:', err); res.status(500).json({ error: 'Server error' }) }
+  } catch (err) {
+    console.error('webhook handler error:', err)
+    await ProcessedWebhookEvent.deleteOne({ eventId: event.id }).catch(() => {}) // roll back mark so Stripe retry re-applies
+    res.status(500).json({ error: 'Server error' })
+  }
 }
