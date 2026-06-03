@@ -45,3 +45,14 @@ test('replicate image: provider error surfaced', async () => {
   mockSequence([ { ok: false, status: 500, json: { detail: 'server error' } } ])
   await assert.rejects(() => replicateGen({ prompt: 'x' }), /Replicate|server error|500/)
 })
+
+test('replicate image: processing then polls to succeeded -> downloads bytes', async () => {
+  process.env.REPLICATE_API_TOKEN = 'r8_test'
+  mockSequence([
+    { json: { status: 'processing', id: 'pred1' } }, // initial POST (Prefer:wait returns not-yet-done)
+    { json: { status: 'succeeded', output: ['https://img/z.jpg'] } }, // poll #1
+    { bytes: 'IMG' }, // download
+  ])
+  const r = await replicateGen({ prompt: 'a fox', aspectRatio: '9:16' })
+  assert.ok(Buffer.isBuffer(r.buffer)); assert.equal(r.ext, 'jpg')
+})

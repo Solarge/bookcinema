@@ -8,6 +8,7 @@ async function pollPrediction(id, apiKey, maxAttempts = 40) {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 3000))
     const res = await fetch(`https://api.replicate.com/v1/predictions/${id}`, { headers: { Authorization: `Bearer ${apiKey}` } })
+    if (!res.ok) throw new Error(`Replicate poll error ${res.status}`)
     const d = await res.json()
     if (d.status === 'succeeded') return d.output?.[0] ?? d.output
     if (d.status === 'failed' || d.status === 'canceled') throw new Error(d.error || 'Replicate prediction failed')

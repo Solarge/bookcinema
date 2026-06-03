@@ -45,7 +45,7 @@ router.post('/voice', managedAccess('voice'), async (req, res) => {
 
     const job = await Job.create({
       workspaceId: req.workspace._id, createdBy: req.user._id,
-      type: 'voice', tier, status: 'queued', params: { voiceId: voiceId || null },
+      type: 'voice', tier, status: 'queued', params: { text, voiceId: voiceId || null },
     })
     try {
       const queue = req.app.locals.generationQueue
@@ -70,7 +70,7 @@ router.post('/image', managedAccess('image'), async (req, res) => {
 
     const job = await Job.create({
       workspaceId: req.workspace._id, createdBy: req.user._id,
-      type: 'image', tier, status: 'queued', params: { aspectRatio },
+      type: 'image', tier, status: 'queued', params: { prompt, aspectRatio },
     })
     try {
       const queue = req.app.locals.generationQueue

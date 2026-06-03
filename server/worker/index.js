@@ -15,7 +15,7 @@ const connection = {
 }
 
 await connectDB()
-const worker = new Worker(GENERATION_QUEUE, async (job) => processGeneration(job.data), { connection, concurrency: config.managed.maxConcurrent })
+const worker = new Worker(GENERATION_QUEUE, async (job) => processGeneration(job.data), { connection, concurrency: config.managed.maxConcurrent, lockDuration: 150000 })
 worker.on('completed', (j) => console.log('✓ job done', j.id))
 worker.on('failed', (j, err) => console.warn('✗ job failed', j?.id, err?.message))
 console.log('✓ Generation worker listening on queue:', GENERATION_QUEUE)
