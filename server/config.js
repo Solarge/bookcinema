@@ -69,4 +69,18 @@ export const config = {
       voice: Number(process.env.MANAGED_CAP_VOICE_DAILY) || 100,
     },
   },
+
+  stripe: {
+    secretKey:      process.env.STRIPE_SECRET_KEY      || '',
+    webhookSecret:  process.env.STRIPE_WEBHOOK_SECRET  || '',
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+    prices: {
+      pro:         process.env.STRIPE_PRICE_PRO         || '',
+      studio:      process.env.STRIPE_PRICE_STUDIO      || '',
+      pack_small:  process.env.STRIPE_PRICE_PACK_SMALL  || '',
+      pack_medium: process.env.STRIPE_PRICE_PACK_MEDIUM || '',
+      pack_large:  process.env.STRIPE_PRICE_PACK_LARGE  || '',
+    },
+    packCredits: { pack_small: 100, pack_medium: 500, pack_large: 2000 },
+  },
 }
