@@ -32,6 +32,12 @@ export const config = {
     from:     process.env.SMTP_FROM || 'noreply@bookfilm.studio',
   },
 
+  email: {
+    resendApiKey: process.env.RESEND_API_KEY || null,
+    from:         process.env.EMAIL_FROM      || process.env.SMTP_FROM || 'noreply@bookfilm.studio',
+    fromName:     process.env.EMAIL_FROM_NAME || 'BookFilm Studio',
+  },
+
   redis: {
     // Upstash:  rediss://default:<token>@<host>.upstash.io:6380
     // Local:    redis://:password@localhost:6379
