@@ -6,6 +6,7 @@ import ProcessedWebhookEvent from '../models/ProcessedWebhookEvent.js'
 import { getStripe, planForPriceId } from '../utils/stripe.js'
 import { grantCredits } from '../utils/credits.js'
 import { config } from '../config.js'
+import { seatCount } from '../utils/seats.js'
 
 export const billingRouter = Router()
 billingRouter.use(requireAuth, resolveWorkspace)
@@ -37,9 +38,10 @@ billingRouter.post('/checkout', async (req, res) => {
       customerId = customer.id
       await Workspace.findByIdAndUpdate(req.workspace._id, { stripeCustomerId: customerId })
     }
+    const qty = kind === 'subscription' ? seatCount(req.workspace) : 1
     const session = await stripe.checkout.sessions.create({
       mode, customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: qty }],
       success_url: `${config.clientUrl}/?billing=success`,
       cancel_url: `${config.clientUrl}/?billing=cancel`,
       metadata: { workspaceId: String(req.workspace._id), kind, key },

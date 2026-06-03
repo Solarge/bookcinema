@@ -102,6 +102,43 @@ export default function ProfilePage({ onClose }) {
               <Field label="Plan" value={user?.plan} disabled />
               <Field label="Credits" value={String(user?.credits ?? 0)} disabled />
               <button onClick={saveProfile} disabled={saving} style={btn(saving)}>{saving ? 'Saving…' : 'Save Profile'}</button>
+
+              {/* Data & Privacy */}
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>Data &amp; Privacy</div>
+
+                <button
+                  onClick={async () => {
+                    setMsg('')
+                    try {
+                      const data = await usersApi.exportData()
+                      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = 'bookfilm-my-data.json'
+                      document.body.appendChild(a)
+                      a.click()
+                      a.remove()
+                      URL.revokeObjectURL(url)
+                      setMsg('Data export downloaded.')
+                    } catch (err) { setMsg(err.message) }
+                  }}
+                  style={{ ...btn(false), marginBottom: '10px', display: 'block', width: '100%' }}
+                >Export My Data</button>
+
+                <button
+                  onClick={async () => {
+                    if (!window.confirm('Permanently delete your account and all your data? This cannot be undone.')) return
+                    setMsg('')
+                    try {
+                      await usersApi.deleteAccount()
+                      logout()
+                    } catch (err) { setMsg(err.message) }
+                  }}
+                  style={{ display: 'block', width: '100%', background: 'transparent', color: '#f08080', border: '1px solid #804040', padding: '10px 20px', fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}
+                >Delete Account</button>
+              </div>
             </div>
           )}
 
@@ -172,6 +209,15 @@ export default function ProfilePage({ onClose }) {
                         {PLAN_SUMMARIES[ws.plan] || PLAN_SUMMARIES.free}
                       </div>
                     </div>
+
+                    {/* Per-seat billing line (org + paid plan) */}
+                    {ws.type === 'organization' && (ws.plan === 'pro' || ws.plan === 'studio') && (
+                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '1.5px' }}>
+                          Billed per seat — <span style={{ color: 'var(--cream)' }}>{(members ?? ws.members ?? []).length} × {ws.plan}</span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Credit breakdown */}
                     <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
@@ -251,7 +297,21 @@ export default function ProfilePage({ onClose }) {
               })()}
 
               {/* Members list */}
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Members</div>
+              {(() => {
+                const ws = wsList.find(w => w._id === activeWorkspace)
+                const memberCount = members?.length ?? 0
+                return ws?.type === 'organization' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase' }}>Members</div>
+                    <div style={{ background: '#0a0806', border: '1px solid var(--border)', padding: '4px 10px', textAlign: 'center' }}>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: '14px', color: 'var(--gold)', lineHeight: 1 }}>{memberCount}</span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginLeft: '5px' }}>Seats</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Members</div>
+                )
+              })()}
               {members === null ? (
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '16px' }}>Loading…</div>
               ) : (
@@ -317,7 +377,13 @@ export default function ProfilePage({ onClose }) {
                       const res = await workspacesApi.invite(activeWorkspace, { email: inviteEmail, role: 'member' })
                       setMsg(res.message)
                       setInviteEmail('')
-                    } catch (err) { setMsg(err.message) }
+                    } catch (err) {
+                      if (err.code === 'seat_limit' || err.status === 402) {
+                        setMsg('Upgrade to a paid plan to add team members — use the Upgrade buttons above.')
+                      } else {
+                        setMsg(err.message)
+                      }
+                    }
                   }}
                   style={btn(false)}
                 >Invite</button>

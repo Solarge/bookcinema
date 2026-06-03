@@ -26,6 +26,9 @@ const userSchema = new mongoose.Schema({
 
   lastLoginAt: { type: Date, default: null },
   isActive:    { type: Boolean, default: true },
+
+  // GDPR consent — stamped at registration
+  consentedAt: { type: Date, default: null },
 }, { timestamps: true })
 
 // Hash password before save

@@ -1,23 +1,29 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
+import { TermsOfService, PrivacyPolicy } from '../legal/LegalPages'
 
 export default function RegisterPage({ onSwitchToLogin }) {
   const { register } = useAuth()
   const [name, setName]         = useState('')
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
+  const [consent, setConsent]   = useState(false)
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
+  const [legalOpen, setLegalOpen] = useState(null) // null | 'terms' | 'privacy'
 
   async function handleSubmit() {
     if (!name || !email || !password) return setError('All fields required')
     if (password.length < 8) return setError('Password must be at least 8 characters')
+    if (!consent) return setError('You must agree to the Terms of Service and Privacy Policy')
     setLoading(true); setError('')
-    try { await register(name, email, password) }
+    try { await register(name, email, password, true) }
     catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
+
+  const isDisabled = loading || !consent
 
   return (
     <div style={containerStyle}>
@@ -31,7 +37,31 @@ export default function RegisterPage({ onSwitchToLogin }) {
         <input type="email"    placeholder="Email address"  value={email}    onChange={e => setEmail(e.target.value)}    style={inputStyle} />
         <input type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={inputStyle} />
 
-        <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+        {/* Consent checkbox */}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={e => setConsent(e.target.checked)}
+            style={{ marginTop: '2px', accentColor: 'var(--gold)', flexShrink: 0, cursor: 'pointer' }}
+          />
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', lineHeight: '1.6' }}>
+            I agree to the{' '}
+            <button
+              type="button"
+              onClick={e => { e.preventDefault(); setLegalOpen('terms') }}
+              style={inlineLinkBtn}
+            >Terms of Service</button>
+            {' '}and{' '}
+            <button
+              type="button"
+              onClick={e => { e.preventDefault(); setLegalOpen('privacy') }}
+              style={inlineLinkBtn}
+            >Privacy Policy</button>
+          </span>
+        </label>
+
+        <button onClick={handleSubmit} disabled={isDisabled} style={btnStyle(isDisabled)}>
           {loading ? 'Creating account…' : 'Create Account'}
         </button>
 
@@ -39,6 +69,9 @@ export default function RegisterPage({ onSwitchToLogin }) {
           <button onClick={onSwitchToLogin} style={linkBtn}>Already have an account? Sign in</button>
         </div>
       </div>
+
+      {legalOpen === 'terms'   && <TermsOfService onClose={() => setLegalOpen(null)} />}
+      {legalOpen === 'privacy' && <PrivacyPolicy  onClose={() => setLegalOpen(null)} />}
     </div>
   )
 }
@@ -51,3 +84,4 @@ const inputStyle = { display: 'block', width: '100%', background: '#0a0806', bor
 const btnStyle = (l) => ({ display: 'block', width: '100%', background: l ? 'var(--border)' : 'var(--gold)', color: l ? 'var(--muted)' : '#080b10', border: 'none', padding: '13px', fontFamily: "'Cinzel', serif", fontSize: '12px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: l ? 'not-allowed' : 'pointer', marginTop: '4px' })
 const errorStyle = { background: '#3a0808', border: '1px solid var(--red)', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#f08080', marginBottom: '16px' }
 const linkBtn = { background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }
+const inlineLinkBtn = { background: 'none', border: 'none', color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }

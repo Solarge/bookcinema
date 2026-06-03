@@ -33,8 +33,11 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    throw new Error(err.error || `Request failed: ${res.status}`)
+    const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    const err = new Error(body.error || `Request failed: ${res.status}`)
+    if (body.code) err.code = body.code
+    err.status = res.status
+    throw err
   }
 
   if (res.status === 204 || res.headers.get('content-length') === '0') return null
@@ -95,12 +98,14 @@ export const workspaces = {
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 export const users = {
-  me:           ()     => get('/api/users/me'),
-  update:       (data) => put('/api/users/me', data),
-  changePass:   (data) => put('/api/users/me/password', data),
-  getApiKey:    ()     => get('/api/users/me/api-key'),
-  generateKey:  ()     => post('/api/users/me/api-key', {}),
-  revokeKey:    ()     => del('/api/users/me/api-key'),
+  me:            ()     => get('/api/users/me'),
+  update:        (data) => put('/api/users/me', data),
+  changePass:    (data) => put('/api/users/me/password', data),
+  getApiKey:     ()     => get('/api/users/me/api-key'),
+  generateKey:   ()     => post('/api/users/me/api-key', {}),
+  revokeKey:     ()     => del('/api/users/me/api-key'),
+  exportData:    ()     => get('/api/users/me/export'),
+  deleteAccount: ()     => del('/api/users/me'),
 }
 
 // ── Analytics ─────────────────────────────────────────────────────────────────

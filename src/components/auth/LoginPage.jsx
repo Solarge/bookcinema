@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
+import { LegalLinks } from '../legal/LegalPages'
 
 export default function LoginPage({ onSwitchToRegister, onForgotPassword }) {
   const { login } = useAuth()
@@ -40,6 +41,8 @@ export default function LoginPage({ onSwitchToRegister, onForgotPassword }) {
           <button onClick={onSwitchToRegister} style={linkBtn}>Create account</button>
           <button onClick={onForgotPassword}   style={linkBtn}>Forgot password?</button>
         </div>
+
+        <LegalLinks />
       </div>
     </div>
   )

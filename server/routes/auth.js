@@ -13,12 +13,13 @@ const router = Router()
 // POST /api/auth/register
 router.post('/register', authLimiter, async (req, res) => {
   try {
-    const { name, email, password } = req.body
+    const { name, email, password, consent } = req.body
     if (!name || !email || !password) return res.status(400).json({ error: 'name, email and password are required' })
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' })
+    if (!consent) return res.status(400).json({ error: 'You must accept the Terms and Privacy Policy' })
     const exists = await User.findOne({ email: email.toLowerCase() })
     if (exists) return res.status(409).json({ error: 'Email already registered' })
-    const user = await User.create({ name, email, password })
+    const user = await User.create({ name, email, password, consentedAt: new Date() })
     try {
       await createPersonalWorkspace(user)
     } catch (wsErr) {
