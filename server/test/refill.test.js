@@ -9,7 +9,7 @@ import { applyMonthlyRefill, currentPeriod } from '../utils/refill.js'
 before(startTestDB); after(stopTestDB); beforeEach(clearTestDB)
 async function ws(plan, balance, period) {
   const u = new mongoose.Types.ObjectId()
-  return Workspace.create({ name: 'W', type: 'personal', ownerId: u, members: [{ userId: u, role: 'owner' }], plan, creditBalance: balance, creditPeriod: period })
+  return Workspace.create({ name: 'W', type: 'personal', ownerId: u, members: [{ userId: u, role: 'owner' }], plan, monthlyCredits: balance, creditPeriod: period })
 }
 
 test('refills to the plan allowance when the period rolls over', async () => {
