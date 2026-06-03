@@ -4,6 +4,9 @@ import { Worker } from 'bullmq'
 import { GENERATION_QUEUE } from '../queue/generationQueue.js'
 import { processGeneration } from './processGeneration.js'
 import { maybeRefundOnFailure } from './refundOnFailure.js'
+import { SOCIAL_PUBLISH_QUEUE } from '../utils/socialQueue.js'
+import { processSocialPublish } from './processSocialPublish.js'
+import { getProvider } from '../social/index.js'
 
 if (!config.redis.url) { console.error('Worker requires REDIS_URL'); process.exit(1) }
 
@@ -16,6 +19,8 @@ const connection = {
 }
 
 await connectDB()
+
+// Generation worker
 const worker = new Worker(GENERATION_QUEUE, async (job) => processGeneration(job.data), { connection, concurrency: config.managed.maxConcurrent, lockDuration: 150000 })
 worker.on('completed', (j) => console.log('✓ job done', j.id))
 worker.on('failed', async (job, err) => {
@@ -23,3 +28,15 @@ worker.on('failed', async (job, err) => {
   await maybeRefundOnFailure(job)
 })
 console.log('✓ Generation worker listening on queue:', GENERATION_QUEUE)
+
+// Social publish worker — generous lockDuration for video uploads
+const socialWorker = new Worker(
+  SOCIAL_PUBLISH_QUEUE,
+  async (job) => processSocialPublish(job.data.postId, { getProvider }),
+  { connection, concurrency: 2, lockDuration: 300000 },
+)
+socialWorker.on('completed', (j) => console.log('✓ social publish done', j.id))
+socialWorker.on('failed', (job, err) => {
+  console.warn('✗ social publish failed', job?.id, err?.message)
+})
+console.log('✓ Social publish worker listening on queue:', SOCIAL_PUBLISH_QUEUE)
