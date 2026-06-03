@@ -1,7 +1,7 @@
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
 import { generateSeriesBibleHtml } from './seriesBible'
-import { applyWatermark, shouldWatermark } from './watermark'
+import { applyWatermark } from './watermark'
 
 function slugify(str) {
   return String(str).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -17,14 +17,18 @@ async function blobFromUrl(url) {
 }
 
 // Returns a blob for a (possibly watermarked) image URL.
-// When watermarking is needed, applyWatermark returns a new blob: URL —
-// we fetch that to get the final blob, then revoke the temporary object URL.
+// applyWatermark already no-ops (returns original url) for paid plans, so no
+// separate shouldWatermark guard is needed here.
+// The Promise.race with an 8 s timeout ensures a stalled watermark never
+// freezes the ZIP export — it falls back to the original url.
 async function imageBlobForExport(url, plan) {
-  if (!shouldWatermark(plan)) return blobFromUrl(url)
-  const watermarkedUrl = await applyWatermark(url, 'BookFilm Studio', plan)
-  if (watermarkedUrl === url) return blobFromUrl(url) // watermark had no effect (error path)
+  const watermarkedUrl = await Promise.race([
+    applyWatermark(url, 'BookFilm Studio', plan),
+    new Promise((r) => setTimeout(() => r(url), 8000)),
+  ])
   const blob = await blobFromUrl(watermarkedUrl)
-  URL.revokeObjectURL(watermarkedUrl)
+  // Revoke the temporary object URL created by applyWatermark (if any)
+  if (watermarkedUrl !== url) URL.revokeObjectURL(watermarkedUrl)
   return blob
 }
 
