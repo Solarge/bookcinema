@@ -30,3 +30,12 @@ test('processGeneration marks the job failed + logs on adapter error', async () 
   assert.match(updated.errorMessage, /boom/)
   assert.equal(await UsageLog.countDocuments({ workspaceId: wsId, success: false }), 1)
 })
+
+test('processGeneration marks job failed when resolve throws (no stuck queued)', async () => {
+  const wsId = new mongoose.Types.ObjectId(), uid = new mongoose.Types.ObjectId()
+  const job = await Job.create({ workspaceId: wsId, createdBy: uid, type: 'text', tier: 'standard', status: 'queued' })
+  const throwingResolve = () => { throw new Error('unknown tier') }
+  await assert.rejects(() => processGeneration({ jobId: String(job._id), type: 'text', tier: 'ultra', payload: {}, workspaceId: String(wsId), createdBy: String(uid) }, { resolveFn: throwingResolve }))
+  const updated = await Job.findById(job._id)
+  assert.equal(updated.status, 'failed')
+})

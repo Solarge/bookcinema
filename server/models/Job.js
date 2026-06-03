@@ -18,5 +18,6 @@ const jobSchema = new mongoose.Schema({
 }, { timestamps: true })
 
 jobSchema.index({ workspaceId: 1, createdAt: -1 })
+jobSchema.index({ workspaceId: 1, type: 1, createdAt: -1 })
 
 export default mongoose.model('Job', jobSchema)

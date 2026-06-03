@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import mongoose from 'mongoose'
 import Job from '../models/Job.js'
 import { requireAuth } from '../middleware/auth.js'
 import { resolveWorkspace } from '../middleware/workspace.js'
@@ -19,15 +20,16 @@ router.get('/', async (req, res) => {
     const limit = Math.min(Number(req.query.limit) || 20, 100)
     const jobs = await Job.find({ workspaceId: req.workspace._id }).sort({ createdAt: -1 }).limit(limit)
     res.json(jobs.map(view))
-  } catch (err) { res.status(500).json({ error: err.message }) }
+  } catch (err) { console.error('jobs list error:', err); res.status(500).json({ error: 'Server error' }) }
 })
 
 router.get('/:id', async (req, res) => {
   try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Job not found' })
     const job = await Job.findOne({ _id: req.params.id, workspaceId: req.workspace._id })
     if (!job) return res.status(404).json({ error: 'Job not found' })
     res.json(view(job))
-  } catch (err) { res.status(404).json({ error: 'Job not found' }) }
+  } catch (err) { console.error('jobs/:id error:', err); res.status(500).json({ error: 'Server error' }) }
 })
 
 export default router
