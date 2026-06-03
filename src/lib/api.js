@@ -132,6 +132,12 @@ export async function pollJob(jobId, { intervalMs = 2000, timeoutMs = 180000, on
   }
 }
 
+// ── Billing ─────────────────────────────────────────────────────────────────
+export const billing = {
+  checkout: (data) => post('/api/billing/checkout', data), // { kind, key } -> { url }
+  portal:   ()     => get('/api/billing/portal'),          // -> { url }
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const admin = {
   users:                 (p)              => get(`/api/admin/users?${new URLSearchParams(p)}`),

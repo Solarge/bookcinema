@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
-import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi } from '../../lib/api'
+import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi } from '../../lib/api'
 import { planFeatures } from '../../utils/planFeatures'
 
 const PLAN_SUMMARIES = {
@@ -171,6 +171,80 @@ export default function ProfilePage({ onClose }) {
                       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', lineHeight: '1.6' }}>
                         {PLAN_SUMMARIES[ws.plan] || PLAN_SUMMARIES.free}
                       </div>
+                    </div>
+
+                    {/* Credit breakdown */}
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>Credit Breakdown</div>
+                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        {[
+                          ['Monthly', ws.monthlyCredits ?? 0],
+                          ['Purchased', ws.purchasedCredits ?? 0],
+                          ['Total', ws.creditBalance ?? ((ws.monthlyCredits ?? 0) + (ws.purchasedCredits ?? 0))],
+                        ].map(([label, val]) => (
+                          <div key={label} style={{ background: '#0a0806', border: '1px solid var(--border)', padding: '8px 12px', minWidth: '80px', textAlign: 'center' }}>
+                            <div style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', color: label === 'Total' ? 'var(--gold)' : 'var(--cream)', lineHeight: 1 }}>{val}</div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginTop: '3px' }}>{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Upgrade subscriptions */}
+                    {ws.plan !== 'studio' && (
+                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Upgrade Plan</div>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                          {ws.plan !== 'pro' && (
+                            <button
+                              onClick={async () => {
+                                try { const { url } = await billingApi.checkout({ kind: 'subscription', key: 'pro' }); window.location.href = url }
+                                catch (err) { setMsg(err.message) }
+                              }}
+                              style={btn(false)}
+                            >Upgrade to Pro</button>
+                          )}
+                          <button
+                            onClick={async () => {
+                              try { const { url } = await billingApi.checkout({ kind: 'subscription', key: 'studio' }); window.location.href = url }
+                              catch (err) { setMsg(err.message) }
+                            }}
+                            style={btn(false)}
+                          >Upgrade to Studio</button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Buy credit packs */}
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Buy Credits</div>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {[
+                          ['100 credits', 'pack_small'],
+                          ['500 credits', 'pack_medium'],
+                          ['2000 credits', 'pack_large'],
+                        ].map(([label, key]) => (
+                          <button
+                            key={key}
+                            onClick={async () => {
+                              try { const { url } = await billingApi.checkout({ kind: 'pack', key }); window.location.href = url }
+                              catch (err) { setMsg(err.message) }
+                            }}
+                            style={{ ...btn(false), background: 'var(--surface2)', color: 'var(--gold)', border: '1px solid var(--gold)' }}
+                          >{label}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Manage billing */}
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+                      <button
+                        onClick={async () => {
+                          try { const { url } = await billingApi.portal(); window.location.href = url }
+                          catch (err) { setMsg(err.message) }
+                        }}
+                        style={{ ...btn(false), background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }}
+                      >Manage Billing</button>
                     </div>
                   </div>
                 ) : null
