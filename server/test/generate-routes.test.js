@@ -108,7 +108,8 @@ test('POST /image 403 when workspace not allowlisted', async () => {
 
 test('POST /text 402 when the workspace is out of credits', async () => {
   const { token, workspace } = await betaUser()
-  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 0 })
+  const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
+  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 0, creditPeriod: period })
   const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/text'), token, workspace._id)
     .send({ bookText: 'x', tier: 'standard' })
   assert.equal(res.status, 402)
@@ -116,7 +117,8 @@ test('POST /text 402 when the workspace is out of credits', async () => {
 
 test('POST /text debits credits on enqueue (text standard = 1)', async () => {
   const { token, workspace } = await betaUser()
-  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 5 })
+  const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
+  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 5, creditPeriod: period })
   const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/text'), token, workspace._id)
     .send({ bookText: 'x', tier: 'standard' })
   assert.equal(res.status, 202)
@@ -125,7 +127,8 @@ test('POST /text debits credits on enqueue (text standard = 1)', async () => {
 
 test('POST /image debits cost-weighted credits (image standard = 4)', async () => {
   const { token, workspace } = await betaUser()
-  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 10 })
+  const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
+  await Workspace.findByIdAndUpdate(workspace._id, { creditBalance: 10, creditPeriod: period })
   const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/image'), token, workspace._id)
     .send({ prompt: 'a fox', tier: 'standard' })
   assert.equal(res.status, 202)

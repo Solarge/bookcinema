@@ -1,5 +1,6 @@
 import Job from '../models/Job.js'
 import { config } from '../config.js'
+import { applyMonthlyRefill } from '../utils/refill.js'
 
 function startOfUtcDay() { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d }
 
@@ -10,6 +11,8 @@ export function managedAccess(type, overrides = {}) {
       if (!enabled) return res.status(503).json({ error: 'Managed generation is temporarily disabled' })
 
       if (!req.workspace?.managedBeta) return res.status(403).json({ error: 'Managed generation is not enabled for this workspace' })
+
+      req.workspace = await applyMonthlyRefill(req.workspace)
 
       const wsId = req.workspace._id
       const maxConcurrent = overrides.maxConcurrentOverride ?? config.managed.maxConcurrent

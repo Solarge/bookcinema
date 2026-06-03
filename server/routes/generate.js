@@ -6,11 +6,16 @@ import { managedAccess } from '../middleware/managedAccess.js'
 import { addGenerationJob } from '../queue/generationQueue.js'
 import { creditCost } from '../generation/creditCost.js'
 import { debitCredits, refundCredits } from '../utils/credits.js'
+import { planFeatures } from '../plans.js'
 
 const router = Router()
 router.use(requireAuth, resolveWorkspace)
 
 async function enqueueGeneration(req, res, { type, tier, params, payload }) {
+  if (tier === 'premium' && !planFeatures(req.workspace.plan).premium) {
+    return res.status(403).json({ error: 'Premium tier requires the Pro or Studio plan' })
+  }
+
   let cost
   try { cost = creditCost(type, tier) } catch { return res.status(400).json({ error: 'Invalid tier' }) }
 

@@ -6,6 +6,7 @@ import User from '../models/User.js'
 import { requireAuth } from '../middleware/auth.js'
 import { sendEmail, teamInviteEmail } from '../utils/email.js'
 import { config } from '../config.js'
+import { planFeatures } from '../plans.js'
 
 const router = Router()
 router.use(requireAuth)
@@ -59,7 +60,11 @@ router.put('/:id', async (req, res) => {
     if (!ws) return res.status(403).json({ error: 'Not workspace owner' })
     const { name, settings } = req.body
     if (name)     ws.name = name
-    if (settings) Object.assign(ws.settings, settings)
+    if (settings) {
+      const next = { ...settings }
+      if (next.whiteLabel && !planFeatures(ws.plan).whiteLabel) delete next.whiteLabel
+      Object.assign(ws.settings, next)
+    }
     await ws.save()
     res.json(ws)
   } catch (err) { res.status(500).json({ error: err.message }) }

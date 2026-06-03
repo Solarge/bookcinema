@@ -100,3 +100,20 @@ test('PATCH cannot promote a member to owner', async () => {
   const res = await bearer(request(app()).patch(`/api/workspaces/${org._id}/members/${memberId}`), token).send({ role: 'owner' })
   assert.equal(res.status, 400)
 })
+
+test('PUT workspace settings ignores whiteLabel unless plan is studio', async () => {
+  const { user, token } = await makeAuthedUser()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, plan: 'pro', members: [{ userId: user._id, role: 'owner' }] })
+  const res = await bearer(request(app()).put(`/api/workspaces/${org._id}`), token).send({ settings: { whiteLabel: { appName: 'Mine' } } })
+  assert.equal(res.status, 200)
+  const ws = await Workspace.findById(org._id)
+  assert.deepEqual(ws.settings.whiteLabel, {})
+})
+test('PUT workspace settings allows whiteLabel on studio plan', async () => {
+  const { user, token } = await makeAuthedUser()
+  const org = await Workspace.create({ name: 'Org', type: 'organization', ownerId: user._id, plan: 'studio', members: [{ userId: user._id, role: 'owner' }] })
+  const res = await bearer(request(app()).put(`/api/workspaces/${org._id}`), token).send({ settings: { whiteLabel: { appName: 'Mine' } } })
+  assert.equal(res.status, 200)
+  const ws = await Workspace.findById(org._id)
+  assert.equal(ws.settings.whiteLabel.appName, 'Mine')
+})
