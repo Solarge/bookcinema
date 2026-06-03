@@ -210,6 +210,15 @@ export default function ProfilePage({ onClose }) {
                       </div>
                     </div>
 
+                    {/* Per-seat billing line (org + paid plan) */}
+                    {ws.type === 'organization' && (ws.plan === 'pro' || ws.plan === 'studio') && (
+                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '1.5px' }}>
+                          Billed per seat — <span style={{ color: 'var(--cream)' }}>{(members ?? ws.members ?? []).length} × {ws.plan}</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Credit breakdown */}
                     <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
                       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>Credit Breakdown</div>
@@ -288,7 +297,21 @@ export default function ProfilePage({ onClose }) {
               })()}
 
               {/* Members list */}
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Members</div>
+              {(() => {
+                const ws = wsList.find(w => w._id === activeWorkspace)
+                const memberCount = members?.length ?? 0
+                return ws?.type === 'organization' ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase' }}>Members</div>
+                    <div style={{ background: '#0a0806', border: '1px solid var(--border)', padding: '4px 10px', textAlign: 'center' }}>
+                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: '14px', color: 'var(--gold)', lineHeight: 1 }}>{memberCount}</span>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginLeft: '5px' }}>Seats</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Members</div>
+                )
+              })()}
               {members === null ? (
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '16px' }}>Loading…</div>
               ) : (
@@ -354,7 +377,13 @@ export default function ProfilePage({ onClose }) {
                       const res = await workspacesApi.invite(activeWorkspace, { email: inviteEmail, role: 'member' })
                       setMsg(res.message)
                       setInviteEmail('')
-                    } catch (err) { setMsg(err.message) }
+                    } catch (err) {
+                      if (err.code === 'seat_limit' || err.status === 402) {
+                        setMsg('Upgrade to a paid plan to add team members — use the Upgrade buttons above.')
+                      } else {
+                        setMsg(err.message)
+                      }
+                    }
                   }}
                   style={btn(false)}
                 >Invite</button>

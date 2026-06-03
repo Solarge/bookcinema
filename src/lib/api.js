@@ -33,8 +33,11 @@ async function request(path, options = {}) {
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
-    throw new Error(err.error || `Request failed: ${res.status}`)
+    const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    const err = new Error(body.error || `Request failed: ${res.status}`)
+    if (body.code) err.code = body.code
+    err.status = res.status
+    throw err
   }
 
   if (res.status === 204 || res.headers.get('content-length') === '0') return null
