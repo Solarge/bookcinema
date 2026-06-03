@@ -36,4 +36,29 @@ router.post('/text', managedAccess('text'), async (req, res) => {
   } catch (err) { console.error('generate/text error:', err); res.status(500).json({ error: 'Server error' }) }
 })
 
+// POST /api/generate/voice
+router.post('/voice', managedAccess('voice'), async (req, res) => {
+  try {
+    const { text, voiceId, tier = 'standard' } = req.body
+    if (!text) return res.status(400).json({ error: 'text is required' })
+    if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+
+    const job = await Job.create({
+      workspaceId: req.workspace._id, createdBy: req.user._id,
+      type: 'voice', tier, status: 'queued', params: { voiceId: voiceId || null },
+    })
+    try {
+      const queue = req.app.locals.generationQueue
+      const bull = await addGenerationJob({ jobId: String(job._id), type: 'voice', tier, payload: { text, voiceId }, workspaceId: String(req.workspace._id), createdBy: String(req.user._id) }, queue)
+      job.bullJobId = bull?.id ? String(bull.id) : null
+      await job.save()
+    } catch (qErr) {
+      job.status = 'failed'; job.errorMessage = 'Could not enqueue (queue unavailable)'
+      await job.save()
+      return res.status(503).json({ error: 'Generation queue unavailable', jobId: String(job._id) })
+    }
+    res.status(202).json({ jobId: String(job._id) })
+  } catch (err) { console.error('generate/voice error:', err); res.status(500).json({ error: 'Server error' }) }
+})
+
 export default router

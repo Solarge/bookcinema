@@ -39,3 +39,18 @@ test('processGeneration marks job failed when resolve throws (no stuck queued)',
   const updated = await Job.findById(job._id)
   assert.equal(updated.status, 'failed')
 })
+
+test('processGeneration uploads media result to S3 and stores resultUrl (done)', async () => {
+  const wsId = new mongoose.Types.ObjectId(), uid = new mongoose.Types.ObjectId()
+  const job = await Job.create({ workspaceId: wsId, createdBy: uid, type: 'voice', tier: 'standard', status: 'queued' })
+  const fakeResolve = () => ({ provider: 'openai', adapter: { generate: async () => ({ buffer: Buffer.from('audiobytes'), mimeType: 'audio/mpeg', ext: 'mp3' }) } })
+  let uploadedKey = null
+  const fakeUpload = async (key) => { uploadedKey = key; return 'https://s3.example/' + key }
+  await processGeneration({ jobId: String(job._id), type: 'voice', tier: 'standard', payload: { text: 'hi' }, workspaceId: String(wsId), createdBy: String(uid) }, { resolveFn: fakeResolve, uploadFn: fakeUpload })
+  const updated = await Job.findById(job._id)
+  assert.equal(updated.status, 'done')
+  assert.match(updated.resultUrl, /^https:\/\/s3\.example\/generated\//)
+  assert.equal(updated.resultText, null)
+  assert.match(uploadedKey, new RegExp(`generated/${wsId}/${job._id}\\.mp3`))
+  assert.equal(await UsageLog.countDocuments({ workspaceId: wsId, action: 'generate_voice', success: true }), 1)
+})
