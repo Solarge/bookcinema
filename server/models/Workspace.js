@@ -25,6 +25,8 @@ const workspaceSchema = new mongoose.Schema({
   // Managed-generation beta allowlist — gates which tenants may spend platform money
   managedBeta: { type: Boolean, default: false },
 
+  creditBalance: { type: Number, default: 25, min: 0 },
+
   members: [memberSchema],
   invites: [inviteSchema],
   settings: {
