@@ -134,9 +134,10 @@ export async function pollJob(jobId, { intervalMs = 2000, timeoutMs = 180000, on
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export const admin = {
-  users:        (p)         => get(`/api/admin/users?${new URLSearchParams(p)}`),
-  setCredits:   (id, c, op) => patch(`/api/admin/users/${id}/credits`, { credits: c, operation: op }),
-  setPlan:      (id, data)  => patch(`/api/admin/users/${id}/plan`, data),
-  deactivate:   (id)        => patch(`/api/admin/users/${id}/deactivate`, {}),
-  stats:        ()          => get('/api/admin/stats'),
+  users:                 (p)              => get(`/api/admin/users?${new URLSearchParams(p)}`),
+  setCredits:            (id, c, op)      => patch(`/api/admin/users/${id}/credits`, { credits: c, operation: op }),
+  setPlan:               (id, data)       => patch(`/api/admin/users/${id}/plan`, data),
+  deactivate:            (id)             => patch(`/api/admin/users/${id}/deactivate`, {}),
+  stats:                 ()               => get('/api/admin/stats'),
+  grantWorkspaceCredits: (id, amount, note) => patch(`/api/admin/workspaces/${id}/credits`, { amount, note }),
 }

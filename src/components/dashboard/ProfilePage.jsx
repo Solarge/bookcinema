@@ -133,12 +133,27 @@ export default function ProfilePage({ onClose }) {
               {/* Current workspace info */}
               {(() => {
                 const ws = wsList.find(w => w._id === activeWorkspace)
+                const creditBalance = ws?.creditBalance ?? 0
                 return ws ? (
                   <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '14px 16px', marginBottom: '20px' }}>
                     <div style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '2px', marginBottom: '6px' }}>{ws.name}</div>
-                    <div style={{ display: 'flex', gap: '16px' }}>
+                    <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Type: <span style={{ color: 'var(--cream)' }}>{ws.type}</span></span>
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Plan: <span style={{ color: 'var(--cream)' }}>{ws.plan}</span></span>
+                    </div>
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ fontFamily: "'Cinzel', serif", fontSize: '26px', color: 'var(--gold)', lineHeight: 1 }}>{creditBalance}</span>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '2px' }}>Credits</span>
+                      </div>
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', marginBottom: creditBalance === 0 ? '8px' : '0' }}>
+                        Used by managed generation (text 1, voice 1–5, image 4–10 per generation).
+                      </div>
+                      {creditBalance === 0 && (
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f0a050', marginTop: '2px' }}>
+                          Out of credits — managed generation is paused. Ask an admin to grant credits.
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : null
