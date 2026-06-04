@@ -330,15 +330,16 @@ test('POST /api/social/posts 202 with future scheduledAt + connected account, jo
   )
 
   assert.equal(res.status, 202, `expected 202, got ${res.status}: ${JSON.stringify(res.body)}`)
-  assert.ok(res.body._id, 'post _id returned')
-  assert.ok(res.body.jobId, 'jobId saved on post')
-  assert.equal(res.body.jobId, 'job1')
+  // toClient() returns id (not _id) and omits jobId
+  assert.ok(res.body.id, 'post id returned')
+  assert.equal(res.body.jobId, undefined, 'jobId must NOT be in client response')
+  assert.equal(res.body.socialAccountId, undefined, 'socialAccountId must NOT be in client response')
   assert.equal(captured.name, 'social-publish')
-  assert.equal(captured.data.postId, res.body._id)
+  assert.equal(captured.data.postId, res.body.id)
   assert.ok(captured.opts.delay > 0, 'delay > 0 for future scheduledAt')
 
-  // Post persisted in DB
-  const dbPost = await ScheduledPost.findById(res.body._id)
+  // Post persisted in DB with jobId
+  const dbPost = await ScheduledPost.findById(res.body.id)
   assert.ok(dbPost, 'post in DB')
   assert.equal(dbPost.jobId, 'job1')
 })
@@ -609,7 +610,80 @@ test('POST /api/social/posts creates post even when queue is null (no Redis)', a
     token, workspace._id,
   )
   assert.equal(res.status, 202)
-  assert.ok(res.body._id)
-  // jobId is null since there's no queue
-  assert.ok(!res.body.jobId, 'no jobId when queue is null')
+  assert.ok(res.body.id, 'post id returned')
+  // jobId must never be in the client response
+  assert.equal(res.body.jobId, undefined, 'jobId must NOT be in client response')
+})
+
+// ---------------------------------------------------------------------------
+// Finding A: SSRF rejection for dangerous videoUrl values
+// ---------------------------------------------------------------------------
+
+test('POST /api/social/posts 400 invalid_video_url for IMDS metadata URL', async () => {
+  const { workspace, token } = await makeAuthedUser()
+  await seedAccount(workspace._id, 'youtube')
+  const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
+  const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })
+  const app       = buildApp({ queue: fakeQueue, registry })
+
+  const res = await authed(
+    request(app).post('/api/social/posts').send({
+      videoUrl:    'http://169.254.169.254/latest/meta-data',
+      targets:     ['youtube'],
+      scheduledAt: FUTURE().toISOString(),
+    }),
+    token, workspace._id,
+  )
+  assert.equal(res.status, 400)
+  assert.equal(res.body.code, 'invalid_video_url')
+})
+
+test('POST /api/social/posts 400 invalid_video_url for http (non-https) URL', async () => {
+  const { workspace, token } = await makeAuthedUser()
+  await seedAccount(workspace._id, 'youtube')
+  const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
+  const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })
+  const app       = buildApp({ queue: fakeQueue, registry })
+
+  const res = await authed(
+    request(app).post('/api/social/posts').send({
+      videoUrl:    'http://s3.example/video.mp4',
+      targets:     ['youtube'],
+      scheduledAt: FUTURE().toISOString(),
+    }),
+    token, workspace._id,
+  )
+  assert.equal(res.status, 400)
+  assert.equal(res.body.code, 'invalid_video_url')
+})
+
+// ---------------------------------------------------------------------------
+// Finding B: GET /posts response must not expose internal fields
+// ---------------------------------------------------------------------------
+
+test('GET /api/social/posts response objects do NOT contain socialAccountId, jobId, createdBy, workspaceId', async () => {
+  const { workspace, token } = await makeAuthedUser()
+  const uid     = new mongoose.Types.ObjectId()
+  const account = await seedAccount(workspace._id, 'youtube')
+
+  await seedPost(workspace._id, uid, account._id, 'youtube', { jobId: 'job-secret' })
+
+  const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
+  const app = buildApp({ queue: fakeQueue, registry: makeFakeRegistry({}) })
+
+  const res = await authed(request(app).get('/api/social/posts'), token, workspace._id)
+  assert.equal(res.status, 200)
+  assert.ok(res.body.length >= 1, 'at least one post returned')
+
+  for (const p of res.body) {
+    assert.equal(p.socialAccountId, undefined, 'socialAccountId must be absent')
+    assert.equal(p.jobId,           undefined, 'jobId must be absent')
+    assert.equal(p.createdBy,       undefined, 'createdBy must be absent')
+    assert.equal(p.workspaceId,     undefined, 'workspaceId must be absent')
+    // Safe fields must be present
+    assert.ok(p.id,          'id present')
+    assert.ok(p.videoUrl,    'videoUrl present')
+    assert.ok(p.status,      'status present')
+    assert.ok(p.scheduledAt, 'scheduledAt present')
+  }
 })

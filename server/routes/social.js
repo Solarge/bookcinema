@@ -18,6 +18,7 @@ import { encryptToken, decryptToken } from '../utils/cryptoTokens.js'
 import { config } from '../config.js'
 import { getProvider, listConfigured } from '../social/index.js'
 import { getSocialPublishQueue } from '../utils/socialQueue.js'
+import { validateVideoUrl } from '../utils/urlGuard.js'
 
 const VALID_PLATFORMS = ['youtube', 'tiktok', 'instagram', 'facebook', 'x', 'linkedin']
 
@@ -220,6 +221,13 @@ socialRouter.post('/posts', requireAuth, resolveWorkspace, async (req, res) => {
     if (!videoUrl) {
       return res.status(400).json({ error: 'videoUrl is required' })
     }
+
+    // Finding A — SSRF guard: validate videoUrl before any DB work
+    const urlCheck = validateVideoUrl(videoUrl)
+    if (!urlCheck.ok) {
+      return res.status(400).json({ error: 'Invalid video URL', code: 'invalid_video_url' })
+    }
+
     if (!targets || !Array.isArray(targets) || targets.length === 0) {
       return res.status(400).json({ error: 'targets must be a non-empty array of platform keys' })
     }
@@ -231,6 +239,10 @@ socialRouter.post('/posts', requireAuth, resolveWorkspace, async (req, res) => {
     }
     if (scheduledDate <= new Date()) {
       return res.status(400).json({ error: 'scheduledAt must be in the future' })
+    }
+    // Finding D — cap scheduling horizon to 1 year
+    if (scheduledDate.getTime() > Date.now() + 365 * 24 * 3600 * 1000) {
+      return res.status(400).json({ error: 'scheduledAt is too far in the future', code: 'schedule_too_far' })
     }
 
     // Validate each target platform
@@ -309,7 +321,7 @@ socialRouter.post('/posts', requireAuth, resolveWorkspace, async (req, res) => {
     // no job fires — documented limitation, does not crash.
 
     await post.save()
-    return res.status(202).json(post)
+    return res.status(202).json(post.toClient())
   } catch (err) {
     console.error('social/posts POST error:', err)
     res.status(500).json({ error: 'Server error' })
@@ -324,7 +336,7 @@ socialRouter.get('/posts', requireAuth, resolveWorkspace, async (req, res) => {
     const posts = await ScheduledPost
       .find({ workspaceId: req.workspace._id })
       .sort({ createdAt: -1 })
-    res.json(posts)
+    res.json(posts.map(p => p.toClient()))
   } catch (err) {
     console.error('social/posts GET error:', err)
     res.status(500).json({ error: 'Server error' })
@@ -357,7 +369,7 @@ socialRouter.delete('/posts/:id', requireAuth, resolveWorkspace, async (req, res
 
     post.status = 'canceled'
     await post.save()
-    res.json({ ok: true, post })
+    res.json({ ok: true, post: post.toClient() })
   } catch (err) {
     console.error('social/posts DELETE error:', err)
     res.status(500).json({ error: 'Server error' })

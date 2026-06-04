@@ -74,4 +74,27 @@ const scheduledPostSchema = new mongoose.Schema({
   },
 }, { timestamps: true })
 
+/**
+ * Returns a safe client-facing representation of this post.
+ * Omits internal fields: socialAccountId, jobId, createdBy, workspaceId, externalId.
+ */
+scheduledPostSchema.methods.toClient = function toClient() {
+  return {
+    id:                 this._id,
+    videoUrl:           this.videoUrl,
+    title:              this.title,
+    caption:            this.caption,
+    perPlatformCaption: this.perPlatformCaption,
+    scheduledAt:        this.scheduledAt,
+    status:             this.status,
+    createdAt:          this.createdAt,
+    targets: (this.targets || []).map(t => ({
+      platform: t.platform,
+      status:   t.status,
+      postUrl:  t.postUrl,
+      error:    t.error,
+    })),
+  }
+}
+
 export default mongoose.model('ScheduledPost', scheduledPostSchema)
