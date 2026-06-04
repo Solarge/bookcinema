@@ -10,6 +10,7 @@ import LoginPage from './components/auth/LoginPage'
 import RegisterPage from './components/auth/RegisterPage'
 import ForgotPasswordPage, { ResetPasswordPage } from './components/auth/ForgotPasswordPage'
 import ProfilePage from './components/dashboard/ProfilePage'
+import PublicSeriesView from './components/PublicSeriesView'
 import { generateSeries } from './utils/textProviders/index'
 import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob, auth as authApi } from './lib/api'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
@@ -121,6 +122,7 @@ function AppInner() {
   const [page, setPage]                   = useState('home')
   const [uploadedText, setUploadedText]   = useState('')
   const [generatedSeries, setGeneratedSeries] = useState(null)
+  const [generatedSeriesId, setGeneratedSeriesId] = useState(null) // MongoDB _id after save
   const [errorMsg, setErrorMsg]           = useState(null)
   const [genrePreset, setGenrePreset]     = useState('cinematic')
   const [showProfile, setShowProfile]     = useState(false)
@@ -194,13 +196,15 @@ function AppInner() {
         series = await generateSeries(bookText, preset, settings)
       }
       setGeneratedSeries(series)
+      setGeneratedSeriesId(null)
       try {
-        await seriesApi.create({
+        const saved = await seriesApi.create({
           title: series.title, author: series.author, logline: series.logline,
           genrePreset: preset, language: settings.language ?? 'en',
           textProvider: settings.mode === 'managed' ? `managed:${settings.managedTier || 'standard'}` : settings.textProvider,
           fullOutput: series,
         })
+        if (saved?._id) setGeneratedSeriesId(saved._id)
       } catch (saveErr) { console.warn('Library save failed:', saveErr) }
       setPage('results')
     } catch (err) {
@@ -209,8 +213,8 @@ function AppInner() {
     }
   }, [settings])
 
-  const handleViewLibraryItem = useCallback((series) => { setGeneratedSeries(series); setPage('results') }, [])
-  const handleNewBook = useCallback(() => { setGeneratedSeries(null); setUploadedText(''); setErrorMsg(null); setPage('home') }, [])
+  const handleViewLibraryItem = useCallback((seriesData, seriesId) => { setGeneratedSeries(seriesData); setGeneratedSeriesId(seriesId || null); setPage('results') }, [])
+  const handleNewBook = useCallback(() => { setGeneratedSeries(null); setGeneratedSeriesId(null); setUploadedText(''); setErrorMsg(null); setPage('home') }, [])
 
   // Is the logged-in user's email unverified?
   const isUnverified = user && !user.emailVerifiedAt
@@ -260,7 +264,7 @@ function AppInner() {
       {page === 'loading' && <LoadingScreen />}
       {page === 'results' && generatedSeries && (
         <MediaProvider seriesSlug={generatedSeries.title?.replace(/\s+/g, '-').toLowerCase() || 'series'}>
-          <ResultsScreen series={generatedSeries} onNewBook={handleNewBook} />
+          <ResultsScreen series={generatedSeries} seriesId={generatedSeriesId} onNewBook={handleNewBook} />
         </MediaProvider>
       )}
       {page === 'library' && <LibraryScreen onView={handleViewLibraryItem} onBack={() => setPage('home')} />}
@@ -270,7 +274,23 @@ function AppInner() {
   )
 }
 
+// Detect a public share token from the URL — must bypass AuthGate entirely.
+function getShareTokenFromUrl() {
+  if (typeof window === 'undefined') return null
+  return new URLSearchParams(window.location.search).get('share') || null
+}
+
 export default function App() {
+  // Check for ?share= before rendering anything auth-related.
+  const shareToken = getShareTokenFromUrl()
+  if (shareToken) {
+    return (
+      <SettingsProvider>
+        <PublicSeriesView token={shareToken} />
+      </SettingsProvider>
+    )
+  }
+
   return (
     <AuthProvider>
       <SettingsProvider>

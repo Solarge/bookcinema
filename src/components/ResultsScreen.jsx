@@ -13,6 +13,7 @@ import SettingsPanel from './SettingsPanel'
 import StoryboardView from './StoryboardView'
 import SocialCardModal from './SocialCardModal'
 import { useDivModalA11y } from '../hooks/useModalA11y'
+import { series as seriesApi } from '../lib/api'
 
 // Whether generation is possible for a media kind given current settings.
 // Managed mode covers image + voice server-side (no client key needed); video has no
@@ -369,8 +370,95 @@ function BatchCostModal({ series, settings, onConfirm, onCancel }) {
   )
 }
 
+// ── Share dropdown for the toolbar ────────────────────────────────────────
+function ShareDropdown({ seriesId, onClose }) {
+  const [shareToken, setShareToken] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const shareUrl = shareToken ? `${window.location.origin}/?share=${shareToken}` : null
+
+  async function handleShare() {
+    if (!seriesId) return
+    setBusy(true)
+    try {
+      const res = await seriesApi.share(seriesId)
+      setShareToken(res.shareToken)
+    } catch (err) { console.warn('Share failed', err) }
+    finally { setBusy(false) }
+  }
+
+  async function handleRevoke() {
+    if (!seriesId) return
+    setBusy(true)
+    try {
+      await seriesApi.unshare(seriesId)
+      setShareToken(null)
+    } catch (err) { console.warn('Revoke failed', err) }
+    finally { setBusy(false) }
+  }
+
+  function handleCopy() {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div role="dialog" aria-label="Share series" style={{
+      position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200,
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      padding: '16px', width: '320px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <span style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', letterSpacing: '2px', color: 'var(--gold)', textTransform: 'uppercase' }}>Share Series</span>
+        <button onClick={onClose} aria-label="Close share panel" style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>
+      </div>
+
+      {!seriesId && (
+        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', lineHeight: '1.6' }}>
+          Save to your library first to get a shareable link.
+        </p>
+      )}
+
+      {seriesId && !shareToken && (
+        <>
+          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', lineHeight: '1.6', marginBottom: '12px' }}>
+            Create a public read-only link anyone can view.
+          </p>
+          <button onClick={handleShare} disabled={busy} aria-label="Create public share link" style={{ ...topBtn('var(--gold)', 'var(--gold)'), width: '100%', textAlign: 'center' }}>
+            {busy ? '…' : '+ Create Share Link'}
+          </button>
+        </>
+      )}
+
+      {seriesId && shareToken && (
+        <>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '1.5px', marginBottom: '8px', textTransform: 'uppercase' }}>Link active</div>
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+            <input
+              readOnly
+              value={shareUrl}
+              aria-label="Public share URL"
+              style={{ flex: 1, background: '#060810', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '6px 8px', outline: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              onFocus={e => e.target.select()}
+            />
+            <button onClick={handleCopy} aria-label="Copy share URL" style={{ ...topBtn(copied ? '#3a7a4a' : 'var(--border)', copied ? '#6dc87a' : 'var(--muted)'), padding: '6px 10px' }}>
+              {copied ? '✓' : 'Copy'}
+            </button>
+          </div>
+          <button onClick={handleRevoke} disabled={busy} aria-label="Revoke public link" style={{ ...topBtn('#3a1818', '#804040'), width: '100%', textAlign: 'center' }}>
+            {busy ? '…' : 'Revoke Link'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 // ── ResultsScreen root ─────────────────────────────────────────────────────
-export default function ResultsScreen({ series: initialSeries, onNewBook }) {
+export default function ResultsScreen({ series: initialSeries, seriesId, onNewBook }) {
   const { settings } = useSettings()
   const { activeWorkspacePlan } = useAuth()
   const { sessionCost, generateBatch, characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia, generateSceneVideo } = useMedia()
@@ -378,6 +466,7 @@ export default function ResultsScreen({ series: initialSeries, onNewBook }) {
   const [showSettings, setShowSettings] = useState(false)
   const [showStoryboard, setShowStoryboard] = useState(false)
   const [showBatchModal, setShowBatchModal] = useState(false)
+  const [showShare, setShowShare] = useState(false)
   const [zipping, setZipping] = useState(false)
 
   const { title, author, logline, series_hook, characters = [], episodes = [], production_guide } = series
@@ -455,6 +544,18 @@ export default function ResultsScreen({ series: initialSeries, onNewBook }) {
         <button onClick={() => exportHtml(series)} aria-label="Export as HTML" style={topBtn('var(--border)', 'var(--muted)')}>HTML</button>
         <button onClick={handleBibleExport} aria-label="Export series bible" style={topBtn('var(--border)', 'var(--muted)')}>Bible</button>
         <button onClick={handleZipExport} disabled={zipping} aria-label={zipping ? 'Exporting ZIP…' : 'Download ZIP export'} style={topBtn('var(--border)', 'var(--muted)')}>{zipping ? 'Zipping…' : '⬇ ZIP'}</button>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            onClick={() => setShowShare(v => !v)}
+            aria-label="Share series"
+            aria-expanded={showShare}
+            aria-haspopup="dialog"
+            style={topBtn('var(--border)', 'var(--muted)')}
+          >
+            ⬡ Share
+          </button>
+          {showShare && <ShareDropdown seriesId={seriesId} onClose={() => setShowShare(false)} />}
+        </div>
         <button onClick={() => setShowSettings(true)} aria-label="Open settings" style={topBtn('var(--border)', 'var(--muted)')}>⚙</button>
         <button onClick={onNewBook} style={topBtn('var(--border)', 'var(--muted)')}>+ New</button>
       </div>

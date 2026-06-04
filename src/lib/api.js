@@ -75,6 +75,18 @@ export const series = {
   getPublic:  (token)     => get(`/api/share/${token}`),
 }
 
+// Public share fetch — plain fetch with NO auth headers, works for logged-out visitors.
+export async function getPublicShare(token) {
+  const res = await fetch(`${BASE}/api/share/${encodeURIComponent(token)}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    const err = new Error(body.error || `Request failed: ${res.status}`)
+    err.status = res.status
+    throw err
+  }
+  return res.json()
+}
+
 // ── Assets ────────────────────────────────────────────────────────────────────
 export const assets = {
   list: (seriesId) => get(`/api/assets/${seriesId}`),
