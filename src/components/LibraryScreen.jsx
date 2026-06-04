@@ -100,16 +100,31 @@ export default function LibraryScreen({ onView, onBack }) {
   const [renaming, setRenaming] = useState(null) // _id being renamed
   const [viewing, setViewing] = useState(null)   // _id currently being fetched for view
   const [sharing, setSharing] = useState(null)   // _id whose share panel is open
+  const [search, setSearch]   = useState('')
+  const [searching, setSearching] = useState(false)
 
-  useEffect(() => {
-    seriesApi.list()
+  function loadLibrary(q) {
+    const params = q ? { search: q } : {}
+    return seriesApi.list(params)
       .then(res => setItems(res.items))
       .catch(err => {
         console.warn('LibraryScreen: failed to load series', err)
         setError('Failed to load library. Please try again.')
       })
-      .finally(() => setLoading(false))
+      .finally(() => { setLoading(false); setSearching(false) })
+  }
+
+  useEffect(() => {
+    loadLibrary('')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function handleSearch(q) {
+    setSearch(q)
+    setSearching(true)
+    setError(null)
+    loadLibrary(q)
+  }
 
   async function handleView(item) {
     if (viewing === item._id) return
@@ -164,12 +179,25 @@ export default function LibraryScreen({ onView, onBack }) {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '48px 24px' }}>
       <div style={{ maxWidth: '960px', margin: '0 auto' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px', flexWrap: 'wrap' }}>
           <button onClick={onBack} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '2px', padding: '7px 14px', cursor: 'pointer' }}>
             ← Back
           </button>
           <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: '28px', fontWeight: '600', color: 'var(--gold)' }}>My Library</h1>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>{items.length} series</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label htmlFor="library-search" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Search library</label>
+            <input
+              id="library-search"
+              type="search"
+              placeholder="Search series…"
+              value={search}
+              onChange={e => handleSearch(e.target.value)}
+              aria-label="Search series by title or author"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '7px 12px', outline: 'none', minWidth: '180px' }}
+            />
+            {searching && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }} aria-live="polite" aria-label="Searching">…</span>}
+          </div>
         </div>
 
         {error && (

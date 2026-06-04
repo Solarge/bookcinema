@@ -156,6 +156,18 @@ function AppInner() {
       window.history.replaceState({}, '', url.pathname + (url.search || ''))
       showToast('Email verified successfully!', 'info')
     }
+
+    // Social OAuth callback: ?social=connected&platform=X
+    const socialStatus   = params.get('social')
+    const socialPlatform = params.get('platform')
+    if (socialStatus === 'connected') {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('social')
+      url.searchParams.delete('platform')
+      window.history.replaceState({}, '', url.pathname + (url.search || ''))
+      const label = socialPlatform ? socialPlatform.charAt(0).toUpperCase() + socialPlatform.slice(1) : 'Social account'
+      showToast(`${label} connected successfully`, 'info')
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // run once on mount
 

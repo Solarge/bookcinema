@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
-import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi } from '../../lib/api'
+import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi, managed as managedApi } from '../../lib/api'
 import { planFeatures } from '../../utils/planFeatures'
 import DistributionPanel from '../social/DistributionPanel'
 import AdminPanel from './AdminPanel'
@@ -41,10 +41,20 @@ export default function ProfilePage({ onClose }) {
   const [msg, setMsg]               = useState('')
   const [apiKeyData, setApiKeyData] = useState(null)
   const [analyticsData, setAnalyticsData] = useState(null)
+  const [historyData, setHistoryData]     = useState(null)
+  const [providersData, setProvidersData] = useState(null)
+  const [jobsData, setJobsData]           = useState(null)
+  const [jobsLoading, setJobsLoading]     = useState(false)
   const [members, setMembers]             = useState(null)
   const [wsList, setWsList]               = useState([])
   const [inviteEmail, setInviteEmail]     = useState('')
   const [newWsName, setNewWsName]         = useState('')
+  const [wsRenaming, setWsRenaming]       = useState(false)
+  const [wsNewName, setWsNewName]         = useState('')
+  const [wlEnabled, setWlEnabled]         = useState(false)
+  const [wlName, setWlName]               = useState('')
+  const [wlColor, setWlColor]             = useState('')
+  const [wsSaving, setWsSaving]           = useState(false)
 
 
   async function saveProfile() {
@@ -71,9 +81,24 @@ export default function ProfilePage({ onClose }) {
 
   async function loadAnalytics() {
     try {
-      const data = await analyticsApi.summary(30)
-      setAnalyticsData(data)
+      const [summary, history, providers] = await Promise.all([
+        analyticsApi.summary(30),
+        analyticsApi.history(30),
+        analyticsApi.providers(),
+      ])
+      setAnalyticsData(summary)
+      setHistoryData(history)
+      setProvidersData(providers)
     } catch (err) { setMsg(err.message) }
+  }
+
+  async function loadJobs() {
+    setJobsLoading(true)
+    try {
+      const jobs = await managedApi.listJobs()
+      setJobsData(jobs)
+    } catch (err) { setMsg(err.message) }
+    finally { setJobsLoading(false) }
   }
 
   async function loadWorkspace() {
@@ -114,7 +139,7 @@ export default function ProfilePage({ onClose }) {
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
           {TABS.map(t => (
-            <button key={t} onClick={() => { setTab(t); if (t === 'analytics') loadAnalytics(); if (t === 'workspace') loadWorkspace() }} style={{
+            <button key={t} onClick={() => { setTab(t); if (t === 'analytics') { loadAnalytics(); loadJobs() } if (t === 'workspace') loadWorkspace() }} style={{
               flex: 1, background: 'transparent', border: 'none',
               borderBottom: t === tab ? '2px solid var(--gold)' : '2px solid transparent',
               color: t === tab ? 'var(--gold)' : 'var(--muted)',
@@ -365,6 +390,125 @@ export default function ProfilePage({ onClose }) {
                 ) : null
               })()}
 
+              {/* Workspace rename + white-label settings (owner only) */}
+              {(() => {
+                const ws = wsList.find(w => w._id === activeWorkspace)
+                if (!ws) return null
+                const isOwner = ws.ownerId === user?._id || String(ws.ownerId) === String(user?._id)
+                if (!isOwner) return null
+                const hasWhiteLabel = planFeatures(ws.plan).whiteLabel
+                return (
+                  <div style={{ borderTop: '1px solid var(--border)', marginTop: '16px', paddingTop: '16px', marginBottom: '20px' }}>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Workspace Settings</div>
+
+                    {/* Rename */}
+                    <div style={{ marginBottom: '14px' }}>
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>Name</div>
+                      {wsRenaming ? (
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={wsNewName}
+                            onChange={e => setWsNewName(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Escape') setWsRenaming(false) }}
+                            aria-label="New workspace name"
+                            style={{ flex: 1, background: '#0a0806', border: '1px solid var(--gold)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '9px 12px', outline: 'none' }}
+                          />
+                          <button
+                            onClick={async () => {
+                              if (!wsNewName.trim()) return
+                              setWsSaving(true)
+                              try {
+                                await workspacesApi.update(activeWorkspace, { name: wsNewName.trim() })
+                                setWsRenaming(false)
+                                setMsg('Workspace renamed')
+                                await loadWorkspace()
+                              } catch (err) { setMsg(err.message) }
+                              finally { setWsSaving(false) }
+                            }}
+                            disabled={wsSaving}
+                            style={btn(wsSaving)}
+                          >{wsSaving ? '…' : 'Save'}</button>
+                          <button onClick={() => setWsRenaming(false)} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 14px', cursor: 'pointer' }}>Cancel</button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--cream)' }}>{ws.name}</span>
+                          <button
+                            onClick={() => { setWsNewName(ws.name); setWsRenaming(true) }}
+                            aria-label="Rename workspace"
+                            style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '4px 10px', cursor: 'pointer', letterSpacing: '1px' }}
+                          >✎ Rename</button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* White-label (studio plan only) */}
+                    {hasWhiteLabel && (
+                      <div>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>White-Label Branding</div>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={wlEnabled}
+                            onChange={e => setWlEnabled(e.target.checked)}
+                            aria-label="Enable white-label branding"
+                            style={{ accentColor: 'var(--gold)', width: '14px', height: '14px' }}
+                          />
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--cream)' }}>Enable white-label</span>
+                        </label>
+                        {wlEnabled && (
+                          <div style={{ marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '4px' }}>Brand Name</div>
+                              <input
+                                type="text"
+                                placeholder="e.g. Acme Studio"
+                                value={wlName}
+                                onChange={e => setWlName(e.target.value)}
+                                aria-label="White-label brand name"
+                                style={{ width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
+                              />
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '4px' }}>Brand Color (hex)</div>
+                              <input
+                                type="text"
+                                placeholder="#c8921a"
+                                value={wlColor}
+                                onChange={e => setWlColor(e.target.value)}
+                                aria-label="White-label brand color hex value"
+                                style={{ width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <button
+                          onClick={async () => {
+                            setWsSaving(true)
+                            try {
+                              const whiteLabel = wlEnabled ? { enabled: true, name: wlName || undefined, color: wlColor || undefined } : { enabled: false }
+                              await workspacesApi.update(activeWorkspace, { settings: { whiteLabel } })
+                              setMsg('White-label settings saved')
+                              await loadWorkspace()
+                            } catch (err) { setMsg(err.message) }
+                            finally { setWsSaving(false) }
+                          }}
+                          disabled={wsSaving}
+                          style={{ ...btn(wsSaving), marginTop: '10px' }}
+                        >{wsSaving ? 'Saving…' : 'Save Branding'}</button>
+                      </div>
+                    )}
+                    {!hasWhiteLabel && (
+                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', fontStyle: 'italic' }}>
+                        White-label branding requires the Studio plan.
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
+
               {/* Members list */}
               {(() => {
                 const ws = wsList.find(w => w._id === activeWorkspace)
@@ -487,6 +631,7 @@ export default function ProfilePage({ onClose }) {
 
           {tab === 'analytics' && analyticsData && (
             <div>
+              {/* ── Summary tiles ── */}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
                 {[
                   ['Series Generated', analyticsData.stats.totalSeries ?? 0],
@@ -505,6 +650,111 @@ export default function ProfilePage({ onClose }) {
               <a href={analyticsApi.exportCSV()} download style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--gold)', textDecoration: 'underline' }}>
                 ⬇ Export CSV
               </a>
+
+              {/* ── Daily history ── */}
+              {historyData && historyData.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Daily Breakdown (last 30 days)</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Daily usage breakdown">
+                      <thead>
+                        <tr>
+                          {['Date', 'Images', 'Videos', 'Voice', 'Cost'].map(h => (
+                            <th key={h} scope="col" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '6px 8px', borderBottom: '1px solid var(--border)', textAlign: h === 'Date' ? 'left' : 'right', fontWeight: 400 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {historyData.map(row => (
+                          <tr key={row._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--cream)', padding: '6px 8px' }}>{row._id}</td>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{row.images ?? 0}</td>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{row.videos ?? 0}</td>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{row.voice ?? 0}</td>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--gold)', padding: '6px 8px', textAlign: 'right' }}>${(row.cost ?? 0).toFixed(4)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {historyData && historyData.length === 0 && (
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>No daily history in the last 30 days.</div>
+              )}
+
+              {/* ── Provider breakdown ── */}
+              {providersData && providersData.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Provider Usage</div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Provider usage breakdown">
+                      <thead>
+                        <tr>
+                          {['Action', 'Provider', 'Count', 'Total Cost', 'Success %'].map(h => (
+                            <th key={h} scope="col" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '6px 8px', borderBottom: '1px solid var(--border)', textAlign: h === 'Action' || h === 'Provider' ? 'left' : 'right', fontWeight: 400 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {providersData.map((row, i) => (
+                          <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--cream)', padding: '6px 8px' }}>{row._id?.action ?? '—'}</td>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px' }}>{row._id?.provider ?? '—'}</td>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{row.count}</td>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--gold)', padding: '6px 8px', textAlign: 'right' }}>${(row.totalCost ?? 0).toFixed(4)}</td>
+                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: row.successRate >= 0.9 ? '#6dc87a' : '#f0a050', padding: '6px 8px', textAlign: 'right' }}>{((row.successRate ?? 0) * 100).toFixed(0)}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* ── Recent Jobs ── */}
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase' }}>Recent Jobs</div>
+                  <button
+                    onClick={loadJobs}
+                    disabled={jobsLoading}
+                    aria-label="Refresh jobs list"
+                    style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '3px 8px', cursor: jobsLoading ? 'not-allowed' : 'pointer', letterSpacing: '1px' }}
+                  >{jobsLoading ? '…' : '↻ Refresh'}</button>
+                </div>
+                {jobsData === null ? (
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>Loading…</div>
+                ) : jobsData.length === 0 ? (
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>No managed jobs yet.</div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Recent managed generation jobs">
+                      <thead>
+                        <tr>
+                          {['Type', 'Tier', 'Status', 'Created', 'Cost'].map(h => (
+                            <th key={h} scope="col" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '6px 8px', borderBottom: '1px solid var(--border)', textAlign: h === 'Type' || h === 'Tier' ? 'left' : 'right', fontWeight: 400 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {jobsData.map(job => {
+                          const statusColor = job.status === 'done' ? '#6dc87a' : job.status === 'failed' ? '#f08080' : job.status === 'active' ? '#f0c040' : 'var(--muted)'
+                          return (
+                            <tr key={job.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--cream)', padding: '6px 8px' }}>{job.type}</td>
+                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px' }}>{job.tier}</td>
+                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: statusColor, padding: '6px 8px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '1px' }}>{job.status}</td>
+                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--gold)', padding: '6px 8px', textAlign: 'right' }}>{job.costUsd != null ? `$${job.costUsd.toFixed(4)}` : '—'}</td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
