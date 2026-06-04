@@ -39,14 +39,24 @@ billingRouter.post('/checkout', async (req, res) => {
       await Workspace.findByIdAndUpdate(req.workspace._id, { stripeCustomerId: customerId })
     }
     const qty = kind === 'subscription' ? seatCount(req.workspace) : 1
-    const session = await stripe.checkout.sessions.create({
-      mode, customer: customerId,
-      line_items: [{ price: priceId, quantity: qty }],
-      success_url: `${config.clientUrl}/?billing=success`,
-      cancel_url: `${config.clientUrl}/?billing=cancel`,
-      metadata: { workspaceId: String(req.workspace._id), kind, key },
-      ...(mode === 'subscription' ? { subscription_data: { metadata: { workspaceId: String(req.workspace._id) } } } : {}),
-    })
+    // Coarse-bucket idempotency key: prevents double-sessions within the same hour from
+    // double-click or network retry, but allows a fresh checkout after ~1 hour.
+    const hourBucket = Math.floor(Date.now() / 3_600_000)
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode, customer: customerId,
+        line_items: [{ price: priceId, quantity: qty }],
+        success_url: `${config.clientUrl}/?billing=success`,
+        cancel_url: `${config.clientUrl}/?billing=cancel`,
+        metadata: { workspaceId: String(req.workspace._id), kind, key },
+        automatic_tax: { enabled: true },
+        billing_address_collection: 'required',
+        customer_update: { address: 'auto', name: 'auto' },
+        tax_id_collection: { enabled: true },
+        ...(mode === 'subscription' ? { subscription_data: { metadata: { workspaceId: String(req.workspace._id) } } } : {}),
+      },
+      { idempotencyKey: `checkout-${req.workspace._id}-${kind}-${key}-${hourBucket}` },
+    )
     res.json({ url: session.url })
   } catch (err) { console.error('checkout error:', err); res.status(500).json({ error: 'Server error' }) }
 })
@@ -93,6 +103,7 @@ export async function webhookHandler(req, res) {
       const sub = event.data.object
       const priceId = sub.items?.data?.[0]?.price?.id
       const plan = planForPriceId(priceId)
+      // Only 'active' and 'trialing' retain a paid plan; past_due/unpaid/canceled/etc → downgrade.
       const active = ['active', 'trialing'].includes(sub.status)
       let targetId = sub.metadata?.workspaceId
       if (!targetId) { const ws = await Workspace.findOne({ stripeCustomerId: sub.customer }); targetId = ws?._id }
@@ -100,6 +111,14 @@ export async function webhookHandler(req, res) {
     } else if (event.type === 'customer.subscription.deleted') {
       const sub = event.data.object
       const ws = await Workspace.findOne({ stripeCustomerId: sub.customer })
+      if (ws) await Workspace.findByIdAndUpdate(ws._id, { plan: 'free' })
+    } else if (event.type === 'invoice.payment_failed') {
+      // Dunning: downgrade the workspace to 'free' on a failed renewal payment.
+      // Stripe will also send customer.subscription.updated with status='past_due', which
+      // handles the same case, but we handle it here too for belt-and-suspenders coverage
+      // and for invoice-level retry tracking.
+      const inv = event.data.object
+      const ws = await Workspace.findOne({ stripeCustomerId: inv.customer })
       if (ws) await Workspace.findByIdAndUpdate(ws._id, { plan: 'free' })
     }
     res.json({ received: true })

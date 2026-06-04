@@ -15,6 +15,10 @@ const jobSchema = new mongoose.Schema({
   costUsd:      { type: Number, default: 0 },
   errorMessage: { type: String, default: null },
   bullJobId:    { type: String, default: null },
+
+  // Bucket breakdown of the debit so the refund path can restore to the correct bucket.
+  debitMonthly:    { type: Number, default: null },
+  debitPurchased:  { type: Number, default: null },
 }, { timestamps: true })
 
 jobSchema.index({ workspaceId: 1, createdAt: -1 })
