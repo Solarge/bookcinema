@@ -104,7 +104,7 @@ test('providers list 401 without auth', async () => {
 // ---------------------------------------------------------------------------
 
 test('connect returns a url containing the state param', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const registry = makeFakeRegistry()
   const res = await bearer(
     request(buildApp(registry))
@@ -119,7 +119,7 @@ test('connect returns a url containing the state param', async () => {
 })
 
 test('connect 400 for unknown platform', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const registry = makeFakeRegistry()
   const res = await bearer(
     request(buildApp(registry))
@@ -131,7 +131,7 @@ test('connect 400 for unknown platform', async () => {
 })
 
 test('connect 503 when provider is not configured', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const registry = makeFakeRegistry({ configured: false })
   // tiktok is always unconfigured in the fake
   const res = await bearer(
@@ -172,7 +172,7 @@ async function getValidStateFromConnect(app, workspace, token) {
 }
 
 test('callback with valid state creates a SocialAccount with encrypted tokens, redirects 302', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const registry = makeFakeRegistry()
   const app = buildApp(registry)
 
@@ -221,7 +221,7 @@ test('callback with no state → 400', async () => {
 
 test('callback with platform mismatch in state → 400', async () => {
   // Sign a state for tiktok but hit the youtube callback
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const registry = makeFakeRegistry()
   const app = buildApp(registry)
 
@@ -252,7 +252,7 @@ async function getSignStateHelper() {
 }
 
 test('callback is idempotent — second call upserts, still one account', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const registry = makeFakeRegistry()
   const app = buildApp(registry)
 
@@ -271,7 +271,7 @@ test('callback is idempotent — second call upserts, still one account', async 
 // ---------------------------------------------------------------------------
 
 test('accounts list returns toClient() shape with no *Enc fields', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const registry = makeFakeRegistry()
   const app = buildApp(registry)
 
@@ -332,7 +332,7 @@ test('accounts list 401 without auth', async () => {
 // ---------------------------------------------------------------------------
 
 test('delete removes the account in the correct workspace', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const registry = makeFakeRegistry()
   const app = buildApp(registry)
 

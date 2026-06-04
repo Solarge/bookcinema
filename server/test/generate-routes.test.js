@@ -17,10 +17,11 @@ function app(fakeQueue) {
   a.use('/api/generate', generateRoutes); return a
 }
 const authed = (r, t, w) => r.set('Authorization', `Bearer ${t}`).set('X-Workspace-Id', w.toString())
-async function betaUser() {
-  const { user, token, workspace } = await makeAuthedUser()
+async function betaUser({ plan = 'free' } = {}) {
+  const { user, token, workspace } = await makeAuthedUser({ plan })
   await Workspace.findByIdAndUpdate(workspace._id, { managedBeta: true })
-  return { user, token, workspace }
+  const ws = await Workspace.findById(workspace._id)
+  return { user, token, workspace: ws }
 }
 
 test('POST /text creates a queued job and enqueues it (202)', async () => {
@@ -52,7 +53,7 @@ test('POST /text 400 on missing bookText', async () => {
 })
 
 test('POST /voice creates a queued voice job and enqueues it (202)', async () => {
-  const { token, workspace } = await betaUser()
+  const { token, workspace } = await betaUser({ plan: 'pro' })
   const enq = []
   const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullv1' } } }
   const res = await authed(request(app(fakeQueue)).post('/api/generate/voice'), token, workspace._id)
@@ -66,7 +67,7 @@ test('POST /voice creates a queued voice job and enqueues it (202)', async () =>
 })
 
 test('POST /voice 400 on missing text', async () => {
-  const { token, workspace } = await betaUser()
+  const { token, workspace } = await betaUser({ plan: 'pro' })
   const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/voice'), token, workspace._id)
     .send({ tier: 'standard' })
   assert.equal(res.status, 400)

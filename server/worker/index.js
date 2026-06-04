@@ -34,11 +34,12 @@ const connection = {
 
 await connectDB()
 
-// Generation worker
+// Generation worker — lockDuration is generous (600s) to accommodate slow video polls
+// (fal.ai kling / Replicate minimax can take up to ~8 minutes for a clip).
 const worker = new Worker(GENERATION_QUEUE, async (job) => processGeneration(job.data), {
   connection,
   concurrency: config.managed.maxConcurrent,
-  lockDuration: 150000,
+  lockDuration: 600000,
   stalledInterval: 30000,
   maxStalledCount: 2,
 })

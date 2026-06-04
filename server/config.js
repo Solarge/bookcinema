@@ -100,6 +100,7 @@ export const config = {
       text:  Number(process.env.MANAGED_CAP_TEXT_DAILY)  || 20,
       image: Number(process.env.MANAGED_CAP_IMAGE_DAILY) || 50,
       voice: Number(process.env.MANAGED_CAP_VOICE_DAILY) || 100,
+      video: Number(process.env.MANAGED_CAP_VIDEO_DAILY) || 10,
     },
   },
 
