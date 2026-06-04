@@ -2,6 +2,8 @@ const MODEL_URL = 'https://api.replicate.com/v1/models/black-forest-labs/flux-1.
 export const DEFAULT_MODEL = 'black-forest-labs/flux-1.1-pro'
 const DIMENSIONS = { '9:16': { width: 1080, height: 1920 }, '16:9': { width: 1920, height: 1080 }, '1:1': { width: 1024, height: 1024 } }
 
+export function isConfigured() { return !!process.env.REPLICATE_API_TOKEN }
+
 async function pollPrediction(id, apiKey, maxAttempts = 40) {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 3000))

@@ -6,6 +6,8 @@
 const SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video'
 export const DEFAULT_MODEL = 'fal-ai/kling-video/v1.6/standard/text-to-video'
 
+export function isConfigured() { return !!process.env.FALAI_KEY }
+
 const ASPECT_RATIO_MAP = { '9:16': '9:16', '16:9': '16:9', '1:1': '1:1' }
 
 // Poll the fal.ai async queue until the job is succeeded/failed.

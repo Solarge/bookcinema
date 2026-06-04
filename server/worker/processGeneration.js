@@ -10,9 +10,29 @@ export async function processGeneration(data, deps = {}) {
   await Job.findByIdAndUpdate(jobId, { status: 'active' })
   let provider = ''
   try {
-    const resolved = resolveFn(type, tier)
-    provider = resolved.provider
-    const result = await resolved.adapter.generate(payload)
+    const entry = resolveFn(type, tier)
+
+    // --- free-first failover loop ---
+    // entry.providers is the ordered list; entry.adapter/.provider for legacy injected fakes.
+    const providers = entry.providers || [{ provider: entry.provider, adapter: entry.adapter, model: entry.model }]
+    let result
+    let lastError
+    for (const p of providers) {
+      // Skip providers whose key isn't configured (not a failure — just not available here)
+      if (typeof p.adapter.isConfigured === 'function' && !p.adapter.isConfigured()) continue
+      try {
+        result = await p.adapter.generate({ ...payload, model: p.model })
+        provider = p.provider
+        break
+      } catch (e) {
+        lastError = e
+        console.warn(`[managed] provider failover: ${type}/${tier} → ${p.provider} failed: ${e.message}`)
+      }
+    }
+    if (result === undefined) {
+      throw lastError || new Error(`No configured provider available for ${type}/${tier}`)
+    }
+    // --------------------------------
 
     const update = { status: 'done', errorMessage: null }
     if (type === 'text') {

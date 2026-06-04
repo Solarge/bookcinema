@@ -7,3 +7,9 @@ export function resolve(type, tier) {
   if (!entry) throw new Error(`Unknown tier '${tier}' for type '${type}'`)
   return entry
 }
+
+// Returns the ordered providers array for a given type/tier.
+// Callers iterate this list to implement free-first failover.
+export function resolveProviders(type, tier) {
+  return resolve(type, tier).providers
+}

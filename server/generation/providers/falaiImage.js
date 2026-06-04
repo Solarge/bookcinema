@@ -2,6 +2,8 @@ const FAL_URL = 'https://fal.run/fal-ai/flux-pro/v1.1'
 export const DEFAULT_MODEL = 'fal-ai/flux-pro/v1.1'
 const IMAGE_SIZE = { '9:16': 'portrait_16_9', '16:9': 'landscape_16_9', '1:1': 'square_hd' }
 
+export function isConfigured() { return !!process.env.FALAI_KEY }
+
 export async function generate({ prompt, aspectRatio = '9:16', styleHint = '' }) {
   const apiKey = process.env.FALAI_KEY
   if (!apiKey) throw new Error('fal.ai is not configured (FALAI_KEY missing)')

@@ -1,8 +1,8 @@
 import './helpers/env.js'
 import { test, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { generate as replicateGen } from '../generation/providers/replicateImage.js'
-import { generate as falaiGen } from '../generation/providers/falaiImage.js'
+import { generate as replicateGen, isConfigured as replicateIsConfigured } from '../generation/providers/replicateImage.js'
+import { generate as falaiGen, isConfigured as falaiIsConfigured } from '../generation/providers/falaiImage.js'
 
 const realFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = realFetch; delete process.env.REPLICATE_API_TOKEN; delete process.env.FALAI_KEY })
@@ -55,4 +55,16 @@ test('replicate image: processing then polls to succeeded -> downloads bytes', a
   ])
   const r = await replicateGen({ prompt: 'a fox', aspectRatio: '9:16' })
   assert.ok(Buffer.isBuffer(r.buffer)); assert.equal(r.ext, 'jpg')
+})
+test('replicateImage.isConfigured reflects REPLICATE_API_TOKEN presence', () => {
+  delete process.env.REPLICATE_API_TOKEN
+  assert.equal(replicateIsConfigured(), false)
+  process.env.REPLICATE_API_TOKEN = 'r8_x'
+  assert.equal(replicateIsConfigured(), true)
+})
+test('falaiImage.isConfigured reflects FALAI_KEY presence', () => {
+  delete process.env.FALAI_KEY
+  assert.equal(falaiIsConfigured(), false)
+  process.env.FALAI_KEY = 'fal_x'
+  assert.equal(falaiIsConfigured(), true)
 })

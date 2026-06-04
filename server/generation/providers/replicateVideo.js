@@ -6,6 +6,8 @@
 const MODEL_URL = 'https://api.replicate.com/v1/models/minimax/video-01/predictions'
 export const DEFAULT_MODEL = 'minimax/video-01'
 
+export function isConfigured() { return !!process.env.REPLICATE_API_TOKEN }
+
 // Poll the Replicate prediction until succeeded/failed.
 // Video is slow — allow up to 80 attempts × 6s = ~8 minutes.
 async function pollPrediction(id, apiKey, maxAttempts = 80) {

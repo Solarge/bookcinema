@@ -65,3 +65,75 @@ test('processGeneration does NOT refund on failure (refund is terminal-only in t
   assert.equal((await Workspace.findById(w._id)).creditBalance, 0) // unchanged — no refund here
   assert.equal((await Job.findById(job._id)).status, 'failed')
 })
+
+// --- failover chain tests ---
+
+test('processGeneration failover: first provider throws, second succeeds → result from second', async () => {
+  const wsId = new mongoose.Types.ObjectId(), uid = new mongoose.Types.ObjectId()
+  const job = await Job.create({ workspaceId: wsId, createdBy: uid, type: 'text', tier: 'standard', status: 'queued' })
+  const fakeResolve = () => ({
+    credits: 1,
+    providers: [
+      { provider: 'groq',   adapter: { isConfigured: () => true, generate: async () => { throw new Error('rate limit') } }, model: 'llama' },
+      { provider: 'gemini', adapter: { isConfigured: () => true, generate: async () => ({ title: 'FromGemini', characters: [], episodes: [] }) }, model: 'gemini-2.5-flash' },
+    ],
+  })
+  await processGeneration({ jobId: String(job._id), type: 'text', tier: 'standard', payload: { bookText: 'x' }, workspaceId: String(wsId), createdBy: String(uid) }, { resolveFn: fakeResolve })
+  const updated = await Job.findById(job._id)
+  assert.equal(updated.status, 'done')
+  assert.match(updated.resultText, /"title":"FromGemini"/)
+  // provider logged = 'gemini' (the one that succeeded)
+  assert.equal(await UsageLog.countDocuments({ workspaceId: wsId, action: 'generate_text', success: true, provider: 'gemini' }), 1)
+})
+
+test('processGeneration failover: unconfigured first provider is skipped (not counted as failure)', async () => {
+  const wsId = new mongoose.Types.ObjectId(), uid = new mongoose.Types.ObjectId()
+  const job = await Job.create({ workspaceId: wsId, createdBy: uid, type: 'text', tier: 'standard', status: 'queued' })
+  const firstCalled = { called: false }
+  const fakeResolve = () => ({
+    credits: 1,
+    providers: [
+      { provider: 'groq',   adapter: { isConfigured: () => false, generate: async () => { firstCalled.called = true; return {} } }, model: 'llama' },
+      { provider: 'gemini', adapter: { isConfigured: () => true,  generate: async () => ({ title: 'Skipped', characters: [], episodes: [] }) }, model: 'gemini-2.5-flash' },
+    ],
+  })
+  await processGeneration({ jobId: String(job._id), type: 'text', tier: 'standard', payload: { bookText: 'x' }, workspaceId: String(wsId), createdBy: String(uid) }, { resolveFn: fakeResolve })
+  assert.equal(firstCalled.called, false, 'unconfigured first provider must not be called')
+  const updated = await Job.findById(job._id)
+  assert.equal(updated.status, 'done')
+  assert.match(updated.resultText, /"title":"Skipped"/)
+})
+
+test('processGeneration failover: all providers unconfigured → fails with clear error', async () => {
+  const wsId = new mongoose.Types.ObjectId(), uid = new mongoose.Types.ObjectId()
+  const job = await Job.create({ workspaceId: wsId, createdBy: uid, type: 'text', tier: 'standard', status: 'queued' })
+  const fakeResolve = () => ({
+    credits: 1,
+    providers: [
+      { provider: 'groq',   adapter: { isConfigured: () => false, generate: async () => ({}) }, model: 'llama' },
+      { provider: 'gemini', adapter: { isConfigured: () => false, generate: async () => ({}) }, model: 'gemini-2.5-flash' },
+    ],
+  })
+  await assert.rejects(
+    () => processGeneration({ jobId: String(job._id), type: 'text', tier: 'standard', payload: { bookText: 'x' }, workspaceId: String(wsId), createdBy: String(uid) }, { resolveFn: fakeResolve }),
+    /No configured provider/
+  )
+  assert.equal((await Job.findById(job._id)).status, 'failed')
+})
+
+test('processGeneration failover: all providers throw → re-throws last error', async () => {
+  const wsId = new mongoose.Types.ObjectId(), uid = new mongoose.Types.ObjectId()
+  const job = await Job.create({ workspaceId: wsId, createdBy: uid, type: 'text', tier: 'standard', status: 'queued' })
+  const fakeResolve = () => ({
+    credits: 1,
+    providers: [
+      { provider: 'groq',   adapter: { isConfigured: () => true, generate: async () => { throw new Error('groq down') } }, model: 'llama' },
+      { provider: 'gemini', adapter: { isConfigured: () => true, generate: async () => { throw new Error('gemini down') } }, model: 'gemini-2.5-flash' },
+    ],
+  })
+  await assert.rejects(
+    () => processGeneration({ jobId: String(job._id), type: 'text', tier: 'standard', payload: { bookText: 'x' }, workspaceId: String(wsId), createdBy: String(uid) }, { resolveFn: fakeResolve }),
+    /gemini down/
+  )
+  assert.equal((await Job.findById(job._id)).status, 'failed')
+})

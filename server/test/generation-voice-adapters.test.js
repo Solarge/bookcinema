@@ -1,8 +1,8 @@
 import './helpers/env.js'
 import { test, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { generate as openaiGen } from '../generation/providers/openaiTTSVoice.js'
-import { generate as elevenGen } from '../generation/providers/elevenlabsVoice.js'
+import { generate as openaiGen, isConfigured as openaiIsConfigured } from '../generation/providers/openaiTTSVoice.js'
+import { generate as elevenGen, isConfigured as elevenIsConfigured } from '../generation/providers/elevenlabsVoice.js'
 
 const realFetch = globalThis.fetch
 afterEach(() => { globalThis.fetch = realFetch; delete process.env.OPENAI_API_KEY; delete process.env.ELEVENLABS_KEY })
@@ -31,4 +31,16 @@ test('elevenlabs throws when key missing', async () => {
 test('openaiTTS surfaces provider error', async () => {
   process.env.OPENAI_API_KEY = 'sk-test'; mockAudioOnce(false, 500)
   await assert.rejects(() => openaiGen({ text: 'x' }), /OpenAI|500/)
+})
+test('openaiTTSVoice.isConfigured reflects OPENAI_API_KEY presence', () => {
+  delete process.env.OPENAI_API_KEY
+  assert.equal(openaiIsConfigured(), false)
+  process.env.OPENAI_API_KEY = 'sk-x'
+  assert.equal(openaiIsConfigured(), true)
+})
+test('elevenlabsVoice.isConfigured reflects ELEVENLABS_KEY presence', () => {
+  delete process.env.ELEVENLABS_KEY
+  assert.equal(elevenIsConfigured(), false)
+  process.env.ELEVENLABS_KEY = 'el-x'
+  assert.equal(elevenIsConfigured(), true)
 })
