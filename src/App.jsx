@@ -11,7 +11,7 @@ import RegisterPage from './components/auth/RegisterPage'
 import ForgotPasswordPage, { ResetPasswordPage } from './components/auth/ForgotPasswordPage'
 import ProfilePage from './components/dashboard/ProfilePage'
 import PublicSeriesView from './components/PublicSeriesView'
-import AdminDashboard from './components/admin/AdminDashboard'
+import AdminApp from './components/admin/AdminApp'
 import { generateSeries } from './utils/textProviders/index'
 import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob, auth as authApi, billing as billingApi } from './lib/api'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
@@ -76,7 +76,7 @@ function UnverifiedBanner({ onResend }) {
 
 // ── Plan + credits billing bar ────────────────────────────────────────────────
 // Shown persistently on all main pages for authenticated users.
-function PlanBillingBar({ plan, creditBalance, onOpenBilling, isAdmin, onOpenAdmin }) {
+function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
   const [busy, setBusy] = useState(false)
   const [billingMsg, setBillingMsg] = useState(null)
 
@@ -158,29 +158,6 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling, isAdmin, onOpenAdm
         >
           {billingMsg}
         </span>
-      )}
-
-      {/* Admin entry point — only visible to admins */}
-      {isAdmin && (
-        <button
-          onClick={onOpenAdmin}
-          aria-label="Open admin dashboard"
-          title="Open the full admin dashboard"
-          style={{
-            background: 'transparent',
-            border: '1px solid #804040',
-            color: '#f08080',
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '9px',
-            letterSpacing: '1px',
-            padding: '4px 10px',
-            cursor: 'pointer',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          ⚙ Admin
-        </button>
       )}
 
       {/* Buy credits */}
@@ -279,15 +256,8 @@ function AuthGate({ children }) {
 // ── Main app (inside auth + settings contexts) ────────────────────────────────
 function AppInner() {
   const { settings } = useSettings()
-  const { user, isAdmin, switchWorkspace, activeWorkspacePlan, activeCreditBalance } = useAuth()
-  const [page, setPage]                   = useState(() => {
-    // Support ?admin=1 to deep-link admins straight to the admin dashboard
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      if (params.get('admin') === '1') return 'admin'
-    }
-    return 'home'
-  })
+  const { user, switchWorkspace, activeWorkspacePlan, activeCreditBalance } = useAuth()
+  const [page, setPage]                   = useState('home')
   const [uploadedText, setUploadedText]   = useState('')
   const [generatedSeries, setGeneratedSeries] = useState(null)
   const [generatedSeriesId, setGeneratedSeriesId] = useState(null) // MongoDB _id after save
@@ -300,16 +270,6 @@ function AppInner() {
 
   // Open ProfilePage to billing/workspace tab (used by upgrade CTAs)
   const openBilling = useCallback(() => { setProfileTab('workspace'); setShowProfile(true) }, [])
-
-  // Open admin dashboard — only admins may navigate there
-  const openAdmin = useCallback(() => {
-    if (isAdmin) setPage('admin')
-  }, [isAdmin])
-
-  // Guard: if a non-admin somehow lands on the admin page, bounce them home
-  useEffect(() => {
-    if (page === 'admin' && !isAdmin) setPage('home')
-  }, [page, isAdmin])
 
   function showToast(msg, kind = 'info') {
     setToast({ msg, kind })
@@ -337,13 +297,6 @@ function AppInner() {
       url.searchParams.delete('verified')
       window.history.replaceState({}, '', url.pathname + (url.search || ''))
       showToast('Email verified successfully!', 'info')
-    }
-
-    // Clean up ?admin=1 from URL (we already read it in useState initialiser)
-    if (params.get('admin') === '1') {
-      const url = new URL(window.location.href)
-      url.searchParams.delete('admin')
-      window.history.replaceState({}, '', url.pathname + (url.search || ''))
     }
 
     // Social OAuth callback: ?social=connected&platform=X
@@ -434,8 +387,6 @@ function AppInner() {
           plan={activeWorkspacePlan || 'free'}
           creditBalance={activeCreditBalance}
           onOpenBilling={openBilling}
-          isAdmin={isAdmin}
-          onOpenAdmin={openAdmin}
         />
       )}
 
@@ -500,14 +451,12 @@ function AppInner() {
           </MediaProvider>
         )}
         {page === 'library' && <LibraryScreen onView={handleViewLibraryItem} onBack={() => setPage('home')} />}
-        {page === 'admin' && isAdmin && <AdminDashboard onBack={() => setPage('home')} />}
       </div>
 
       {showProfile && (
         <ProfilePage
           onClose={() => setShowProfile(false)}
           initialTab={profileTab}
-          onOpenAdmin={isAdmin ? openAdmin : undefined}
         />
       )}
     </div>
@@ -520,8 +469,15 @@ function getShareTokenFromUrl() {
   return new URLSearchParams(window.location.search).get('share') || null
 }
 
+// Detect whether we're serving the standalone admin portal.
+function isAdminPath() {
+  if (typeof window === 'undefined') return false
+  const p = window.location.pathname
+  return p === '/admin' || p.startsWith('/admin/')
+}
+
 export default function App() {
-  // Check for ?share= before rendering anything auth-related.
+  // 1. Check for ?share= before rendering anything auth-related.
   const shareToken = getShareTokenFromUrl()
   if (shareToken) {
     return (
@@ -531,6 +487,16 @@ export default function App() {
     )
   }
 
+  // 2. Standalone admin portal — own AuthProvider, NO tenant chrome.
+  if (isAdminPath()) {
+    return (
+      <AuthProvider>
+        <AdminApp />
+      </AuthProvider>
+    )
+  }
+
+  // 3. Normal tenant app.
   return (
     <AuthProvider>
       <SettingsProvider>

@@ -4,7 +4,6 @@ import { useAuth } from '../../contexts/AuthContext'
 import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi, managed as managedApi } from '../../lib/api'
 import { planFeatures } from '../../utils/planFeatures'
 import DistributionPanel from '../social/DistributionPanel'
-import AdminPanel from './AdminPanel'
 import { useDivModalA11y } from '../../hooks/useModalA11y'
 
 const PLAN_SUMMARIES = {
@@ -31,8 +30,8 @@ const PRICING = {
 // Placeholder support contact — replace before launch
 const SUPPORT_EMAIL = 'support@bookfilm.studio'
 
-export default function ProfilePage({ onClose, initialTab = 'profile', onOpenAdmin }) {
-  const { user, logout, updateUser, activeWorkspace, activeWorkspacePlan, activeCreditBalance, isAdmin } = useAuth()
+export default function ProfilePage({ onClose, initialTab = 'profile' }) {
+  const { user, logout, updateUser, activeWorkspace, activeWorkspacePlan, activeCreditBalance } = useAuth()
   const panelRef = useRef(null)
   useDivModalA11y(onClose, panelRef)
   const [tab, setTab]               = useState(initialTab) // profile | security | apikey | analytics
@@ -131,7 +130,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile', onOpenAdm
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // intentional: run once on mount only
 
-  const TABS = ['profile', 'security', 'apikey', 'workspace', 'analytics', 'distribution', ...(isAdmin ? ['admin'] : [])]
+  const TABS = ['profile', 'security', 'apikey', 'workspace', 'analytics', 'distribution']
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} role="presentation" onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()}>
@@ -863,35 +862,6 @@ export default function ProfilePage({ onClose, initialTab = 'profile', onOpenAdm
             />
           )}
 
-          {tab === 'admin' && isAdmin && (
-            <div>
-              {onOpenAdmin && (
-                <button
-                  onClick={() => { onClose(); onOpenAdmin() }}
-                  aria-label="Open full admin dashboard"
-                  style={{
-                    display: 'block',
-                    width: '100%',
-                    background: 'rgba(120,20,20,0.2)',
-                    border: '1px solid #804040',
-                    color: '#f08080',
-                    fontFamily: "'Cinzel', serif",
-                    fontSize: '11px',
-                    fontWeight: '600',
-                    letterSpacing: '2px',
-                    textTransform: 'uppercase',
-                    padding: '12px 16px',
-                    cursor: 'pointer',
-                    textAlign: 'left',
-                    marginBottom: '20px',
-                  }}
-                >
-                  Open Full Admin Dashboard →
-                </button>
-              )}
-              <AdminPanel onMsg={panelMsg} />
-            </div>
-          )}
         </div>
       </div>
     </div>
@@ -899,9 +869,8 @@ export default function ProfilePage({ onClose, initialTab = 'profile', onOpenAdm
 }
 
 ProfilePage.propTypes = {
-  onClose:     PropTypes.func.isRequired,
-  initialTab:  PropTypes.string,
-  onOpenAdmin: PropTypes.func,
+  onClose:    PropTypes.func.isRequired,
+  initialTab: PropTypes.string,
 }
 
 function Field({ label, value, onChange, disabled }) {
