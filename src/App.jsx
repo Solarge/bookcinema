@@ -275,7 +275,10 @@ function AppInner() {
       )}
       {page === 'loading' && <LoadingScreen />}
       {page === 'results' && generatedSeries && (
-        <MediaProvider seriesSlug={generatedSeries.title?.replace(/\s+/g, '-').toLowerCase() || 'series'}>
+        <MediaProvider
+          seriesSlug={generatedSeries.title?.replace(/\s+/g, '-').toLowerCase() || 'series'}
+          seriesId={generatedSeriesId}
+        >
           <ResultsScreen series={generatedSeries} seriesId={generatedSeriesId} onNewBook={handleNewBook} />
         </MediaProvider>
       )}

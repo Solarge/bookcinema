@@ -55,6 +55,17 @@ export async function clearSeriesAssets(seriesKey) {
   } catch (_) {}
 }
 
+// Retrieve the stored Blob for a key (returns null if not found).
+export async function getBlob(key) {
+  try {
+    const db = await getDB()
+    const item = await db.get(STORE, key)
+    return item?.blob ?? null
+  } catch (_) {
+    return null
+  }
+}
+
 // Download a remote URL and store it as a blob
 export async function fetchAndStore(key, remoteUrl) {
   try {
