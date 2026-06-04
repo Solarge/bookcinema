@@ -10,6 +10,9 @@ import { createPersonalWorkspace } from '../utils/workspace.js'
 
 const router = Router()
 
+// The configured ADMIN_EMAIL is treated as an admin automatically (case-insensitive).
+const isAdminEmail = (email) => !!config.admin.email && !!email && email.toLowerCase() === config.admin.email.toLowerCase()
+
 // POST /api/auth/register
 router.post('/register', authLimiter, async (req, res) => {
   try {
@@ -19,7 +22,7 @@ router.post('/register', authLimiter, async (req, res) => {
     if (!consent) return res.status(400).json({ error: 'You must accept the Terms and Privacy Policy' })
     const exists = await User.findOne({ email: email.toLowerCase() })
     if (exists) return res.status(409).json({ error: 'Email already registered' })
-    const user = await User.create({ name, email, password, consentedAt: new Date() })
+    const user = await User.create({ name, email, password, consentedAt: new Date(), role: isAdminEmail(email) ? 'admin' : 'user' })
     try {
       await createPersonalWorkspace(user)
     } catch (wsErr) {
@@ -44,6 +47,7 @@ router.post('/login', authLimiter, async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase() }).select('+password')
     if (!user || !await user.comparePassword(password)) return res.status(401).json({ error: 'Invalid email or password' })
     if (!user.isActive) return res.status(403).json({ error: 'Account deactivated' })
+    if (isAdminEmail(user.email) && user.role !== 'admin') user.role = 'admin' // auto-promote the configured admin
     user.lastLoginAt = new Date()
     await user.save()
     const accessToken = signAccess({ userId: user._id, email: user.email, role: user.role })
@@ -63,6 +67,7 @@ router.post('/refresh', async (req, res) => {
     const payload = verifyRefresh(token)
     const user = await User.findById(payload.userId)
     if (!user || !user.isActive) return res.status(401).json({ error: 'User not found' })
+    if (isAdminEmail(user.email) && user.role !== 'admin') { user.role = 'admin'; await user.save() } // auto-promote on refresh too
     const accessToken = signAccess({ userId: user._id, email: user.email, role: user.role })
     res.json({ accessToken })
   } catch (_) {
