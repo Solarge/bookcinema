@@ -3,9 +3,10 @@ import { test, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { generate as replicateGen, isConfigured as replicateIsConfigured } from '../generation/providers/replicateImage.js'
 import { generate as falaiGen, isConfigured as falaiIsConfigured } from '../generation/providers/falaiImage.js'
+import { generate as stabilityGen, isConfigured as stabilityIsConfigured } from '../generation/providers/stabilityImage.js'
 
 const realFetch = globalThis.fetch
-afterEach(() => { globalThis.fetch = realFetch; delete process.env.REPLICATE_API_TOKEN; delete process.env.FALAI_KEY })
+afterEach(() => { globalThis.fetch = realFetch; delete process.env.REPLICATE_API_TOKEN; delete process.env.FALAI_KEY; delete process.env.STABILITY_API_KEY })
 
 // Queue of responses; each fetch() call shifts the next one.
 function mockSequence(responses) {
@@ -67,4 +68,37 @@ test('falaiImage.isConfigured reflects FALAI_KEY presence', () => {
   assert.equal(falaiIsConfigured(), false)
   process.env.FALAI_KEY = 'fal_x'
   assert.equal(falaiIsConfigured(), true)
+})
+
+// ─── stabilityImage tests ─────────────────────────────────────────────────────
+
+test('stabilityImage.isConfigured reflects STABILITY_API_KEY presence', () => {
+  delete process.env.STABILITY_API_KEY
+  assert.equal(stabilityIsConfigured(), false)
+  process.env.STABILITY_API_KEY = 'sk-stab-x'
+  assert.equal(stabilityIsConfigured(), true)
+})
+
+test('stabilityImage returns png buffer from raw image bytes', async () => {
+  process.env.STABILITY_API_KEY = 'sk-stab-test'
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    arrayBuffer: async () => new TextEncoder().encode('PNG').buffer,
+    json: async () => ({}),
+  })
+  const r = await stabilityGen({ prompt: 'a castle', aspectRatio: '16:9' })
+  assert.ok(Buffer.isBuffer(r.buffer))
+  assert.equal(r.mimeType, 'image/png')
+  assert.equal(r.ext, 'png')
+})
+
+test('stabilityImage throws when key missing', async () => {
+  delete process.env.STABILITY_API_KEY
+  await assert.rejects(() => stabilityGen({ prompt: 'x' }), /Stability/)
+})
+
+test('stabilityImage surfaces provider error', async () => {
+  process.env.STABILITY_API_KEY = 'sk-stab-test'
+  globalThis.fetch = async () => ({ ok: false, status: 400, json: async () => ({ errors: ['invalid aspect_ratio'] }) })
+  await assert.rejects(() => stabilityGen({ prompt: 'x' }), /invalid aspect_ratio|400/)
 })

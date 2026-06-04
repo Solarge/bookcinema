@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { generate as groqGenerate, isConfigured as groqIsConfigured } from '../generation/providers/groqText.js'
 import { generate as anthropicGenerate, isConfigured as anthropicIsConfigured } from '../generation/providers/anthropicText.js'
 import { generate as geminiGenerate, isConfigured as geminiIsConfigured } from '../generation/providers/geminiText.js'
+import { generate as deepseekGenerate, isConfigured as deepseekIsConfigured } from '../generation/providers/deepseekText.js'
 
 const realFetch = globalThis.fetch
 afterEach(() => {
@@ -11,6 +12,7 @@ afterEach(() => {
   delete process.env.GROQ_API_KEY
   delete process.env.ANTHROPIC_API_KEY
   delete process.env.GEMINI_API_KEY
+  delete process.env.DEEPSEEK_API_KEY
 })
 
 function mockFetchOnce(jsonBody, ok = true, status = 200) {
@@ -110,4 +112,34 @@ test('geminiText.generate throws on MAX_TOKENS finishReason', async () => {
     json: async () => ({ candidates: [{ content: { parts: [{ text: '{}' }] }, finishReason: 'MAX_TOKENS' }] }),
   })
   await assert.rejects(() => geminiGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /cut off/)
+})
+
+// ─── deepseekText tests ───────────────────────────────────────────────────────
+
+test('deepseekText.isConfigured returns true only when DEEPSEEK_API_KEY is set', () => {
+  delete process.env.DEEPSEEK_API_KEY
+  assert.equal(deepseekIsConfigured(), false)
+  process.env.DEEPSEEK_API_KEY = 'ds-test'
+  assert.equal(deepseekIsConfigured(), true)
+})
+
+test('deepseekText.generate parses the chat-completion content into a series object', async () => {
+  process.env.DEEPSEEK_API_KEY = 'ds-test'
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => ({ choices: [{ message: { content: JSON.stringify({ title: 'DS', characters: [], episodes: [] }) } }] }),
+  })
+  const series = await deepseekGenerate({ bookText: 'a book', genrePreset: 'cinematic', language: 'en' })
+  assert.equal(series.title, 'DS')
+})
+
+test('deepseekText.generate throws a clear error when the key is missing', async () => {
+  delete process.env.DEEPSEEK_API_KEY
+  await assert.rejects(() => deepseekGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /DeepSeek/)
+})
+
+test('deepseekText.generate surfaces a provider error body', async () => {
+  process.env.DEEPSEEK_API_KEY = 'ds-test'
+  globalThis.fetch = async () => ({ ok: false, status: 429, json: async () => ({ error: { message: 'rate limited' } }) })
+  await assert.rejects(() => deepseekGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /rate limited|429/)
 })
