@@ -25,6 +25,19 @@ test('creates a personal workspace with an owner member and slug', async () => {
   assert.equal(ws.hasMember(ownerId()), false)
 })
 
+test('hasMember/getMemberRole work when members.userId is populated (object, not ObjectId)', async () => {
+  const uid = ownerId()
+  const ws = await Workspace.create({
+    name: 'Pop', type: 'personal', ownerId: uid,
+    members: [{ userId: uid, role: 'owner' }],
+  })
+  // Simulate a route that did .populate('members.userId') — userId becomes a doc-like object.
+  ws.members[0].userId = { _id: uid, name: 'Jane', email: 'j@x.com' }
+  assert.equal(ws.hasMember(uid), true, 'owner must still be recognized after populate')
+  assert.equal(ws.getMemberRole(uid), 'owner')
+  assert.equal(ws.hasMember(ownerId()), false)
+})
+
 test('rejects an invalid member role', async () => {
   const uid = ownerId()
   await assert.rejects(() => Workspace.create({

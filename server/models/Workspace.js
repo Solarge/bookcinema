@@ -58,12 +58,22 @@ workspaceSchema.virtual('creditBalance').get(function () { return (this.monthlyC
 workspaceSchema.set('toJSON', { virtuals: true })
 workspaceSchema.set('toObject', { virtuals: true })
 
+// Resolve a member's user id whether members.userId is a raw ObjectId or a
+// populated User document. Routes that .populate('members.userId') would otherwise
+// break the comparison, since a populated doc's toString() isn't the id hex.
+function memberUserId(m) {
+  const u = m.userId
+  return (u && u._id ? u._id : u)?.toString()
+}
+
 workspaceSchema.methods.hasMember = function (userId) {
-  return this.members.some(m => m.userId.toString() === userId.toString())
+  const uid = userId?.toString()
+  return this.members.some(m => memberUserId(m) === uid)
 }
 
 workspaceSchema.methods.getMemberRole = function (userId) {
-  const member = this.members.find(m => m.userId.toString() === userId.toString())
+  const uid = userId?.toString()
+  const member = this.members.find(m => memberUserId(m) === uid)
   return member?.role ?? null
 }
 
