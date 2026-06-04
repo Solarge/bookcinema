@@ -17,9 +17,9 @@ const PLAN_SUMMARIES = {
 // Update here whenever Stripe prices change.
 const PRICING = {
   plans: [
-    { key: 'free',   label: 'Free',   price: '$0/mo',   credits: '10 credits/mo',  features: ['Standard AI tiers', 'Watermark on exports', 'BYO API keys', '1 workspace'] },
-    { key: 'pro',    label: 'Pro',    price: '$19/mo',  credits: '200 credits/mo', features: ['Premium AI tiers', 'No watermark', 'Priority generation', 'Team workspaces'] },
-    { key: 'studio', label: 'Studio', price: '$79/mo',  credits: '1000 credits/mo',features: ['Everything in Pro', 'White-label branding', 'API access', 'Dedicated support'] },
+    { key: 'free',   label: 'Free',   price: '$0/mo',   credits: '25 credits/mo',   features: ['Text + image generation', 'Standard AI tier', 'Watermark on exports', '1 workspace seat'] },
+    { key: 'pro',    label: 'Pro',    price: '$19/mo',  credits: '500 credits/mo',  features: ['+ Voice & video generation', 'Premium AI tiers', 'No watermark', 'Social scheduling', 'Team workspaces'] },
+    { key: 'studio', label: 'Studio', price: '$79/mo',  credits: '2000 credits/mo', features: ['Everything in Pro', 'White-label branding', 'Higher limits', 'Dedicated support'] },
   ],
   packs: {
     pack_small:  { credits: 100,  price: '$4.99' },
@@ -32,13 +32,14 @@ const PRICING = {
 const SUPPORT_EMAIL = 'support@bookfilm.studio'
 
 export default function ProfilePage({ onClose, initialTab = 'profile' }) {
-  const { user, logout, updateUser, activeWorkspace, isAdmin } = useAuth()
+  const { user, logout, updateUser, activeWorkspace, activeWorkspacePlan, activeCreditBalance, isAdmin } = useAuth()
   const panelRef = useRef(null)
   useDivModalA11y(onClose, panelRef)
   const [tab, setTab]               = useState(initialTab) // profile | security | apikey | analytics
   const [name, setName]             = useState(user?.name ?? '')
   const [saving, setSaving]         = useState(false)
   const [msg, setMsg]               = useState('')
+  const [msgKind, setMsgKind]       = useState('success') // 'success' | 'error'
   const [apiKeyData, setApiKeyData] = useState(null)
   const [analyticsData, setAnalyticsData] = useState(null)
   const [historyData, setHistoryData]     = useState(null)
@@ -57,13 +58,16 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
   const [wsSaving, setWsSaving]           = useState(false)
 
 
+  function setSuccess(text) { setMsg(text); setMsgKind('success') }
+  function setError(text)   { setMsg(text); setMsgKind('error') }
+
   async function saveProfile() {
     setSaving(true); setMsg('')
     try {
       const updated = await usersApi.update({ name })
       updateUser(updated)
-      setMsg('Profile updated')
-    } catch (err) { setMsg(err.message) }
+      setSuccess('Profile updated')
+    } catch (err) { setError(err.message) }
     finally { setSaving(false) }
   }
 
@@ -71,12 +75,12 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
     try {
       const data = await usersApi.generateKey()
       setApiKeyData(data)
-    } catch (err) { setMsg(err.message) }
+    } catch (err) { setError(err.message) }
   }
 
   async function revokeApiKey() {
-    try { await usersApi.revokeKey(); setApiKeyData(null); setMsg('API key revoked') }
-    catch (err) { setMsg(err.message) }
+    try { await usersApi.revokeKey(); setApiKeyData(null); setSuccess('API key revoked') }
+    catch (err) { setError(err.message) }
   }
 
   async function loadAnalytics() {
@@ -89,7 +93,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
       setAnalyticsData(summary)
       setHistoryData(history)
       setProvidersData(providers)
-    } catch (err) { setMsg(err.message) }
+    } catch (err) { setError(err.message) }
   }
 
   async function loadJobs() {
@@ -97,7 +101,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
     try {
       const jobs = await managedApi.listJobs()
       setJobsData(jobs)
-    } catch (err) { setMsg(err.message) }
+    } catch (err) { setError(err.message) }
     finally { setJobsLoading(false) }
   }
 
@@ -110,7 +114,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
       ])
       setWsList(list)
       setMembers(mems)
-    } catch (err) { setMsg(err.message) }
+    } catch (err) { setError(err.message) }
   }
 
   // Auto-load data for the initial tab when the modal opens to a non-profile tab
@@ -159,39 +163,117 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
         </div>
 
         <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
-          {msg && <div role="status" aria-live="polite" style={{ background: '#0a2010', border: '1px solid #3a7a4a', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#6dc87a', marginBottom: '16px' }}>{msg}</div>}
+          {msg && (
+            <div
+              role={msgKind === 'error' ? 'alert' : 'status'}
+              aria-live="polite"
+              style={{
+                background: msgKind === 'error' ? '#200a0a' : '#0a2010',
+                border: `1px solid ${msgKind === 'error' ? '#7a3a3a' : '#3a7a4a'}`,
+                padding: '10px 14px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '11px',
+                color: msgKind === 'error' ? '#f08080' : '#6dc87a',
+                marginBottom: '16px',
+              }}
+            >{msg}</div>
+          )}
 
           {tab === 'profile' && (
             <div>
               <Field label="Name" value={name} onChange={setName} />
               <Field label="Email" value={user?.email} disabled />
-              <Field label="Plan" value={user?.plan} disabled />
-              <Field label="Credits" value={String(user?.credits ?? 0)} disabled />
+              <Field label="Plan" value={activeWorkspacePlan || 'free'} disabled />
+              <Field label="Credits" value={String(activeCreditBalance ?? 0)} disabled />
               <button onClick={saveProfile} disabled={saving} style={btn(saving)}>{saving ? 'Saving…' : 'Save Profile'}</button>
 
               {/* Plan comparison */}
-              <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>Plan Comparison</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '8px' }}>
-                  {PRICING.plans.map(plan => {
-                    const isCurrent = (user?.plan || 'free') === plan.key
-                    return (
-                      <div key={plan.key} style={{ background: isCurrent ? 'rgba(200,146,42,0.08)' : 'var(--surface2)', border: `1px solid ${isCurrent ? 'var(--gold)' : 'var(--border)'}`, padding: '12px 10px' }}>
-                        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', color: isCurrent ? 'var(--gold)' : 'var(--cream)', letterSpacing: '1px', marginBottom: '2px', textTransform: 'uppercase' }}>{plan.label}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gold)', marginBottom: '6px' }}>{plan.price}</div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#6dc87a', marginBottom: '8px' }}>{plan.credits}</div>
-                        {plan.features.map(f => (
-                          <div key={f} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', marginBottom: '3px', lineHeight: '1.4' }}>· {f}</div>
-                        ))}
-                        {isCurrent && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--gold)', letterSpacing: '1px', marginTop: '6px' }}>CURRENT</div>}
-                      </div>
-                    )
-                  })}
-                </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#2a3a4a', marginTop: '4px' }}>
-                  Prices displayed are indicative. Actual charges are confirmed at checkout via Stripe.
-                </div>
-              </div>
+              {(() => {
+                const PLAN_RANK = { free: 0, pro: 1, studio: 2 }
+                const currentPlan = activeWorkspacePlan || 'free'
+                const currentRank = PLAN_RANK[currentPlan] ?? 0
+                return (
+                  <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>Plan Comparison</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '8px' }}>
+                      {PRICING.plans.map(plan => {
+                        const isCurrent = currentPlan === plan.key
+                        const planRank = PLAN_RANK[plan.key] ?? 0
+                        const isUpgrade = planRank > currentRank
+                        const isDowngrade = planRank < currentRank
+
+                        const cardStyle = {
+                          background: isCurrent ? 'rgba(200,146,42,0.08)' : 'var(--surface2)',
+                          border: `1px solid ${isCurrent ? 'var(--gold)' : 'var(--border)'}`,
+                          padding: '12px 10px',
+                          cursor: isUpgrade ? 'pointer' : 'default',
+                          transition: isUpgrade ? 'border-color 0.15s, background 0.15s' : undefined,
+                          display: 'block',
+                          width: '100%',
+                          textAlign: 'left',
+                          outline: 'none',
+                        }
+
+                        const inner = (
+                          <>
+                            <div style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', color: isCurrent ? 'var(--gold)' : 'var(--cream)', letterSpacing: '1px', marginBottom: '2px', textTransform: 'uppercase' }}>{plan.label}</div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gold)', marginBottom: '6px' }}>{plan.price}</div>
+                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#6dc87a', marginBottom: '8px' }}>{plan.credits}</div>
+                            {plan.features.map(f => (
+                              <div key={f} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', marginBottom: '3px', lineHeight: '1.4' }}>· {f}</div>
+                            ))}
+                            {isCurrent && (
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--gold)', letterSpacing: '1px', marginTop: '6px' }}>CURRENT</div>
+                            )}
+                            {isUpgrade && (
+                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--gold)', letterSpacing: '1px', marginTop: '6px' }}>Upgrade →</div>
+                            )}
+                            {isDowngrade && (
+                              <button
+                                onClick={async e => {
+                                  e.stopPropagation()
+                                  try { const { url } = await billingApi.portal(); window.location.href = url }
+                                  catch (err) { setError(err.message) }
+                                }}
+                                style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', background: 'transparent', border: '1px solid var(--border)', padding: '3px 7px', cursor: 'pointer', marginTop: '6px', letterSpacing: '1px' }}
+                              >Manage Billing</button>
+                            )}
+                          </>
+                        )
+
+                        if (isUpgrade) {
+                          return (
+                            <button
+                              key={plan.key}
+                              aria-label={`Upgrade to ${plan.label} plan`}
+                              onClick={async () => {
+                                try {
+                                  const { url } = await billingApi.checkout({ kind: 'subscription', key: plan.key })
+                                  window.location.href = url
+                                } catch (err) {
+                                  if (err.status === 503 || err.status === 404 || err.message?.toLowerCase().includes('not configured') || err.message?.toLowerCase().includes('billing')) {
+                                    setError("Billing isn't configured yet")
+                                  } else {
+                                    setError(err.message)
+                                  }
+                                }
+                              }}
+                              style={cardStyle}
+                            >{inner}</button>
+                          )
+                        }
+
+                        return (
+                          <div key={plan.key} style={cardStyle}>{inner}</div>
+                        )
+                      })}
+                    </div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#2a3a4a', marginTop: '4px' }}>
+                      Prices displayed are indicative. Actual charges are confirmed at checkout via Stripe.
+                    </div>
+                  </div>
+                )
+              })()}
 
               {/* Support */}
               <div style={{ borderTop: '1px solid var(--border)', marginTop: '20px', paddingTop: '16px' }}>
@@ -222,8 +304,8 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                       a.click()
                       a.remove()
                       URL.revokeObjectURL(url)
-                      setMsg('Data export downloaded.')
-                    } catch (err) { setMsg(err.message) }
+                      setSuccess('Data export downloaded.')
+                    } catch (err) { setError(err.message) }
                   }}
                   style={{ ...btn(false), marginBottom: '10px', display: 'block', width: '100%' }}
                 >Export My Data</button>
@@ -235,7 +317,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                     try {
                       await usersApi.deleteAccount()
                       logout()
-                    } catch (err) { setMsg(err.message) }
+                    } catch (err) { setError(err.message) }
                   }}
                   style={{ display: 'block', width: '100%', background: 'transparent', color: '#f08080', border: '1px solid #804040', padding: '10px 20px', fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}
                 >Delete Account</button>
@@ -246,7 +328,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
           {tab === 'security' && (
             <div>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '16px' }}>Change your password below. You'll need your current password.</div>
-              <PasswordChanger onMsg={setMsg} />
+              <PasswordChanger onSuccess={setSuccess} onError={setError} />
             </div>
           )}
 
@@ -346,7 +428,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                             <button
                               onClick={async () => {
                                 try { const { url } = await billingApi.checkout({ kind: 'subscription', key: 'pro' }); window.location.href = url }
-                                catch (err) { setMsg(err.message) }
+                                catch (err) { setError(err.message) }
                               }}
                               style={btn(false)}
                             >Upgrade to Pro</button>
@@ -354,7 +436,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                           <button
                             onClick={async () => {
                               try { const { url } = await billingApi.checkout({ kind: 'subscription', key: 'studio' }); window.location.href = url }
-                              catch (err) { setMsg(err.message) }
+                              catch (err) { setError(err.message) }
                             }}
                             style={btn(false)}
                           >Upgrade to Studio</button>
@@ -377,7 +459,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                               key={key}
                               onClick={async () => {
                                 try { const { url } = await billingApi.checkout({ kind: 'pack', key }); window.location.href = url }
-                                catch (err) { setMsg(err.message) }
+                                catch (err) { setError(err.message) }
                               }}
                               style={{ ...btn(false), background: 'var(--surface2)', color: 'var(--gold)', border: '1px solid var(--gold)' }}
                             >{pack.credits} credits — {pack.price}</button>
@@ -391,7 +473,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                       <button
                         onClick={async () => {
                           try { const { url } = await billingApi.portal(); window.location.href = url }
-                          catch (err) { setMsg(err.message) }
+                          catch (err) { setError(err.message) }
                         }}
                         style={{ ...btn(false), background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }}
                       >Manage Billing</button>
@@ -432,9 +514,9 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                               try {
                                 await workspacesApi.update(activeWorkspace, { name: wsNewName.trim() })
                                 setWsRenaming(false)
-                                setMsg('Workspace renamed')
+                                setSuccess('Workspace renamed')
                                 await loadWorkspace()
-                              } catch (err) { setMsg(err.message) }
+                              } catch (err) { setError(err.message) }
                               finally { setWsSaving(false) }
                             }}
                             disabled={wsSaving}
@@ -500,9 +582,9 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                             try {
                               const whiteLabel = wlEnabled ? { enabled: true, name: wlName || undefined, color: wlColor || undefined } : { enabled: false }
                               await workspacesApi.update(activeWorkspace, { settings: { whiteLabel } })
-                              setMsg('White-label settings saved')
+                              setSuccess('White-label settings saved')
                               await loadWorkspace()
-                            } catch (err) { setMsg(err.message) }
+                            } catch (err) { setError(err.message) }
                             finally { setWsSaving(false) }
                           }}
                           disabled={wsSaving}
@@ -560,7 +642,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                                 try {
                                   await workspacesApi.updateMember(activeWorkspace, memberUserId, { role: e.target.value })
                                   await loadWorkspace()
-                                } catch (err) { setMsg(err.message) }
+                                } catch (err) { setError(err.message) }
                               }}
                               style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '4px 6px', cursor: 'pointer' }}
                             >
@@ -572,7 +654,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                                 try {
                                   await workspacesApi.removeMember(activeWorkspace, memberUserId)
                                   await loadWorkspace()
-                                } catch (err) { setMsg(err.message) }
+                                } catch (err) { setError(err.message) }
                               }}
                               style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '4px 10px', background: 'transparent', border: '1px solid #804040', color: '#f08080', cursor: 'pointer' }}
                             >Remove</button>
@@ -599,13 +681,13 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                   onClick={async () => {
                     try {
                       const res = await workspacesApi.invite(activeWorkspace, { email: inviteEmail, role: 'member' })
-                      setMsg(res.message)
+                      setSuccess(res.message)
                       setInviteEmail('')
                     } catch (err) {
                       if (err.code === 'seat_limit' || err.status === 402) {
-                        setMsg('Upgrade to a paid plan to add team members — use the Upgrade buttons above.')
+                        setError('Upgrade to a paid plan to add team members — use the Upgrade buttons above.')
                       } else {
-                        setMsg(err.message)
+                        setError(err.message)
                       }
                     }
                   }}
@@ -628,10 +710,10 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                   onClick={async () => {
                     try {
                       await workspacesApi.create({ name: newWsName })
-                      setMsg('Workspace created')
+                      setSuccess('Workspace created')
                       setNewWsName('')
                       await loadWorkspace()
-                    } catch (err) { setMsg(err.message) }
+                    } catch (err) { setError(err.message) }
                   }}
                   style={btn(false)}
                 >Create</button>
@@ -770,13 +852,13 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
 
           {tab === 'distribution' && (
             <DistributionPanel
-              onMsg={setMsg}
+              onMsg={(text) => { setMsg(text); setMsgKind('success') }}
               onOpenBilling={() => { setTab('workspace'); loadWorkspace() }}
             />
           )}
 
           {tab === 'admin' && isAdmin && (
-            <AdminPanel onMsg={setMsg} />
+            <AdminPanel onMsg={(text) => { setMsg(text); setMsgKind('success') }} />
           )}
         </div>
       </div>
@@ -800,17 +882,17 @@ function Field({ label, value, onChange, disabled }) {
 }
 Field.propTypes = { label: PropTypes.string.isRequired, value: PropTypes.string, onChange: PropTypes.func, disabled: PropTypes.bool }
 
-function PasswordChanger({ onMsg }) {
+function PasswordChanger({ onSuccess, onError }) {
   const [current, setCurrent] = useState('')
   const [next, setNext]       = useState('')
   const [loading, setLoading] = useState(false)
 
   async function save() {
-    if (!current || !next) return onMsg('Both fields required')
-    if (next.length < 8) return onMsg('New password min 8 chars')
+    if (!current || !next) return onError('Both fields required')
+    if (next.length < 8) return onError('New password min 8 chars')
     setLoading(true)
-    try { await usersApi.changePass({ currentPassword: current, newPassword: next }); onMsg('Password changed'); setCurrent(''); setNext('') }
-    catch (err) { onMsg(err.message) }
+    try { await usersApi.changePass({ currentPassword: current, newPassword: next }); onSuccess('Password changed'); setCurrent(''); setNext('') }
+    catch (err) { onError(err.message) }
     finally { setLoading(false) }
   }
 
@@ -822,6 +904,6 @@ function PasswordChanger({ onMsg }) {
     </div>
   )
 }
-PasswordChanger.propTypes = { onMsg: PropTypes.func.isRequired }
+PasswordChanger.propTypes = { onSuccess: PropTypes.func.isRequired, onError: PropTypes.func.isRequired }
 
 const btn = (disabled) => ({ background: disabled ? 'var(--border)' : 'var(--gold)', color: disabled ? 'var(--muted)' : '#080b10', border: 'none', padding: '10px 20px', fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: disabled ? 'not-allowed' : 'pointer' })
