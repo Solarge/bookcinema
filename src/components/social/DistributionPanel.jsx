@@ -257,7 +257,7 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
 
         {/* Video URL */}
         <div>
-          <label style={labelStyle}>Video URL</label>
+          <label htmlFor="dist-video-url" style={labelStyle}>Video URL</label>
           {(videoOptions?.length ?? 0) > 0 && (
             <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
               <button type="button" onClick={() => setUseDropdown(true)}
@@ -272,6 +272,7 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
           )}
           {useDropdown && (videoOptions?.length ?? 0) > 0 ? (
             <select
+              id="dist-video-url"
               value={videoUrl}
               onChange={e => setVideoUrl(e.target.value)}
               style={{ ...inputStyle, cursor: 'pointer' }}
@@ -282,6 +283,7 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
             </select>
           ) : (
             <input
+              id="dist-video-url"
               type="url"
               placeholder="https://…"
               value={videoUrl}
@@ -298,8 +300,9 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
 
         {/* Title */}
         <div>
-          <label style={labelStyle}>Title</label>
+          <label htmlFor="dist-title" style={labelStyle}>Title</label>
           <input
+            id="dist-title"
             type="text"
             placeholder="Post title"
             value={title}
@@ -310,8 +313,9 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
 
         {/* Caption */}
         <div>
-          <label style={labelStyle}>Caption</label>
+          <label htmlFor="dist-caption" style={labelStyle}>Caption</label>
           <textarea
+            id="dist-caption"
             placeholder="Caption / description…"
             value={caption}
             onChange={e => setCaption(e.target.value)}
@@ -362,8 +366,9 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
 
         {/* Scheduled time */}
         <div>
-          <label style={labelStyle}>Scheduled At</label>
+          <label htmlFor="dist-scheduled-at" style={labelStyle}>Scheduled At</label>
           <input
+            id="dist-scheduled-at"
             type="datetime-local"
             value={scheduledAt}
             onChange={e => setScheduledAt(e.target.value)}
@@ -467,7 +472,7 @@ function ScheduledPostsList({ posts, onMsg, onRefresh }) {
                         </a>
                       )}
                       {t.error && (
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#f08080', marginLeft: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span role="alert" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#f08080', marginLeft: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           {t.error}
                         </span>
                       )}

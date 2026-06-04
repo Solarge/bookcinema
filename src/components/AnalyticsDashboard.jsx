@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { getAnalytics, exportAnalyticsCSV, clearAnalytics } from '../utils/analytics'
+import { useDivModalA11y } from '../hooks/useModalA11y'
 
 function StatCard({ label, value, sub }) {
   return (
@@ -32,6 +33,8 @@ DayRow.propTypes = { session: PropTypes.object.isRequired }
 
 export default function AnalyticsDashboard({ onClose }) {
   const [data, setData] = useState(null)
+  const panelRef = useRef(null)
+  useDivModalA11y(onClose, panelRef)
 
   useEffect(() => { setData(getAnalytics()) }, [])
 
@@ -40,11 +43,18 @@ export default function AnalyticsDashboard({ onClose }) {
   const recent = [...data.sessions].reverse().slice(0, 30)
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()} role="presentation">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="analytics-modal-title"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
 
         <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>ANALYTICS</span>
+          <span id="analytics-modal-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>ANALYTICS</span>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button onClick={exportAnalyticsCSV} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 12px', background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', cursor: 'pointer', letterSpacing: '1px' }}>
               ⬇ Export CSV
@@ -52,7 +62,7 @@ export default function AnalyticsDashboard({ onClose }) {
             <button onClick={() => { clearAnalytics(); setData(getAnalytics()) }} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 12px', background: 'transparent', border: '1px solid #804040', color: '#f08080', cursor: 'pointer', letterSpacing: '1px' }}>
               Clear
             </button>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+            <button onClick={onClose} aria-label="Close analytics dialog" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
         </div>
 

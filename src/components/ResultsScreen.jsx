@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSettings } from '../contexts/SettingsContext'
 import { useMedia } from '../contexts/MediaContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -12,6 +12,7 @@ import ApprovalBadge from './ApprovalBadge'
 import SettingsPanel from './SettingsPanel'
 import StoryboardView from './StoryboardView'
 import SocialCardModal from './SocialCardModal'
+import { useDivModalA11y } from '../hooks/useModalA11y'
 
 // Whether generation is possible for a media kind given current settings.
 // Managed mode covers image + voice server-side (no client key needed); video has no
@@ -334,10 +335,18 @@ function Label({ children, style }) {
 // ── Batch cost modal ───────────────────────────────────────────────────────
 function BatchCostModal({ series, settings, onConfirm, onCancel }) {
   const est = estimateBatchCost(series, settings)
+  const panelRef = useRef(null)
+  useDivModalA11y(onCancel, panelRef)
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--gold)', padding: '28px', maxWidth: '440px', width: '100%' }}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', color: 'var(--gold)', marginBottom: '20px', letterSpacing: '2px' }}>Estimated Cost</div>
+    <div role="presentation" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="batch-cost-modal-title"
+        style={{ background: 'var(--surface)', border: '1px solid var(--gold)', padding: '28px', maxWidth: '440px', width: '100%' }}
+      >
+        <div id="batch-cost-modal-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', color: 'var(--gold)', marginBottom: '20px', letterSpacing: '2px' }}>Estimated Cost</div>
         {[['Images', `${est.counts.chars} characters`, `$${est.images.toFixed(3)}`], ['Videos', `${est.counts.scenes} scenes`, `$${est.videos.toFixed(3)}`], ['Voice', `${est.counts.dialogueChars} chars`, `$${est.voice.toFixed(4)}`]].map(([type, detail, cost]) => (
           <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', marginBottom: '8px', color: 'var(--cream)' }}>
             <span>{type} <span style={{ color: 'var(--muted)' }}>({detail})</span></span>
@@ -443,10 +452,10 @@ export default function ResultsScreen({ series: initialSeries, onNewBook }) {
 
         {/* Actions */}
         <button onClick={() => setShowStoryboard(true)} style={topBtn('var(--border)', 'var(--muted)')}>🎞 Storyboard</button>
-        <button onClick={() => exportHtml(series)} style={topBtn('var(--border)', 'var(--muted)')}>HTML</button>
-        <button onClick={handleBibleExport} style={topBtn('var(--border)', 'var(--muted)')}>Bible</button>
-        <button onClick={handleZipExport} disabled={zipping} style={topBtn('var(--border)', 'var(--muted)')}>{zipping ? 'Zipping…' : '⬇ ZIP'}</button>
-        <button onClick={() => setShowSettings(true)} style={topBtn('var(--border)', 'var(--muted)')}>⚙</button>
+        <button onClick={() => exportHtml(series)} aria-label="Export as HTML" style={topBtn('var(--border)', 'var(--muted)')}>HTML</button>
+        <button onClick={handleBibleExport} aria-label="Export series bible" style={topBtn('var(--border)', 'var(--muted)')}>Bible</button>
+        <button onClick={handleZipExport} disabled={zipping} aria-label={zipping ? 'Exporting ZIP…' : 'Download ZIP export'} style={topBtn('var(--border)', 'var(--muted)')}>{zipping ? 'Zipping…' : '⬇ ZIP'}</button>
+        <button onClick={() => setShowSettings(true)} aria-label="Open settings" style={topBtn('var(--border)', 'var(--muted)')}>⚙</button>
         <button onClick={onNewBook} style={topBtn('var(--border)', 'var(--muted)')}>+ New</button>
       </div>
 

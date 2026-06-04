@@ -1,3 +1,5 @@
+import PropTypes from 'prop-types'
+
 const STATUS_CONFIG = {
   pending:  { label: 'Pending',  color: '#4a5a6a', bg: '#141b24' },
   approved: { label: '✓ Approved', color: '#6dc87a', bg: '#0a2010' },
@@ -22,7 +24,7 @@ export default function ApprovalBadge({ status = 'pending', onChange }) {
         border: `1px solid ${cfg.color}44`,
       }}>{cfg.label}</span>
       {onChange && options.map(s => (
-        <button key={s} onClick={() => onChange(s)} style={{
+        <button key={s} onClick={() => onChange(s)} aria-label={`Mark as ${s}`} style={{
           fontFamily: "'JetBrains Mono', monospace",
           fontSize: '9px',
           padding: '2px 6px',
@@ -37,4 +39,9 @@ export default function ApprovalBadge({ status = 'pending', onChange }) {
       ))}
     </div>
   )
+}
+
+ApprovalBadge.propTypes = {
+  status:   PropTypes.oneOf(['pending', 'approved', 'flagged', 'rejected']),
+  onChange: PropTypes.func,
 }

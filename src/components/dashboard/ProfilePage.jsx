@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
 import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi, admin as adminApi } from '../../lib/api'
 import { planFeatures } from '../../utils/planFeatures'
 import DistributionPanel from '../social/DistributionPanel'
+import { useDivModalA11y } from '../../hooks/useModalA11y'
 
 const PLAN_SUMMARIES = {
   free:   'Standard tiers only · watermark on exports',
@@ -31,6 +32,8 @@ const SUPPORT_EMAIL = 'support@bookfilm.studio'
 
 export default function ProfilePage({ onClose }) {
   const { user, logout, updateUser, activeWorkspace, isAdmin } = useAuth()
+  const panelRef = useRef(null)
+  useDivModalA11y(onClose, panelRef)
   const [tab, setTab]               = useState('profile') // profile | security | apikey | analytics
   const [name, setName]             = useState(user?.name ?? '')
   const [saving, setSaving]         = useState(false)
@@ -87,16 +90,23 @@ export default function ProfilePage({ onClose }) {
   const TABS = ['profile', 'security', 'apikey', 'workspace', 'analytics', 'distribution', ...(isAdmin ? ['admin'] : [])]
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} role="presentation" onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="profile-modal-title"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
 
         <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>
+          <span id="profile-modal-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>
             ACCOUNT — {user?.name?.toUpperCase()}
           </span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button onClick={logout} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 12px', background: 'transparent', border: '1px solid #804040', color: '#f08080', cursor: 'pointer' }}>Sign Out</button>
-            <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+            <button onClick={onClose} aria-label="Close account dialog" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
           </div>
         </div>
 
@@ -113,7 +123,7 @@ export default function ProfilePage({ onClose }) {
         </div>
 
         <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
-          {msg && <div style={{ background: '#0a2010', border: '1px solid #3a7a4a', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#6dc87a', marginBottom: '16px' }}>{msg}</div>}
+          {msg && <div role="status" aria-live="polite" style={{ background: '#0a2010', border: '1px solid #3a7a4a', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#6dc87a', marginBottom: '16px' }}>{msg}</div>}
 
           {tab === 'profile' && (
             <div>
@@ -427,6 +437,7 @@ export default function ProfilePage({ onClose }) {
                   placeholder="email@example.com"
                   value={inviteEmail}
                   onChange={e => setInviteEmail(e.target.value)}
+                  aria-label="Invite member by email"
                   style={{ flex: 1, background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 12px', outline: 'none' }}
                 />
                 <button
@@ -455,6 +466,7 @@ export default function ProfilePage({ onClose }) {
                   placeholder="Workspace name"
                   value={newWsName}
                   onChange={e => setNewWsName(e.target.value)}
+                  aria-label="New organization workspace name"
                   style={{ flex: 1, background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 12px', outline: 'none' }}
                 />
                 <button
@@ -512,6 +524,7 @@ export default function ProfilePage({ onClose }) {
                   placeholder="Workspace ObjectId"
                   value={adminWsId}
                   onChange={e => setAdminWsId(e.target.value)}
+                  aria-label="Workspace ID for managed generation access"
                   style={{ width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 12px', outline: 'none', boxSizing: 'border-box' }}
                 />
               </div>
@@ -574,8 +587,8 @@ function PasswordChanger({ onMsg }) {
 
   return (
     <div>
-      <input type="password" placeholder="Current password" value={current} onChange={e => setCurrent(e.target.value)} style={{ display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '10px 12px', outline: 'none', marginBottom: '10px', boxSizing: 'border-box' }} />
-      <input type="password" placeholder="New password (min 8 chars)" value={next} onChange={e => setNext(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} style={{ display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '10px 12px', outline: 'none', marginBottom: '12px', boxSizing: 'border-box' }} />
+      <input type="password" placeholder="Current password" value={current} onChange={e => setCurrent(e.target.value)} aria-label="Current password" style={{ display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '10px 12px', outline: 'none', marginBottom: '10px', boxSizing: 'border-box' }} />
+      <input type="password" placeholder="New password (min 8 chars)" value={next} onChange={e => setNext(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} aria-label="New password (minimum 8 characters)" style={{ display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '10px 12px', outline: 'none', marginBottom: '12px', boxSizing: 'border-box' }} />
       <button onClick={save} disabled={loading} style={btn(loading)}>{loading ? 'Saving…' : 'Change Password'}</button>
     </div>
   )

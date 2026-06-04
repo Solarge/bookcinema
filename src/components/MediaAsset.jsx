@@ -42,7 +42,7 @@ export function ImageAsset({ asset, onGenerate, onApprovalChange, label = 'Gener
           <img src={displayUrl} alt={altText} style={{ width: '100%', maxWidth: '300px', display: 'block', border: '1px solid var(--border)' }} />
           <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
             {onApprovalChange && <ApprovalBadge status={approvalStatus} onChange={onApprovalChange} />}
-            <button onClick={onGenerate} disabled={status === 'generating' || disabled} style={smallBtn('#c8922a', '#080b10')}>↺ Regen</button>
+            <button onClick={onGenerate} disabled={status === 'generating' || disabled} aria-label="Regenerate image" style={smallBtn('#c8922a', '#080b10')}>↺ Regen</button>
           </div>
         </div>
       ) : (
@@ -62,8 +62,8 @@ export function ImageAsset({ asset, onGenerate, onApprovalChange, label = 'Gener
             <GeneratingIndicator label="Generating image…" />
           ) : (
             <>
-              {error && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080', textAlign: 'center', padding: '0 12px' }}>{error}</div>}
-              <button onClick={onGenerate} disabled={disabled || status === 'generating'} style={primaryBtn(disabled)}>
+              {error && <div role="alert" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080', textAlign: 'center', padding: '0 12px' }}>{error}</div>}
+              <button onClick={onGenerate} disabled={disabled || status === 'generating'} aria-label={status === 'error' ? 'Retry image generation' : label} style={primaryBtn(disabled)}>
                 {status === 'error' ? '↺ Retry' : label}
               </button>
               {disabled && disabledHint && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textAlign: 'center', padding: '0 12px' }}>{disabledHint}</div>}
@@ -84,8 +84,8 @@ export function VideoAsset({ asset, onGenerate, onApprovalChange, label = 'Gener
           <video src={localUrl} controls style={{ width: '100%', maxWidth: '400px', display: 'block', border: '1px solid var(--border)', background: '#000' }} />
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px', flexWrap: 'wrap' }}>
             {onApprovalChange && <ApprovalBadge status={approvalStatus} onChange={onApprovalChange} />}
-            <button onClick={onGenerate} disabled={status === 'generating' || disabled} style={smallBtn('#c8922a', '#080b10')}>↺ Regen</button>
-            <a href={localUrl} download="scene.mp4" style={{ ...smallBtn('#1e2d3d', 'var(--muted)'), textDecoration: 'none', display: 'inline-block' }}>⬇ Save</a>
+            <button onClick={onGenerate} disabled={status === 'generating' || disabled} aria-label="Regenerate video" style={smallBtn('#c8922a', '#080b10')}>↺ Regen</button>
+            <a href={localUrl} download="scene.mp4" aria-label="Save video clip" style={{ ...smallBtn('#1e2d3d', 'var(--muted)'), textDecoration: 'none', display: 'inline-block' }}>⬇ Save</a>
           </div>
         </div>
       ) : (
@@ -105,8 +105,8 @@ export function VideoAsset({ asset, onGenerate, onApprovalChange, label = 'Gener
             <GeneratingIndicator label="Generating video… (1–3 min)" />
           ) : (
             <>
-              {error && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080', padding: '0 12px', textAlign: 'center' }}>{error}</div>}
-              <button onClick={onGenerate} disabled={disabled || status === 'generating'} style={primaryBtn(disabled)}>
+              {error && <div role="alert" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080', padding: '0 12px', textAlign: 'center' }}>{error}</div>}
+              <button onClick={onGenerate} disabled={disabled || status === 'generating'} aria-label={status === 'error' ? 'Retry video generation' : label} style={primaryBtn(disabled)}>
                 {status === 'error' ? '↺ Retry Video' : label}
               </button>
             </>
@@ -124,14 +124,14 @@ export function AudioAsset({ asset, onGenerate, label = 'Generate Voice', disabl
       {audioUrl ? (
         <>
           <audio src={audioUrl} controls style={{ height: '28px', flex: 1, minWidth: '180px' }} />
-          <button onClick={onGenerate} disabled={status === 'generating' || disabled} style={smallBtn('var(--border)', 'var(--muted)')}>↺</button>
+          <button onClick={onGenerate} disabled={status === 'generating' || disabled} aria-label="Regenerate voice" style={smallBtn('var(--border)', 'var(--muted)')}>↺</button>
         </>
       ) : status === 'generating' ? (
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>Generating voice…</span>
+        <span aria-live="polite" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>Generating voice…</span>
       ) : (
         <>
-          {error && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080' }}>Error</span>}
-          <button onClick={onGenerate} disabled={disabled} style={smallBtn('var(--border)', 'var(--muted)')}>
+          {error && <span role="alert" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080' }}>Error</span>}
+          <button onClick={onGenerate} disabled={disabled} aria-label={label} style={smallBtn('var(--border)', 'var(--muted)')}>
             ▶ {label}
           </button>
         </>
@@ -143,8 +143,8 @@ export function AudioAsset({ asset, onGenerate, label = 'Generate Voice', disabl
 function GeneratingIndicator({ label }) {
   return (
     <>
-      <div style={{ width: '20px', height: '20px', border: '2px solid var(--gold)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin-reel 1s linear infinite' }} />
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>{label}</span>
+      <div style={{ width: '20px', height: '20px', border: '2px solid var(--gold)', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin-reel 1s linear infinite' }} aria-hidden="true" />
+      <span aria-live="polite" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>{label}</span>
     </>
   )
 }

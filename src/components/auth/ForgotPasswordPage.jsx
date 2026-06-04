@@ -39,8 +39,8 @@ export default function ForgotPasswordPage({ onBackToLogin }) {
         <div style={{ fontFamily: "'Cinzel', serif", fontSize: '24px', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>BookFilm Studio</div>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '28px' }}>RESET PASSWORD</div>
 
-        {error && <div style={errorStyle}>{error}</div>}
-        {success && <div style={successStyle}>{success}</div>}
+        {error && <div role="alert" style={errorStyle}>{error}</div>}
+        {success && <div role="status" aria-live="polite" style={successStyle}>{success}</div>}
 
         {!success && (
           <>
@@ -54,6 +54,7 @@ export default function ForgotPasswordPage({ onBackToLogin }) {
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
               autoFocus
+              aria-label="Email address"
               style={inputStyle}
             />
             <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
@@ -101,8 +102,8 @@ export function ResetPasswordPage({ token, onBackToLogin }) {
         <div style={{ fontFamily: "'Cinzel', serif", fontSize: '24px', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>BookFilm Studio</div>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '28px' }}>SET NEW PASSWORD</div>
 
-        {error && <div style={errorStyle}>{error}</div>}
-        {success && <div style={successStyle}>{success}</div>}
+        {error && <div role="alert" style={errorStyle}>{error}</div>}
+        {success && <div role="status" aria-live="polite" style={successStyle}>{success}</div>}
 
         {!success && (
           <>
@@ -112,6 +113,7 @@ export function ResetPasswordPage({ token, onBackToLogin }) {
               value={password}
               onChange={e => setPassword(e.target.value)}
               autoFocus
+              aria-label="New password (minimum 8 characters)"
               style={inputStyle}
             />
             <input
@@ -120,6 +122,7 @@ export function ResetPasswordPage({ token, onBackToLogin }) {
               value={confirm}
               onChange={e => setConfirm(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              aria-label="Confirm new password"
               style={inputStyle}
             />
             <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>

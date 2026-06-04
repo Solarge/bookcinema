@@ -34,11 +34,11 @@ export default function RegisterPage({ onSwitchToLogin }) {
         <div style={{ fontFamily: "'Cinzel', serif", fontSize: '24px', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>BookFilm Studio</div>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '28px' }}>CREATE ACCOUNT</div>
 
-        {error && <div style={errorStyle}>{error}</div>}
+        {error && <div role="alert" style={errorStyle}>{error}</div>}
 
-        <input type="text"     placeholder="Full name"      value={name}     onChange={e => setName(e.target.value)}     style={inputStyle} autoFocus />
-        <input type="email"    placeholder="Email address"  value={email}    onChange={e => setEmail(e.target.value)}    style={inputStyle} />
-        <input type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={inputStyle} />
+        <input type="text"     placeholder="Full name"      value={name}     onChange={e => setName(e.target.value)}     aria-label="Full name"     style={inputStyle} autoFocus />
+        <input type="email"    placeholder="Email address"  value={email}    onChange={e => setEmail(e.target.value)}    aria-label="Email address" style={inputStyle} />
+        <input type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} aria-label="Password (minimum 8 characters)" style={inputStyle} />
 
         {/* ToS + Privacy consent checkbox */}
         <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '12px', cursor: 'pointer' }}>
