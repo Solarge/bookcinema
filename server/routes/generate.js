@@ -3,13 +3,14 @@ import Job from '../models/Job.js'
 import { requireAuth } from '../middleware/auth.js'
 import { resolveWorkspace } from '../middleware/workspace.js'
 import { managedAccess } from '../middleware/managedAccess.js'
+import { generationLimiter } from '../middleware/rateLimit.js'
 import { addGenerationJob } from '../queue/generationQueue.js'
 import { creditCost } from '../generation/creditCost.js'
 import { debitCredits, refundCredits } from '../utils/credits.js'
 import { planFeatures } from '../plans.js'
 
 const router = Router()
-router.use(requireAuth, resolveWorkspace)
+router.use(requireAuth, resolveWorkspace, generationLimiter)
 
 async function enqueueGeneration(req, res, { type, tier, params, payload }) {
   if (tier === 'premium' && !planFeatures(req.workspace.plan).premium) {
@@ -22,7 +23,12 @@ async function enqueueGeneration(req, res, { type, tier, params, payload }) {
   const debit = await debitCredits(req.workspace._id, cost, { type, tier })
   if (!debit.ok) return res.status(402).json({ error: 'Insufficient credits' })
 
-  const job = await Job.create({ workspaceId: req.workspace._id, createdBy: req.user._id, type, tier, status: 'queued', params })
+  // Persist which bucket(s) the debit drew from so a terminal-failure refund restores
+  // the same buckets (otherwise refunds always fall back to 'purchased').
+  const job = await Job.create({
+    workspaceId: req.workspace._id, createdBy: req.user._id, type, tier, status: 'queued', params,
+    debitMonthly: debit.fromMonthly ?? 0, debitPurchased: debit.fromPurchased ?? 0,
+  })
   try {
     const queue = req.app.locals.generationQueue
     const bull = await addGenerationJob({ jobId: String(job._id), type, tier, payload, workspaceId: String(req.workspace._id), createdBy: String(req.user._id) }, queue)
@@ -31,7 +37,9 @@ async function enqueueGeneration(req, res, { type, tier, params, payload }) {
   } catch (qErr) {
     job.status = 'failed'; job.errorMessage = 'Could not enqueue (queue unavailable)'
     await job.save()
-    await refundCredits(req.workspace._id, cost, { jobId: job._id, type, tier })
+    // Refund to the exact buckets debited.
+    if (debit.fromMonthly) await refundCredits(req.workspace._id, debit.fromMonthly, { jobId: job._id, type, tier, bucket: 'monthly' })
+    if (debit.fromPurchased) await refundCredits(req.workspace._id, debit.fromPurchased, { jobId: job._id, type, tier, bucket: 'purchased' })
     return res.status(503).json({ error: 'Generation queue unavailable', jobId: String(job._id) })
   }
   return res.status(202).json({ jobId: String(job._id) })

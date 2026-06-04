@@ -5,7 +5,16 @@ const DIMENSIONS = { '9:16': { width: 1080, height: 1920 }, '16:9': { width: 192
 async function pollPrediction(id, apiKey, maxAttempts = 40) {
   for (let i = 0; i < maxAttempts; i++) {
     await new Promise(r => setTimeout(r, 3000))
-    const res = await fetch(`https://api.replicate.com/v1/predictions/${id}`, { headers: { Authorization: `Bearer ${apiKey}` } })
+    let res
+    try {
+      res = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+        headers: { Authorization: `Bearer ${apiKey}` },
+        signal: AbortSignal.timeout(30000),
+      })
+    } catch (err) {
+      if (err.name === 'TimeoutError' || err.name === 'AbortError') throw new Error('Replicate poll timed out (30s per attempt)')
+      throw err
+    }
     if (!res.ok) throw new Error(`Replicate poll error ${res.status}`)
     const d = await res.json()
     if (d.status === 'succeeded') return d.output?.[0] ?? d.output
@@ -19,17 +28,30 @@ export async function generate({ prompt, aspectRatio = '9:16', styleHint = '' })
   if (!apiKey) throw new Error('Replicate is not configured (REPLICATE_API_TOKEN missing)')
   const dims = DIMENSIONS[aspectRatio] || DIMENSIONS['9:16']
   const fullPrompt = styleHint ? `${prompt}, ${styleHint}` : prompt
-  const res = await fetch(MODEL_URL, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Prefer: 'wait' },
-    body: JSON.stringify({ input: { prompt: fullPrompt, width: dims.width, height: dims.height, output_format: 'jpg', output_quality: 90 } }),
-  })
+  let res
+  try {
+    res = await fetch(MODEL_URL, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', Prefer: 'wait' },
+      body: JSON.stringify({ input: { prompt: fullPrompt, width: dims.width, height: dims.height, output_format: 'jpg', output_quality: 90 } }),
+      signal: AbortSignal.timeout(180000),
+    })
+  } catch (err) {
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') throw new Error('Replicate provider timed out (180s)')
+    throw err
+  }
   const data = await res.json()
   if (!res.ok) throw new Error(data?.detail || `Replicate error ${res.status}`)
   let url = data.status === 'succeeded' ? (data.output?.[0] ?? data.output) : null
   if (!url && data.id) url = await pollPrediction(data.id, apiKey)
   if (!url) throw new Error('Replicate returned no image URL')
-  const imgRes = await fetch(url)
+  let imgRes
+  try {
+    imgRes = await fetch(url, { signal: AbortSignal.timeout(60000) })
+  } catch (err) {
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') throw new Error('Replicate image download timed out (60s)')
+    throw err
+  }
   if (!imgRes.ok) throw new Error(`Image download failed ${imgRes.status}`)
   return { buffer: Buffer.from(await imgRes.arrayBuffer()), mimeType: 'image/jpeg', ext: 'jpg' }
 }

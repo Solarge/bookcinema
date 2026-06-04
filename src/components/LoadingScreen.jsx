@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import PropTypes from 'prop-types'
 
 const MESSAGES = [
   'Absorbing the story...',
@@ -10,26 +11,55 @@ const MESSAGES = [
   'Finalising your series...',
 ]
 
-export default function LoadingScreen() {
-  const [msgIndex, setMsgIndex] = useState(0)
-  const [progress, setProgress] = useState(5)
+/**
+ * LoadingScreen
+ *
+ * Props (all optional — works fine with none):
+ *   progress  {number}  0-100  — when provided by a managed-job poller, reflects real
+ *                                 job progress.  Otherwise the bar animates indeterminately
+ *                                 and caps at 90% until the caller unmounts the screen.
+ *   status    {string}         — short status text from the job (e.g. "Generating episode 4…").
+ *                                 When provided, replaces the rotating MESSAGES copy.
+ */
+export default function LoadingScreen({ progress: externalProgress, status: externalStatus }) {
+  const [msgIndex, setMsgIndex]       = useState(0)
+  const [fakeProgress, setFakeProgress] = useState(5)
+  const [slowWarning, setSlowWarning]   = useState(false)
+  const startRef = useRef(Date.now())
 
+  // Rotate through canned messages (only when no external status is given)
   useEffect(() => {
-    const msgTimer = setInterval(() => {
-      setMsgIndex(i => (i + 1) % MESSAGES.length)
-    }, 3000)
-    return () => clearInterval(msgTimer)
-  }, [])
+    if (externalStatus) return
+    const t = setInterval(() => setMsgIndex(i => (i + 1) % MESSAGES.length), 3000)
+    return () => clearInterval(t)
+  }, [externalStatus])
 
+  // Fake progress animation (only used when no external progress is given)
   useEffect(() => {
-    const progTimer = setInterval(() => {
-      setProgress(p => {
+    if (externalProgress != null) return
+    const t = setInterval(() => {
+      setFakeProgress(p => {
         if (p >= 90) return p
         return p + Math.random() * 8 + 2
       })
     }, 2000)
-    return () => clearInterval(progTimer)
-  }, [])
+    return () => clearInterval(t)
+  }, [externalProgress])
+
+  // "Still working…" warning after 30 s of fake-progress being stuck near 90%
+  useEffect(() => {
+    if (externalProgress != null) return // not needed when we have real progress
+    const t = setTimeout(() => {
+      if (Date.now() - startRef.current >= 30000) setSlowWarning(true)
+    }, 30000)
+    return () => clearTimeout(t)
+  }, [externalProgress])
+
+  const displayProgress = externalProgress != null
+    ? Math.min(Math.max(externalProgress, 0), 100)
+    : Math.min(fakeProgress, 90)
+
+  const displayMessage = externalStatus || MESSAGES[msgIndex]
 
   return (
     <div style={{
@@ -99,23 +129,37 @@ export default function LoadingScreen() {
 
       {/* Status message */}
       <div
-        key={msgIndex}
+        key={externalStatus || msgIndex}
         className="animate-fade-slide"
         style={{
           fontFamily: "'Cormorant Garamond', serif",
           fontStyle: 'italic',
           fontSize: '22px',
           color: 'var(--cream)',
-          marginBottom: '40px',
+          marginBottom: '12px',
           textAlign: 'center',
           minHeight: '32px',
         }}
       >
-        {MESSAGES[msgIndex]}
+        {displayMessage}
       </div>
 
+      {/* "Still working…" hint shown after 30 s when progress is stuck */}
+      {slowWarning && externalProgress == null && (
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '10px',
+          color: 'var(--muted)',
+          letterSpacing: '1px',
+          marginBottom: '24px',
+          textAlign: 'center',
+        }}>
+          Still working… large books can take a few minutes.
+        </div>
+      )}
+
       {/* Progress bar */}
-      <div style={{ width: '100%', maxWidth: '400px' }}>
+      <div style={{ width: '100%', maxWidth: '400px', marginTop: slowWarning ? 0 : '28px' }}>
         <div style={{
           width: '100%',
           height: '2px',
@@ -124,7 +168,7 @@ export default function LoadingScreen() {
         }}>
           <div
             className="progress-fill"
-            style={{ width: `${Math.min(progress, 90)}%` }}
+            style={{ width: `${displayProgress}%` }}
           />
         </div>
         <div style={{
@@ -135,9 +179,14 @@ export default function LoadingScreen() {
           textAlign: 'right',
           marginTop: '8px',
         }}>
-          {Math.round(Math.min(progress, 90))}%
+          {externalProgress != null ? `${Math.round(displayProgress)}%` : `${Math.round(displayProgress)}%`}
         </div>
       </div>
     </div>
   )
+}
+
+LoadingScreen.propTypes = {
+  progress: PropTypes.number,
+  status:   PropTypes.string,
 }

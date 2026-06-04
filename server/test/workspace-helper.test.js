@@ -10,7 +10,7 @@ after(stopTestDB)
 beforeEach(clearTestDB)
 
 test('creates a personal workspace and sets the user default', async () => {
-  const user = await User.create({ name: 'Jane', email: 'j@x.com', password: 'password123' })
+  const user = await User.create({ name: 'Jane', email: 'j@x.com', password: 'password1234' })
   const ws = await createPersonalWorkspace(user)
 
   assert.equal(ws.type, 'personal')
@@ -22,7 +22,7 @@ test('creates a personal workspace and sets the user default', async () => {
 })
 
 test('is idempotent — returns existing personal workspace if one exists', async () => {
-  const user = await User.create({ name: 'Jane', email: 'j2@x.com', password: 'password123' })
+  const user = await User.create({ name: 'Jane', email: 'j2@x.com', password: 'password1234' })
   const first = await createPersonalWorkspace(user)
   const second = await createPersonalWorkspace(await User.findById(user._id))
   assert.equal(first._id.toString(), second._id.toString())

@@ -9,7 +9,7 @@ after(stopTestDB)
 beforeEach(clearTestDB)
 
 test('user has defaultWorkspaceId field and no teamId', async () => {
-  const u = await User.create({ name: 'A', email: 'a@x.com', password: 'password123' })
+  const u = await User.create({ name: 'A', email: 'a@x.com', password: 'password1234' })
   assert.equal(u.defaultWorkspaceId, null)
   assert.equal(u.schema.path('teamId'), undefined) // teamId removed
   const wsId = new mongoose.Types.ObjectId()

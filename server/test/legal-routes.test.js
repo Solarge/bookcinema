@@ -36,14 +36,14 @@ const authed = (r, t) => r.set('Authorization', `Bearer ${t}`)
 test('register requires consent (400 without it)', async () => {
   const res = await request(authApp())
     .post('/api/auth/register')
-    .send({ name: 'A', email: 'a@x.com', password: 'password123' })
+    .send({ name: 'A', email: 'a@x.com', password: 'password1234' })
   assert.equal(res.status, 400)
 })
 
 test('register stamps consentedAt when consent given', async () => {
   const res = await request(authApp())
     .post('/api/auth/register')
-    .send({ name: 'A', email: 'b@x.com', password: 'password123', consent: true })
+    .send({ name: 'A', email: 'b@x.com', password: 'password1234', consent: true, ageConfirmed: true })
   assert.equal(res.status, 201)
   assert.ok(res.body.user.consentedAt)
 })

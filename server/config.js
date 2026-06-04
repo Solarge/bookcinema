@@ -117,3 +117,16 @@ export const config = {
     packCredits: { pack_small: 100, pack_medium: 500, pack_large: 2000 },
   },
 }
+
+// Production boot warnings — missing keys that are not hard-required but critical at scale.
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    console.warn('⚠️  [BILLING] STRIPE_SECRET_KEY is not set — billing features are disabled in production!')
+  }
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.warn('⚠️  [BILLING] STRIPE_WEBHOOK_SECRET is not set — webhook signature verification is disabled in production!')
+  }
+  if (!process.env.SOCIAL_TOKEN_KEY) {
+    console.warn('⚠️  [SOCIAL] SOCIAL_TOKEN_KEY is not set — social OAuth token encryption is insecure in production!')
+  }
+}

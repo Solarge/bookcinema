@@ -39,6 +39,13 @@ export function teamInviteEmail(inviterName, teamName, inviteUrl) {
 <p><a href="${inviteUrl}">Accept Invitation</a></p>`
 }
 
+export function verifyEmail(name, verifyUrl) {
+  return `<p>Hi ${name},</p>
+<p>Please verify your email address to unlock managed generation on BookFilm Studio.</p>
+<p><a href="${verifyUrl}">Verify Email</a> (link expires in 24 hours)</p>
+<p>If you didn't create an account, you can safely ignore this email.</p>`
+}
+
 export function passwordResetEmail(resetUrl) {
   return `<p>You requested a password reset for your BookFilm Studio account.</p>
 <p><a href="${resetUrl}">Reset Password</a> (expires in 1 hour)</p>

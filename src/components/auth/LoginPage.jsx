@@ -24,13 +24,15 @@ export default function LoginPage({ onSwitchToRegister, onForgotPassword }) {
         <div style={{ fontFamily: "'Cinzel', serif", fontSize: '24px', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>BookFilm Studio</div>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '28px' }}>SIGN IN</div>
 
-        {error && <div style={errorStyle}>{error}</div>}
+        {error && <div role="alert" style={errorStyle}>{error}</div>}
 
         <input type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()} autoFocus
+          aria-label="Email address"
           style={inputStyle} />
         <input type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+          aria-label="Password"
           style={inputStyle} />
 
         <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>

@@ -58,6 +58,8 @@ export const auth = {
   refresh:  ()        => post('/api/auth/refresh', {}),
   forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
   resetPassword:  (token, password) => post('/api/auth/reset-password', { token, password }),
+  verifyEmail:         (token) => get('/api/auth/verify-email?token=' + encodeURIComponent(token)),
+  resendVerification:  ()      => post('/api/auth/resend-verification', {}),
 }
 
 // ── Series ────────────────────────────────────────────────────────────────────
@@ -71,6 +73,18 @@ export const series = {
   share:      (id)        => post(`/api/series/${id}/share`, {}),
   unshare:    (id)        => del(`/api/series/${id}/share`),
   getPublic:  (token)     => get(`/api/share/${token}`),
+}
+
+// Public share fetch — plain fetch with NO auth headers, works for logged-out visitors.
+export async function getPublicShare(token) {
+  const res = await fetch(`${BASE}/api/share/${encodeURIComponent(token)}`)
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+    const err = new Error(body.error || `Request failed: ${res.status}`)
+    err.status = res.status
+    throw err
+  }
+  return res.json()
 }
 
 // ── Assets ────────────────────────────────────────────────────────────────────

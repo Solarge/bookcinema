@@ -2,6 +2,79 @@ import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { series as seriesApi } from '../lib/api'
 
+// ── Share panel shown below a card when toggled ────────────────────────────
+function SharePanel({ item, onUpdate }) {
+  const [busy, setBusy]   = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const shareUrl = item.shareToken
+    ? `${window.location.origin}/?share=${item.shareToken}`
+    : null
+
+  async function handleShare() {
+    setBusy(true)
+    try {
+      const res = await seriesApi.share(item._id)
+      onUpdate({ shareToken: res.shareToken, isPublic: true })
+    } catch (err) {
+      console.warn('Share failed', err)
+    } finally { setBusy(false) }
+  }
+
+  async function handleRevoke() {
+    setBusy(true)
+    try {
+      await seriesApi.unshare(item._id)
+      onUpdate({ shareToken: null, isPublic: false })
+    } catch (err) {
+      console.warn('Revoke failed', err)
+    } finally { setBusy(false) }
+  }
+
+  function handleCopy() {
+    if (!shareUrl) return
+    navigator.clipboard.writeText(shareUrl).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div style={{ marginTop: '8px', padding: '10px 12px', background: '#0a0e14', border: '1px solid var(--border)' }}>
+      {shareUrl ? (
+        <>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '1.5px', marginBottom: '6px', textTransform: 'uppercase' }}>
+            Public link active
+          </div>
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+            <input
+              readOnly
+              value={shareUrl}
+              aria-label="Public share URL"
+              style={{ flex: 1, background: '#060810', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '5px 8px', outline: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              onFocus={e => e.target.select()}
+            />
+            <button onClick={handleCopy} aria-label="Copy share link" style={actionBtn(copied ? '#3a7a4a' : 'var(--border)', copied ? '#6dc87a' : 'var(--muted)')}>
+              {copied ? '✓' : 'Copy'}
+            </button>
+          </div>
+          <button onClick={handleRevoke} disabled={busy} aria-label="Revoke public link" style={{ ...actionBtn('#3a1818', '#804040'), width: '100%', fontSize: '9px', letterSpacing: '1px' }}>
+            {busy ? '…' : 'Revoke Link'}
+          </button>
+        </>
+      ) : (
+        <>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '1px', marginBottom: '8px' }}>
+            No public link — create one to share this series.
+          </div>
+          <button onClick={handleShare} disabled={busy} aria-label="Create public share link" style={{ ...actionBtn('var(--gold)', 'var(--gold)'), width: '100%', fontSize: '9px', letterSpacing: '1px' }}>
+            {busy ? '…' : '+ Create Share Link'}
+          </button>
+        </>
+      )}
+    </div>
+  )
+}
+
 function formatDate(iso) {
   try { return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) } catch (_) { return iso }
 }
@@ -26,23 +99,39 @@ export default function LibraryScreen({ onView, onBack }) {
   const [error, setError] = useState(null)
   const [renaming, setRenaming] = useState(null) // _id being renamed
   const [viewing, setViewing] = useState(null)   // _id currently being fetched for view
+  const [sharing, setSharing] = useState(null)   // _id whose share panel is open
+  const [search, setSearch]   = useState('')
+  const [searching, setSearching] = useState(false)
 
-  useEffect(() => {
-    seriesApi.list()
+  function loadLibrary(q) {
+    const params = q ? { search: q } : {}
+    return seriesApi.list(params)
       .then(res => setItems(res.items))
       .catch(err => {
         console.warn('LibraryScreen: failed to load series', err)
         setError('Failed to load library. Please try again.')
       })
-      .finally(() => setLoading(false))
+      .finally(() => { setLoading(false); setSearching(false) })
+  }
+
+  useEffect(() => {
+    loadLibrary('')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function handleSearch(q) {
+    setSearch(q)
+    setSearching(true)
+    setError(null)
+    loadLibrary(q)
+  }
 
   async function handleView(item) {
     if (viewing === item._id) return
     setViewing(item._id)
     try {
       const full = await seriesApi.get(item._id)
-      onView(full.fullOutput)
+      onView(full.fullOutput, full._id)
     } catch (err) {
       console.warn('LibraryScreen: failed to fetch series', err)
       setError('Failed to load series. Please try again.')
@@ -72,6 +161,10 @@ export default function LibraryScreen({ onView, onBack }) {
     }
   }
 
+  function handleShareUpdate(id, patch) {
+    setItems(prev => prev.map(i => i._id === id ? { ...i, ...patch } : i))
+  }
+
   async function handleDuplicate(item) {
     try {
       const copy = await seriesApi.duplicate(item._id)
@@ -86,12 +179,25 @@ export default function LibraryScreen({ onView, onBack }) {
     <div style={{ minHeight: '100vh', background: 'var(--bg)', padding: '48px 24px' }}>
       <div style={{ maxWidth: '960px', margin: '0 auto' }}>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '40px', flexWrap: 'wrap' }}>
           <button onClick={onBack} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '2px', padding: '7px 14px', cursor: 'pointer' }}>
             ← Back
           </button>
           <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: '28px', fontWeight: '600', color: 'var(--gold)' }}>My Library</h1>
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>{items.length} series</span>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <label htmlFor="library-search" style={{ position: 'absolute', width: 1, height: 1, overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Search library</label>
+            <input
+              id="library-search"
+              type="search"
+              placeholder="Search series…"
+              value={search}
+              onChange={e => handleSearch(e.target.value)}
+              aria-label="Search series by title or author"
+              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '7px 12px', outline: 'none', minWidth: '180px' }}
+            />
+            {searching && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }} aria-live="polite" aria-label="Searching">…</span>}
+          </div>
         </div>
 
         {error && (
@@ -143,7 +249,20 @@ export default function LibraryScreen({ onView, onBack }) {
                     <button onClick={() => handleDuplicate(item)} style={secondaryBtn} title="Duplicate series">⊕ Copy</button>
                     <button onClick={() => handleDelete(item._id)} style={dangerBtn}>Delete</button>
                   </div>
-                  <button onClick={() => setRenaming(item._id)} style={{ ...secondaryBtn, width: '100%', marginTop: '6px' }}>✎ Rename</button>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginTop: '6px' }}>
+                    <button onClick={() => setRenaming(item._id)} style={secondaryBtn} aria-label={`Rename ${item.title}`}>✎ Rename</button>
+                    <button
+                      onClick={() => setSharing(sharing === item._id ? null : item._id)}
+                      aria-label={`${sharing === item._id ? 'Close' : 'Open'} share panel for ${item.title}`}
+                      aria-expanded={sharing === item._id}
+                      style={{ ...secondaryBtn, color: item.isPublic ? 'var(--gold)' : 'var(--muted)', borderColor: item.isPublic ? 'var(--gold)' : 'var(--border)' }}
+                    >
+                      {item.isPublic ? '⬡ Shared' : '⬡ Share'}
+                    </button>
+                  </div>
+                  {sharing === item._id && (
+                    <SharePanel item={item} onUpdate={patch => handleShareUpdate(item._id, patch)} />
+                  )}
                 </div>
               </div>
             ))}

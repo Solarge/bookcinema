@@ -10,14 +10,37 @@ router.use(requireAuth)
 // GET /api/users/me
 router.get('/me', (req, res) => res.json(req.user.toSafeObject()))
 
+// Allowed keys for the preferences object — only the client-facing settings matter.
+const ALLOWED_PREF_KEYS = new Set(['language', 'theme', 'notifications', 'defaultTextProvider'])
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+const MAX_PREFS_BYTES = 50_000
+
 // PUT /api/users/me — update profile
 router.put('/me', async (req, res) => {
   try {
     const { name, avatar, preferences } = req.body
     const update = {}
-    if (name)        update.name        = name
-    if (avatar)      update.avatar      = avatar
-    if (preferences) update.preferences = { ...req.user.preferences, ...preferences }
+    if (name)   update.name   = name
+    if (avatar) update.avatar = avatar
+    if (preferences) {
+      if (typeof preferences !== 'object' || Array.isArray(preferences)) {
+        return res.status(400).json({ error: 'preferences must be a plain object' })
+      }
+      // Reject prototype-poisoning keys
+      for (const key of Object.keys(preferences)) {
+        if (DANGEROUS_KEYS.has(key)) return res.status(400).json({ error: `Invalid preference key: ${key}` })
+      }
+      // Reject oversized payloads
+      if (JSON.stringify(preferences).length > MAX_PREFS_BYTES) {
+        return res.status(400).json({ error: 'preferences payload too large (max 50 KB)' })
+      }
+      // Allow only known keys — silently drop unknown ones
+      const filtered = {}
+      for (const key of ALLOWED_PREF_KEYS) {
+        if (key in preferences) filtered[key] = preferences[key]
+      }
+      update.preferences = { ...req.user.preferences, ...filtered }
+    }
     const user = await User.findByIdAndUpdate(req.user._id, update, { new: true })
     res.json(user.toSafeObject())
   } catch (err) { res.status(500).json({ error: err.message }) }
@@ -28,7 +51,7 @@ router.put('/me/password', async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body
     if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Both passwords required' })
-    if (newPassword.length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters' })
+    if (newPassword.length < 12) return res.status(400).json({ error: 'New password must be at least 12 characters' })
     const user = await User.findById(req.user._id).select('+password')
     if (!await user.comparePassword(currentPassword)) return res.status(401).json({ error: 'Current password incorrect' })
     user.password = newPassword

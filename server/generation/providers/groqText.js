@@ -9,18 +9,25 @@ export async function generate({ bookText, genrePreset = 'cinematic', language =
   const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) throw new Error('Groq is not configured (GROQ_API_KEY missing)')
 
-  const res = await fetch(GROQ_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model, max_tokens: 8000, temperature: 0.7,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: buildSystemPrompt(genrePreset, language) },
-        { role: 'user', content: `Here is the book to transform into a cinematic series:\n\n${bookText}` },
-      ],
-    }),
-  })
+  let res
+  try {
+    res = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model, max_tokens: 8000, temperature: 0.7,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: buildSystemPrompt(genrePreset, language) },
+          { role: 'user', content: `Here is the book to transform into a cinematic series:\n\n${bookText}` },
+        ],
+      }),
+      signal: AbortSignal.timeout(120000),
+    })
+  } catch (err) {
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') throw new Error('Groq provider timed out (120s)')
+    throw err
+  }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error(err?.error?.message || `Groq API error ${res.status}`)

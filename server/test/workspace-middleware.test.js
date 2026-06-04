@@ -19,7 +19,7 @@ function mockRes() {
 }
 
 async function seed(role = 'owner') {
-  const user = await User.create({ name: 'A', email: `a${Math.random()}@x.com`, password: 'password123' })
+  const user = await User.create({ name: 'A', email: `a${Math.random()}@x.com`, password: 'password1234' })
   const ws = await Workspace.create({
     name: 'WS', type: 'personal', ownerId: user._id, members: [{ userId: user._id, role }],
   })

@@ -12,6 +12,11 @@ export function managedAccess(type, overrides = {}) {
 
       if (!req.workspace?.managedBeta) return res.status(403).json({ error: 'Managed generation is not enabled for this workspace' })
 
+      // Block unverified users from managed generation (admins bypass)
+      if (!req.user?.emailVerifiedAt && req.user?.role !== 'admin') {
+        return res.status(403).json({ error: 'Please verify your email to use managed generation', code: 'email_unverified' })
+      }
+
       req.workspace = await applyMonthlyRefill(req.workspace)
 
       const wsId = req.workspace._id

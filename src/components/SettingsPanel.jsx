@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useSettings } from '../contexts/SettingsContext'
 import { useAuth } from '../contexts/AuthContext'
+import { useDivModalA11y } from '../hooks/useModalA11y'
 import { IMAGE_PROVIDERS, VIDEO_PROVIDERS, VOICE_PROVIDERS } from '../utils/mediaProviders/index'
 import { TEXT_PROVIDERS } from '../utils/textProviders/index'
 import { PROVIDER_COSTS, isFree } from '../utils/costTracker'
@@ -63,7 +64,7 @@ function KeyInput({ name, label, placeholder, hint, value, onChange }) {
       <div style={{ display: 'flex', gap: '6px' }}>
         <input type={show ? 'text' : 'password'} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
           style={{ flex: 1, background: '#0a0806', border: `1px solid ${value ? '#3a7a4a' : 'var(--border)'}`, color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '7px 10px', outline: 'none' }} />
-        <button onClick={() => setShow(s => !s)} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', padding: '0 8px', cursor: 'pointer', fontSize: '12px' }}>
+        <button onClick={() => setShow(s => !s)} aria-label={show ? 'Hide API key' : 'Show API key'} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', padding: '0 8px', cursor: 'pointer', fontSize: '12px' }}>
           {show ? '👁' : '○'}
         </button>
       </div>
@@ -127,19 +128,28 @@ export default function SettingsPanel({ onClose }) {
   const { settings, updateSettings } = useSettings()
   const { activeWorkspacePlan } = useAuth()
   const hasPremium = planFeatures(activeWorkspacePlan).premium
+  const panelRef = useRef(null)
+  useDivModalA11y(onClose, panelRef)
 
   const setKey     = (name, val) => updateSettings({ apiKeys:   { [name]: val } })
   const setUrl     = (name, val) => updateSettings({ localUrls: { [name]: val } })
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex' }} onClick={onClose}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex' }} role="presentation" onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()}>
       <div style={{ flex: 1 }} />
-      <div style={{ width: '400px', background: 'var(--surface)', borderLeft: '1px solid var(--border)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-panel-title"
+        style={{ width: '400px', background: 'var(--surface)', borderLeft: '1px solid var(--border)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
+        onClick={e => e.stopPropagation()}
+      >
 
         {/* Header */}
         <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1 }}>
-          <span style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>SETTINGS</span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <span id="settings-panel-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>SETTINGS</span>
+          <button onClick={onClose} aria-label="Close settings" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
 
         <div style={{ padding: '20px', flex: 1 }}>

@@ -13,7 +13,9 @@ router.use(requireAuth, requireRole('admin'))
 router.get('/users', async (req, res) => {
   try {
     const { page = 1, limit = 50, search } = req.query
-    const query = search ? { $or: [{ email: { $regex: search, $options: 'i' } }, { name: { $regex: search, $options: 'i' } }] } : {}
+    // Escape regex metacharacters to prevent ReDoS (mirror the pattern used in series routes).
+    const escapedSearch = search ? String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : null
+    const query = escapedSearch ? { $or: [{ email: { $regex: escapedSearch, $options: 'i' } }, { name: { $regex: escapedSearch, $options: 'i' } }] } : {}
     const [users, total] = await Promise.all([
       User.find(query).select('-password -apiKeyHash -resetToken').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(Number(limit)),
       User.countDocuments(query),
@@ -22,29 +24,42 @@ router.get('/users', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// PATCH /api/admin/users/:id/credits — add/set credits
+// PATCH /api/admin/users/:id/credits — grant credits to the user's personal workspace
+// (User.credits is a legacy field; the live credit state lives on Workspace.)
 router.patch('/users/:id/credits', async (req, res) => {
   try {
-    const { credits, operation = 'set' } = req.body
-    const update = operation === 'add'
-      ? { $inc: { credits: Number(credits) } }
-      : { $set: { credits: Number(credits) } }
-    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true })
+    const user = await User.findById(req.params.id)
     if (!user) return res.status(404).json({ error: 'User not found' })
-    res.json({ userId: user._id, credits: user.credits })
+    const workspace = await Workspace.findOne({ ownerId: user._id, type: 'personal' })
+    if (!workspace) return res.status(404).json({ error: 'Personal workspace not found' })
+    const { credits, operation = 'add' } = req.body
+    const amount = Number(credits)
+    if (!Number.isFinite(amount)) return res.status(400).json({ error: 'credits must be a number' })
+    const r = await grantCredits(workspace._id, amount, { note: `admin ${operation}`, bucket: 'monthly' })
+    res.json({ userId: user._id, workspaceId: workspace._id, balance: r.balance })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// PATCH /api/admin/users/:id/plan
+// PATCH /api/admin/users/:id/plan — set the plan on the user's personal workspace
+// (User.plan is a legacy field; plan enforcement is workspace-level.)
 router.patch('/users/:id/plan', async (req, res) => {
   try {
     const { plan, role } = req.body
-    const update = {}
-    if (plan) update.plan = plan
-    if (role) update.role = role
-    const user = await User.findByIdAndUpdate(req.params.id, update, { new: true })
+    const user = await User.findById(req.params.id)
     if (!user) return res.status(404).json({ error: 'User not found' })
-    res.json(user.toSafeObject())
+    // role still lives on User (auth/admin gate)
+    if (role) await User.findByIdAndUpdate(req.params.id, { role })
+    if (plan) {
+      const workspace = await Workspace.findOneAndUpdate(
+        { ownerId: user._id, type: 'personal' },
+        { plan },
+        { new: true },
+      )
+      if (!workspace) return res.status(404).json({ error: 'Personal workspace not found' })
+    }
+    const updatedUser = await User.findById(req.params.id)
+    const workspace = await Workspace.findOne({ ownerId: user._id, type: 'personal' })
+    res.json({ ...updatedUser.toSafeObject(), workspacePlan: workspace?.plan ?? null })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

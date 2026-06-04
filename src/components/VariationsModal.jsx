@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useMedia } from '../contexts/MediaContext'
 import { useSettings } from '../contexts/SettingsContext'
+import useModalA11y from '../hooks/useModalA11y'
 
 export default function VariationsModal({ type, id, prompt, charId, epNum, sceneNum, onClose, onSelect }) {
   const { settings } = useSettings()
@@ -10,6 +11,8 @@ export default function VariationsModal({ type, id, prompt, charId, epNum, scene
   const [generating, setGenerating]   = useState([false, false])
   const [selected, setSelected]       = useState(null)
   const count = Math.min(settings.variations ?? 2, 2)
+  const dialogRef = useRef(null)
+  useModalA11y(onClose, dialogRef)
 
   async function generateVariation(idx) {
     const gens = [...generating]; gens[idx] = true; setGenerating(gens)
@@ -34,13 +37,20 @@ export default function VariationsModal({ type, id, prompt, charId, epNum, scene
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '800px', overflow: 'hidden' }} onClick={e => e.stopPropagation()}>
-
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="variations-modal-title"
+        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '800px', overflow: 'hidden' }}
+        onClick={e => e.stopPropagation()}
+        onKeyDown={e => e.stopPropagation()}
+      >
         <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: "'Cinzel', serif", fontSize: '12px', color: 'var(--gold)', letterSpacing: '3px' }}>
+          <span id="variations-modal-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '12px', color: 'var(--gold)', letterSpacing: '3px' }}>
             A/B VARIATIONS — {type.toUpperCase()}
           </span>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="Close dialog" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
         </div>
 
         <div style={{ padding: '20px' }}>

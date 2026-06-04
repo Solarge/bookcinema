@@ -19,6 +19,10 @@ const usageLogSchema = new mongoose.Schema({
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true })
 
+// ── Indexes for analytics query performance ────────────────────────────────
+usageLogSchema.index({ workspaceId: 1, createdAt: -1 })
+usageLogSchema.index({ userId: 1, createdAt: -1 })
+
 // Static: get aggregated stats for a user
 usageLogSchema.statics.getUserStats = async function (userId, days = 30) {
   const since = new Date(Date.now() - days * 86400000)
