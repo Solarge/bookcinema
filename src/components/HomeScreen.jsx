@@ -5,7 +5,6 @@ import { GENRE_PRESETS } from '../utils/genrePresets'
 import SettingsPanel from './SettingsPanel'
 
 const COPYRIGHT_ACK_KEY = 'bookfilm_copyright_ack'
-const BYO_NOTICE_KEY    = 'bookfilm_byo_notice_dismissed'
 const LARGE_TEXT_CHARS  = 80_000
 
 export default function HomeScreen({
@@ -13,7 +12,6 @@ export default function HomeScreen({
   uploadedText, setUploadedText,
   errorMsg, clearError,
   genrePreset, setGenrePreset,
-  useAuth: useAuthProp,
 }) {
   const [dragOver, setDragOver] = useState(false)
   const [pdfStatus, setPdfStatus] = useState(null)
@@ -27,20 +25,11 @@ export default function HomeScreen({
 
   // Copyright acknowledgement — one-time, persisted
   const [copyrightAck, setCopyrightAck] = useState(() => !!localStorage.getItem(COPYRIGHT_ACK_KEY))
-  const [byoNoticeDismissed, setByoNoticeDismissed] = useState(() => !!localStorage.getItem(BYO_NOTICE_KEY))
-
-  // Check if we're in BYO (non-auth) mode
-  const isAuthMode = typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_AUTH === 'true'
 
   function handleCopyrightAck(checked) {
     setCopyrightAck(checked)
     if (checked) localStorage.setItem(COPYRIGHT_ACK_KEY, '1')
     else localStorage.removeItem(COPYRIGHT_ACK_KEY)
-  }
-
-  function dismissByoNotice() {
-    setByoNoticeDismissed(true)
-    localStorage.setItem(BYO_NOTICE_KEY, '1')
   }
 
   const fileInputRef = useRef(null)
@@ -105,7 +94,7 @@ export default function HomeScreen({
       {/* Settings gear — top right */}
       <button
         onClick={() => setShowSettings(true)}
-        title="Settings & API Keys"
+        title="Generation Settings"
         style={{
           position: 'fixed', top: '16px', right: '20px',
           background: 'var(--surface)', border: '1px solid var(--border)',
@@ -131,16 +120,6 @@ export default function HomeScreen({
           <div style={{ background: '#3a0808', border: '1px solid var(--red)', padding: '12px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#f08080' }}>{errorMsg}</span>
             <button onClick={clearError} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '18px' }}>×</button>
-          </div>
-        )}
-
-        {/* BYO data-loss notice (non-auth mode only, one-time dismissable) */}
-        {!isAuthMode && !byoNoticeDismissed && (
-          <div style={{ background: '#0d1a0d', border: '1px solid #2a5a2a', padding: '10px 14px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#6dc87a', lineHeight: '1.6' }}>
-              Your work is saved locally in this browser — export regularly to avoid losing it if you clear storage.
-            </span>
-            <button onClick={dismissByoNotice} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>×</button>
           </div>
         )}
 

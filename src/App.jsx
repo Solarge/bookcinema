@@ -12,8 +12,9 @@ import ForgotPasswordPage, { ResetPasswordPage } from './components/auth/ForgotP
 import ProfilePage from './components/dashboard/ProfilePage'
 import PublicSeriesView from './components/PublicSeriesView'
 import { generateSeries } from './utils/textProviders/index'
-import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob, auth as authApi } from './lib/api'
+import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob, auth as authApi, billing as billingApi } from './lib/api'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
+import { planLabel, planAllows } from './utils/plans'
 
 // ── Small toast notification ──────────────────────────────────────────────────
 function Toast({ msg, kind = 'info', onDismiss }) {
@@ -72,6 +73,142 @@ function UnverifiedBanner({ onResend }) {
   )
 }
 
+// ── Plan + credits billing bar ────────────────────────────────────────────────
+// Shown persistently on all main pages for authenticated users.
+function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
+  const [busy, setBusy] = useState(false)
+  const [billingMsg, setBillingMsg] = useState(null)
+
+  // Whether the plan can be upgraded (not on studio yet)
+  const canUpgrade = plan !== 'studio'
+  const planName = planLabel(plan)
+
+  // Colour hint: gold for paid plans, muted for free
+  const isPaid = plan === 'pro' || plan === 'studio'
+  const planColor = isPaid ? 'var(--gold)' : 'var(--muted)'
+
+  // Low-credit warning threshold
+  const lowCredits = creditBalance !== null && creditBalance <= 10
+
+  async function handleBuyCredits() {
+    setBusy(true); setBillingMsg(null)
+    try {
+      const { url } = await billingApi.checkout({ kind: 'pack', key: 'pack_small' })
+      window.location.href = url
+    } catch (err) {
+      if (err.status === 503 || err.status === 404) {
+        setBillingMsg('Billing is not configured yet — contact support.')
+      } else {
+        setBillingMsg(err.message || 'Billing unavailable right now.')
+      }
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60,
+      background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
+      padding: '0 16px',
+      display: 'flex', alignItems: 'center', gap: '10px', height: '38px',
+      flexWrap: 'nowrap', overflow: 'hidden',
+    }}>
+      {/* Plan badge */}
+      <span
+        aria-label={`Current plan: ${planName}`}
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '9px',
+          letterSpacing: '2px',
+          textTransform: 'uppercase',
+          color: planColor,
+          border: `1px solid ${planColor}`,
+          padding: '2px 8px',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {planName}
+      </span>
+
+      {/* Credit balance */}
+      <span
+        aria-label={creditBalance === null ? 'Credits loading' : `${creditBalance} credits remaining`}
+        title="Credits consumed by managed generation (text 1, image 4–10, voice 1–5, video 10–20)"
+        style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '10px',
+          color: lowCredits ? '#f0a050' : 'var(--cream)',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {creditBalance === null ? '… cr' : `${creditBalance} cr`}
+        {lowCredits && <span style={{ color: '#f0a050', marginLeft: '4px' }} aria-hidden="true">⚠</span>}
+      </span>
+
+      {/* Spacer */}
+      <div style={{ flex: 1, minWidth: 0 }} />
+
+      {/* Billing message (transient error) */}
+      {billingMsg && (
+        <span
+          role="alert"
+          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#f08080', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}
+        >
+          {billingMsg}
+        </span>
+      )}
+
+      {/* Buy credits */}
+      <button
+        onClick={handleBuyCredits}
+        disabled={busy}
+        aria-label="Buy credits"
+        title="Buy additional generation credits"
+        style={{
+          background: 'transparent',
+          border: '1px solid var(--border)',
+          color: 'var(--muted)',
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: '9px',
+          letterSpacing: '1px',
+          padding: '4px 10px',
+          cursor: busy ? 'not-allowed' : 'pointer',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {busy ? '…' : '+ Credits'}
+      </button>
+
+      {/* Upgrade CTA — only when not on Studio */}
+      {canUpgrade && (
+        <button
+          onClick={onOpenBilling}
+          aria-label={`Upgrade from ${planName} plan`}
+          title={`Upgrade to unlock ${planAllows(plan, 'voice') ? '' : 'voice, '}${planAllows(plan, 'video') ? '' : 'video, '}${planAllows(plan, 'social') ? '' : 'social '}and more`}
+          style={{
+            background: 'var(--gold)',
+            color: '#080b10',
+            border: 'none',
+            fontFamily: "'Cinzel', serif",
+            fontSize: '10px',
+            fontWeight: '700',
+            letterSpacing: '1.5px',
+            textTransform: 'uppercase',
+            padding: '5px 14px',
+            cursor: 'pointer',
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          Upgrade
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── Auth gate wrapper ─────────────────────────────────────────────────────────
 function AuthGate({ children }) {
   const { user, loading } = useAuth()
@@ -118,7 +255,7 @@ function AuthGate({ children }) {
 // ── Main app (inside auth + settings contexts) ────────────────────────────────
 function AppInner() {
   const { settings } = useSettings()
-  const { user, switchWorkspace } = useAuth()
+  const { user, switchWorkspace, activeWorkspacePlan, activeCreditBalance } = useAuth()
   const [page, setPage]                   = useState('home')
   const [uploadedText, setUploadedText]   = useState('')
   const [generatedSeries, setGeneratedSeries] = useState(null)
@@ -126,8 +263,12 @@ function AppInner() {
   const [errorMsg, setErrorMsg]           = useState(null)
   const [genrePreset, setGenrePreset]     = useState('cinematic')
   const [showProfile, setShowProfile]     = useState(false)
+  const [profileTab, setProfileTab]       = useState('profile') // which tab to open ProfilePage on
   const [inviteMsg, setInviteMsg]         = useState(null)
   const [toast, setToast]                 = useState(null) // { msg, kind }
+
+  // Open ProfilePage to billing/workspace tab (used by upgrade CTAs)
+  const openBilling = useCallback(() => { setProfileTab('workspace'); setShowProfile(true) }, [])
 
   function showToast(msg, kind = 'info') {
     setToast({ msg, kind })
@@ -231,34 +372,53 @@ function AppInner() {
   // Is the logged-in user's email unverified?
   const isUnverified = user && !user.emailVerifiedAt
 
+  // The billing bar is always 38px; unverified banner adds ~36px on top of that.
+  // Home-page workspace switcher + user name button sit below those fixed bars.
+  const topBarH = 38 // PlanBillingBar height
+  const unverifiedH = isUnverified ? 36 : 0
+  const homeFixedTop = topBarH + unverifiedH + 14 // extra 14px gap
+
   return (
     <div className="film-grain" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Unverified-email banner */}
+      {/* Persistent plan/credits/billing bar — always shown when authed */}
+      {user && (
+        <PlanBillingBar
+          plan={activeWorkspacePlan || 'free'}
+          creditBalance={activeCreditBalance}
+          onOpenBilling={openBilling}
+        />
+      )}
+
+      {/* Unverified-email banner (below the billing bar) */}
       {isUnverified && (
-        <UnverifiedBanner onResend={() => authApi.resendVerification()} />
+        <div style={{ marginTop: `${topBarH}px` }}>
+          <UnverifiedBanner onResend={() => authApi.resendVerification()} />
+        </div>
       )}
 
       {/* Toast notification */}
       {toast && <Toast msg={toast.msg} kind={toast.kind} onDismiss={() => setToast(null)} />}
 
       {inviteMsg && (
-        <div style={{ position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)', zIndex: 60,
+        <div style={{ position: 'fixed', top: `${topBarH + unverifiedH + 14}px`, left: '50%', transform: 'translateX(-50%)', zIndex: 60,
           background: 'var(--surface)', border: '1px solid var(--gold)', color: 'var(--cream)',
           fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '8px 16px', letterSpacing: '1px' }}>
           {inviteMsg}
           <button onClick={() => setInviteMsg(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginLeft: '12px', fontSize: '14px' }}>×</button>
         </div>
       )}
-      {/* User badge (when logged in) */}
+
+      {/* Workspace switcher — home page, left side (below billing bar) */}
       {user && page === 'home' && (
-        <div style={{ position: 'fixed', top: '14px', left: '24px', zIndex: 50 }}>
+        <div style={{ position: 'fixed', top: `${homeFixedTop}px`, left: '24px', zIndex: 50 }}>
           <WorkspaceSwitcher />
         </div>
       )}
 
+      {/* User name / account button — home page, right side */}
       {user && page === 'home' && (
-        <button onClick={() => setShowProfile(true)} style={{
-          position: 'fixed', top: '14px', right: '68px', zIndex: 50,
+        <button onClick={() => { setProfileTab('profile'); setShowProfile(true) }} style={{
+          position: 'fixed', top: `${homeFixedTop}px`, right: '68px', zIndex: 50,
           background: 'var(--surface)', border: '1px solid var(--border)',
           color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace",
           fontSize: '10px', padding: '6px 12px', cursor: 'pointer', letterSpacing: '1px',
@@ -267,24 +427,37 @@ function AppInner() {
         </button>
       )}
 
-      {page === 'home' && (
-        <HomeScreen onGenerate={handleGenerate} onLibrary={() => setPage('library')}
-          uploadedText={uploadedText} setUploadedText={setUploadedText}
-          errorMsg={errorMsg} clearError={() => setErrorMsg(null)}
-          genrePreset={genrePreset} setGenrePreset={setGenrePreset} />
-      )}
-      {page === 'loading' && <LoadingScreen />}
-      {page === 'results' && generatedSeries && (
-        <MediaProvider
-          seriesSlug={generatedSeries.title?.replace(/\s+/g, '-').toLowerCase() || 'series'}
-          seriesId={generatedSeriesId}
-        >
-          <ResultsScreen series={generatedSeries} seriesId={generatedSeriesId} onNewBook={handleNewBook} />
-        </MediaProvider>
-      )}
-      {page === 'library' && <LibraryScreen onView={handleViewLibraryItem} onBack={() => setPage('home')} />}
+      {/* Main page content — pad top to clear the billing bar (+ unverified banner) */}
+      <div style={{ paddingTop: `${topBarH + unverifiedH}px` }}>
+        {page === 'home' && (
+          <HomeScreen onGenerate={handleGenerate} onLibrary={() => setPage('library')}
+            uploadedText={uploadedText} setUploadedText={setUploadedText}
+            errorMsg={errorMsg} clearError={() => setErrorMsg(null)}
+            genrePreset={genrePreset} setGenrePreset={setGenrePreset} />
+        )}
+        {page === 'loading' && <LoadingScreen />}
+        {page === 'results' && generatedSeries && (
+          <MediaProvider
+            seriesSlug={generatedSeries.title?.replace(/\s+/g, '-').toLowerCase() || 'series'}
+            seriesId={generatedSeriesId}
+          >
+            <ResultsScreen
+              series={generatedSeries}
+              seriesId={generatedSeriesId}
+              onNewBook={handleNewBook}
+              onOpenBilling={openBilling}
+            />
+          </MediaProvider>
+        )}
+        {page === 'library' && <LibraryScreen onView={handleViewLibraryItem} onBack={() => setPage('home')} />}
+      </div>
 
-      {showProfile && <ProfilePage onClose={() => setShowProfile(false)} />}
+      {showProfile && (
+        <ProfilePage
+          onClose={() => setShowProfile(false)}
+          initialTab={profileTab}
+        />
+      )}
     </div>
   )
 }

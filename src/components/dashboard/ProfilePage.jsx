@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
 import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi, managed as managedApi } from '../../lib/api'
@@ -31,11 +31,11 @@ const PRICING = {
 // Placeholder support contact — replace before launch
 const SUPPORT_EMAIL = 'support@bookfilm.studio'
 
-export default function ProfilePage({ onClose }) {
+export default function ProfilePage({ onClose, initialTab = 'profile' }) {
   const { user, logout, updateUser, activeWorkspace, isAdmin } = useAuth()
   const panelRef = useRef(null)
   useDivModalA11y(onClose, panelRef)
-  const [tab, setTab]               = useState('profile') // profile | security | apikey | analytics
+  const [tab, setTab]               = useState(initialTab) // profile | security | apikey | analytics
   const [name, setName]             = useState(user?.name ?? '')
   const [saving, setSaving]         = useState(false)
   const [msg, setMsg]               = useState('')
@@ -113,6 +113,14 @@ export default function ProfilePage({ onClose }) {
     } catch (err) { setMsg(err.message) }
   }
 
+  // Auto-load data for the initial tab when the modal opens to a non-profile tab
+  // (e.g. when opened from the Upgrade CTA which targets 'workspace')
+  useEffect(() => {
+    if (initialTab === 'workspace') loadWorkspace()
+    if (initialTab === 'analytics') { loadAnalytics(); loadJobs() }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // intentional: run once on mount only
+
   const TABS = ['profile', 'security', 'apikey', 'workspace', 'analytics', 'distribution', ...(isAdmin ? ['admin'] : [])]
 
   return (
@@ -139,7 +147,9 @@ export default function ProfilePage({ onClose }) {
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
           {TABS.map(t => (
-            <button key={t} onClick={() => { setTab(t); if (t === 'analytics') { loadAnalytics(); loadJobs() } if (t === 'workspace') loadWorkspace() }} style={{
+            <button key={t} onClick={() => { setTab(t); if (t === 'analytics') { loadAnalytics(); loadJobs() } if (t === 'workspace') loadWorkspace() }}
+              aria-selected={t === tab}
+              style={{
               flex: 1, background: 'transparent', border: 'none',
               borderBottom: t === tab ? '2px solid var(--gold)' : '2px solid transparent',
               color: t === tab ? 'var(--gold)' : 'var(--muted)',
@@ -759,7 +769,10 @@ export default function ProfilePage({ onClose }) {
           )}
 
           {tab === 'distribution' && (
-            <DistributionPanel onMsg={setMsg} />
+            <DistributionPanel
+              onMsg={setMsg}
+              onOpenBilling={() => { setTab('workspace'); loadWorkspace() }}
+            />
           )}
 
           {tab === 'admin' && isAdmin && (
@@ -771,7 +784,10 @@ export default function ProfilePage({ onClose }) {
   )
 }
 
-ProfilePage.propTypes = { onClose: PropTypes.func.isRequired }
+ProfilePage.propTypes = {
+  onClose:    PropTypes.func.isRequired,
+  initialTab: PropTypes.string,
+}
 
 function Field({ label, value, onChange, disabled }) {
   return (

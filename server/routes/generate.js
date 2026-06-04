@@ -74,4 +74,19 @@ router.post('/image', managedAccess('image'), async (req, res) => {
   } catch (err) { console.error('generate/image error:', err); res.status(500).json({ error: 'Server error' }) }
 })
 
+// POST /api/generate/video
+router.post('/video', managedAccess('video'), async (req, res) => {
+  try {
+    const { prompt, kling_prompt, aspectRatio = '9:16', duration = 5, tier = 'standard' } = req.body
+    const effectivePrompt = prompt || kling_prompt
+    if (!effectivePrompt) return res.status(400).json({ error: 'prompt is required' })
+    if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+    return await enqueueGeneration(req, res, {
+      type: 'video', tier,
+      params:  { prompt: effectivePrompt, aspectRatio, duration },
+      payload: { prompt: effectivePrompt, aspectRatio, duration, tier },
+    })
+  } catch (err) { console.error('generate/video error:', err); res.status(500).json({ error: 'Server error' }) }
+})
+
 export default router

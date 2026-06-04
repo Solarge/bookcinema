@@ -11,6 +11,15 @@ test('resolve returns the cost-first text adapters per tier', () => {
   assert.equal(typeof prem.adapter.generate, 'function')
 })
 
+test('resolve returns video adapters per tier', () => {
+  const std = resolve('video', 'standard')
+  assert.equal(std.provider, 'replicate')
+  assert.equal(typeof std.adapter.generate, 'function')
+  const prem = resolve('video', 'premium')
+  assert.equal(prem.provider, 'falai')
+  assert.equal(typeof prem.adapter.generate, 'function')
+})
+
 test('resolve throws on unknown type or tier', () => {
   assert.throws(() => resolve('text', 'ultra'))
   assert.throws(() => resolve('hologram', 'standard'))

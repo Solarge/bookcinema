@@ -9,6 +9,8 @@ test('creditCost returns cost-weighted credits per type/tier', () => {
   assert.equal(creditCost('voice', 'premium'), 5)
   assert.equal(creditCost('image', 'standard'), 4)
   assert.equal(creditCost('image', 'premium'), 10)
+  assert.equal(creditCost('video', 'standard'), 20)
+  assert.equal(creditCost('video', 'premium'), 40)
 })
 test('creditCost throws on unknown type/tier', () => {
   assert.throws(() => creditCost('text', 'ultra'))

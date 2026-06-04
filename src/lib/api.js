@@ -35,7 +35,9 @@ async function request(path, options = {}) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
     const err = new Error(body.error || `Request failed: ${res.status}`)
-    if (body.code) err.code = body.code
+    if (body.code)          err.code         = body.code
+    if (body.feature)       err.feature      = body.feature
+    if (body.requiredPlan)  err.requiredPlan  = body.requiredPlan
     err.status = res.status
     throw err
   }
@@ -135,6 +137,7 @@ export const managed = {
   generateText:  (data) => post('/api/generate/text',  data), // { bookText, genrePreset, language, tier } -> { jobId }
   generateImage: (data) => post('/api/generate/image', data), // { prompt, aspectRatio, tier } -> { jobId }
   generateVoice: (data) => post('/api/generate/voice', data), // { text, voiceId, tier } -> { jobId }
+  generateVideo: (data) => post('/api/generate/video', data), // { prompt, aspectRatio, duration, tier } -> { jobId }
   getJob:        (id)   => get(`/api/jobs/${id}`),
   listJobs:      ()     => get('/api/jobs'),
 }

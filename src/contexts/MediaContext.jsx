@@ -176,7 +176,10 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
       if (settings.mode !== 'managed') addCost('image', settings.imageProvider, settings.imageQuality)
     } catch (err) {
-      setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Image generation requires a higher plan. Upgrade to unlock.')
+        : err.message
+      setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
   }, [settings, getApiKey, seriesSlug, addCost])
 
@@ -185,28 +188,49 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     const key = `ep${epNum}-s${scene.scene_number}`
     setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'generating', error: null } }))
     try {
-      const provider = settings.videoProvider
-      const providerKey = { 'fal.ai': 'falai', klingdirect: 'klingdirect', lumaai: 'lumaai', minimax: 'minimax' }[provider] ?? provider
-      const apiKey = getApiKey(providerKey)
-      if (!apiKey && provider !== 'localvideo') throw new Error(`No API key set for ${provider}. Add it in Settings ⚙`)
-      const preset    = getPreset(settings.genrePreset)
-      const charRefUrl = charIds[0] ? portraitRefs.current[charIds[0]] : undefined
-      const { url } = await getVideoProvider(provider)({
-        prompt:               scene.kling_prompt,
-        aspectRatio:          settings.aspectRatio,
-        videoQuality:         settings.videoQuality,
-        duration:             settings.videoDuration,
-        apiKey,
-        characterReferenceUrl: charRefUrl,
-        styleHint:            preset.klingStyle,
-        ...localArgs(settings, provider),
-      })
+      let url
+      if (settings.mode === 'managed') {
+        const { jobId } = await managedApi.generateVideo({
+          prompt:      scene.kling_prompt,
+          aspectRatio: settings.aspectRatio,
+          duration:    settings.videoDuration,
+          tier:        settings.managedTier || 'standard',
+        })
+        const job = await pollJob(jobId)
+        if (job.status !== 'done' || !job.result?.url) {
+          const errMsg = job.error || 'Managed video generation failed'
+          throw Object.assign(new Error(errMsg), { code: job.errorCode })
+        }
+        url = job.result.url
+      } else {
+        // BYO path — dormant in managed-only mode, kept for future re-enablement
+        const provider = settings.videoProvider
+        const providerKey = { 'fal.ai': 'falai', klingdirect: 'klingdirect', lumaai: 'lumaai', minimax: 'minimax' }[provider] ?? provider
+        const apiKey = getApiKey(providerKey)
+        if (!apiKey && provider !== 'localvideo') throw new Error(`No API key set for ${provider}.`)
+        const preset    = getPreset(settings.genrePreset)
+        const charRefUrl = charIds[0] ? portraitRefs.current[charIds[0]] : undefined
+        ;({ url } = await getVideoProvider(provider)({
+          prompt:               scene.kling_prompt,
+          aspectRatio:          settings.aspectRatio,
+          videoQuality:         settings.videoQuality,
+          duration:             settings.videoDuration,
+          apiKey,
+          characterReferenceUrl: charRefUrl,
+          styleHint:            preset.klingStyle,
+          ...localArgs(settings, provider),
+        }))
+      }
       const storeKey = mediaKey('scene-vid', seriesSlug, `ep${epNum}`, `s${scene.scene_number}`)
       const localUrl = await fetchAndStore(storeKey, url)
       setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
-      addCost('video', provider, settings.videoQuality)
+      if (settings.mode !== 'managed') addCost('video', settings.videoProvider, settings.videoQuality)
     } catch (err) {
-      setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
+      // Surface plan_feature 403 errors with a useful upgrade message
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Video generation requires a higher plan. Upgrade to unlock.')
+        : err.message
+      setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
   }, [settings, getApiKey, seriesSlug, addCost])
 
@@ -235,7 +259,10 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl, error: null } }))
       if (settings.mode !== 'managed') addVoiceCost(line, settings.voiceProvider)
     } catch (err) {
-      setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Voice generation requires a higher plan. Upgrade to unlock.')
+        : err.message
+      setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
   }, [settings, getApiKey, seriesSlug, addVoiceCost])
 

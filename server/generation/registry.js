@@ -4,6 +4,8 @@ import * as openaiTTSVoice from './providers/openaiTTSVoice.js'
 import * as elevenlabsVoice from './providers/elevenlabsVoice.js'
 import * as replicateImage from './providers/replicateImage.js'
 import * as falaiImage from './providers/falaiImage.js'
+import * as replicateVideo from './providers/replicateVideo.js'
+import * as falaiVideo from './providers/falaiVideo.js'
 
 // Cost-first curated tiers. Image/voice tiers are added in the 1B-media slice.
 export const MANAGED_PROVIDERS = {
@@ -18,5 +20,11 @@ export const MANAGED_PROVIDERS = {
   voice: {
     standard: { provider: 'openai',     adapter: openaiTTSVoice, model: openaiTTSVoice.DEFAULT_MODEL, estCostUsd: 0.0005, credits: 1 },
     premium:  { provider: 'elevenlabs', adapter: elevenlabsVoice, model: elevenlabsVoice.DEFAULT_MODEL, estCostUsd: 0.01,  credits: 5 },
+  },
+  // Video is expensive: standard ~$0.20/clip (minimax via Replicate), premium ~$0.40/clip (kling via fal.ai)
+  // Credits: standard=20, premium=40 — ~5× image-premium, proportional to actual cost ratio.
+  video: {
+    standard: { provider: 'replicate', adapter: replicateVideo, model: replicateVideo.DEFAULT_MODEL, estCostUsd: 0.20, credits: 20 },
+    premium:  { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.DEFAULT_MODEL,     estCostUsd: 0.40, credits: 40 },
   },
 }

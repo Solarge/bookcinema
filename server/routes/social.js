@@ -19,6 +19,8 @@ import { config } from '../config.js'
 import { getProvider, listConfigured } from '../social/index.js'
 import { getSocialPublishQueue } from '../utils/socialQueue.js'
 import { validateVideoUrl } from '../utils/urlGuard.js'
+import { planFeatureError } from '../middleware/managedAccess.js'
+import { planAllows } from '../plans.js'
 
 const VALID_PLATFORMS = ['youtube', 'tiktok', 'instagram', 'facebook', 'x', 'linkedin']
 
@@ -77,6 +79,9 @@ socialRouter.get('/providers', requireAuth, (req, res) => {
 // ---------------------------------------------------------------------------
 socialRouter.get('/:platform/connect', requireAuth, resolveWorkspace, (req, res) => {
   try {
+    const plan = req.workspace?.plan || 'free'
+    if (!planAllows(plan, 'social')) return planFeatureError(res, 'social')
+
     const { platform } = req.params
     const registry = registryFor(req)
 
@@ -215,6 +220,9 @@ socialRouter.delete('/accounts/:id', requireAuth, resolveWorkspace, async (req, 
 // ---------------------------------------------------------------------------
 socialRouter.post('/posts', requireAuth, resolveWorkspace, async (req, res) => {
   try {
+    const plan = req.workspace?.plan || 'free'
+    if (!planAllows(plan, 'social')) return planFeatureError(res, 'social')
+
     const { videoUrl, title = '', caption = '', perPlatformCaption, targets, scheduledAt } = req.body
 
     // Validate required fields

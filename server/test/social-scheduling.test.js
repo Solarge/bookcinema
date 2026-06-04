@@ -298,7 +298,7 @@ test('processor: uses perPlatformCaption over post.caption when present', async 
 // ===========================================================================
 
 test('POST /api/social/posts 202 with future scheduledAt + connected account, jobId saved', async () => {
-  const { user, workspace, token } = await makeAuthedUser()
+  const { user, workspace, token } = await makeAuthedUser({ plan: 'pro' })
 
   // Seed a connected account in this workspace
   const account = await seedAccount(workspace._id, 'youtube')
@@ -345,7 +345,7 @@ test('POST /api/social/posts 202 with future scheduledAt + connected account, jo
 })
 
 test('POST /api/social/posts 400 when scheduledAt is in the past', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const account = await seedAccount(workspace._id, 'youtube')
   const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
   const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })
@@ -366,7 +366,7 @@ test('POST /api/social/posts 400 when scheduledAt is in the past', async () => {
 })
 
 test('POST /api/social/posts 400 when scheduledAt is missing', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
   const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })
   const app       = buildApp({ queue: fakeQueue, registry })
@@ -382,7 +382,7 @@ test('POST /api/social/posts 400 when scheduledAt is missing', async () => {
 })
 
 test('POST /api/social/posts 400 when videoUrl is missing', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
   const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })
   const app       = buildApp({ queue: fakeQueue, registry })
@@ -399,7 +399,7 @@ test('POST /api/social/posts 400 when videoUrl is missing', async () => {
 })
 
 test('POST /api/social/posts 422 when target platform has no connected account', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   // No SocialAccount seeded for this workspace
   const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
   const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })
@@ -419,7 +419,7 @@ test('POST /api/social/posts 422 when target platform has no connected account',
 })
 
 test('POST /api/social/posts 422 when target provider is not configured', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   await seedAccount(workspace._id, 'youtube')
   const fakeQueue  = { add: async () => ({ id: 'j' }), remove: async () => {} }
   // youtube is NOT configured in this registry
@@ -587,7 +587,7 @@ test('DELETE /api/social/posts/:id 401 without auth', async () => {
 // ---------------------------------------------------------------------------
 
 test('POST /api/social/posts creates post even when queue is null (no Redis)', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   await seedAccount(workspace._id, 'youtube')
 
   // No queue injected → getSocialPublishQueue() returns null (no REDIS_URL)
@@ -620,7 +620,7 @@ test('POST /api/social/posts creates post even when queue is null (no Redis)', a
 // ---------------------------------------------------------------------------
 
 test('POST /api/social/posts 400 invalid_video_url for IMDS metadata URL', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   await seedAccount(workspace._id, 'youtube')
   const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
   const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })
@@ -639,7 +639,7 @@ test('POST /api/social/posts 400 invalid_video_url for IMDS metadata URL', async
 })
 
 test('POST /api/social/posts 400 invalid_video_url for http (non-https) URL', async () => {
-  const { workspace, token } = await makeAuthedUser()
+  const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   await seedAccount(workspace._id, 'youtube')
   const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
   const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })

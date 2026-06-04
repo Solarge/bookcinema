@@ -8,26 +8,44 @@ import { generateSeriesBibleHtml } from '../utils/seriesBible'
 import { saveAs } from 'file-saver'
 import { estimateBatchCost, totalCost } from '../utils/costTracker'
 import { ImageAsset, VideoAsset, AudioAsset } from './MediaAsset'
-import ApprovalBadge from './ApprovalBadge'
 import SettingsPanel from './SettingsPanel'
 import StoryboardView from './StoryboardView'
 import SocialCardModal from './SocialCardModal'
 import { useDivModalA11y } from '../hooks/useModalA11y'
 import { series as seriesApi } from '../lib/api'
+import { planAllows, minPlanFor, planLabel, FEATURE_LABELS } from '../utils/plans'
 
 // Whether generation is possible for a media kind given current settings.
-// Managed mode covers image + voice server-side (no client key needed); video has no
-// managed path so it always needs a BYO key. Keyless local providers never need a key.
+// In managed mode: plan-gated (voice/video require pro+). Image+text always allowed.
+// Legacy BYO-key path preserved for non-managed settings.
 const KEYLESS_PROVIDERS = { image: ['comfyui', 'a1111'], voice: ['kokoro', 'xtts'], video: ['localvideo'] }
 const PROVIDER_KEY_REMAP = { 'fal.ai': 'falai', openaitts: 'openai' }
-function canGenerate(settings, kind, provider) {
-  if (settings.mode === 'managed' && (kind === 'image' || kind === 'voice')) return true
-  if ((KEYLESS_PROVIDERS[kind] || []).includes(provider)) return true
+
+/**
+ * Returns { allowed: bool, reason: 'plan'|'key'|null, requiredPlan?: string }
+ * In managed mode the plan is the gate; in BYO mode the API key is the gate.
+ */
+function canGenerateInfo(settings, kind, provider, plan) {
+  // Plan gate (managed-only mode)
+  if (settings.mode === 'managed') {
+    if (!planAllows(plan, kind)) {
+      return { allowed: false, reason: 'plan', requiredPlan: minPlanFor(kind) }
+    }
+    return { allowed: true, reason: null }
+  }
+  // BYO / hybrid: keyless local providers always work
+  if ((KEYLESS_PROVIDERS[kind] || []).includes(provider)) return { allowed: true, reason: null }
   const keyName = PROVIDER_KEY_REMAP[provider] || provider
-  return !!settings.apiKeys?.[keyName]
+  if (settings.apiKeys?.[keyName]) return { allowed: true, reason: null }
+  return { allowed: false, reason: 'key' }
 }
-// Short hint shown when a generate button is disabled, so it explains itself.
-function genHint(kind, provider) {
+
+// Short hint shown when a generate button is disabled.
+function genHint(kind, provider, plan, reason) {
+  if (reason === 'plan') {
+    const req = minPlanFor(kind)
+    return `Upgrade to ${planLabel(req)} to use ${FEATURE_LABELS[kind] || kind}.`
+  }
   const managed = kind === 'image' || kind === 'voice'
   return `No ${provider} API key set — add one in Settings ⚙${managed ? ', or switch to Managed mode' : ''}.`
 }
@@ -94,7 +112,7 @@ function charColor(id, chars) { return roleColor(chars.find(c => c.id === id)?.r
 function charName(id, chars)  { return chars.find(c => c.id === id)?.name || id }
 
 // ── Character Bible ────────────────────────────────────────────────────────
-function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }) {
+function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free', onOpenBilling }) {
   const { settings } = useSettings()
   const { characters: charMedia, generateCharacterImage, setCharApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
 
@@ -104,7 +122,7 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
         {characters.map(char => {
           const asset = charMedia[char.id] ?? {}
-          const canGen = canGenerate(settings, 'image', settings.imageProvider)
+          const genInfo = canGenerateInfo(settings, 'image', settings.imageProvider, plan)
           const storeKey = `char-img:${seriesSlug}:${char.id}:0`
           return (
             <div key={char.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px' }}>
@@ -112,8 +130,11 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }
                 asset={{ ...asset, saving: saving[storeKey] }}
                 onGenerate={() => generateCharacterImage(char, char.midjourney_prompt)}
                 onApprovalChange={s => setCharApproval(char.id, s)}
-                disabled={!canGen}
-                disabledHint={canGen ? null : genHint('image', settings.imageProvider)}
+                disabled={!genInfo.allowed}
+                disabledHint={genInfo.allowed ? null : genHint('image', settings.imageProvider, plan, genInfo.reason)}
+                locked={genInfo.reason === 'plan'}
+                lockedHint={genInfo.reason === 'plan' ? genHint('image', settings.imageProvider, plan, 'plan') : null}
+                onUpgrade={onOpenBilling}
                 plan={plan}
                 cloudEnabled={cloudEnabled && asset.status === 'done'}
                 onSaveToCloud={() => saveToCloud('image', char.id, storeKey, { provider: settings.imageProvider, prompt: char.midjourney_prompt, quality: settings.imageQuality, aspectRatio: settings.aspectRatio })}
@@ -150,12 +171,12 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }
 }
 
 // ── Dialogue line ──────────────────────────────────────────────────────────
-function DialogueLine({ line, dIdx, epNum, sceneNum, characters }) {
+function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBilling }) {
   const { settings } = useSettings()
   const { dialogue, generateDialogueVoice, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
   const key = `ep${epNum}-s${sceneNum}-d${dIdx}`
   const asset = dialogue[key] ?? {}
-  const canGen = canGenerate(settings, 'voice', settings.voiceProvider)
+  const genInfo = canGenerateInfo(settings, 'voice', settings.voiceProvider, plan)
   const storeKey = `dialogue-audio:${seriesSlug}:ep${epNum}:s${sceneNum}:d${dIdx}`
 
   return (
@@ -170,8 +191,11 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters }) {
       <AudioAsset
         asset={{ ...asset, saving: saving[storeKey] }}
         onGenerate={() => generateDialogueVoice(epNum, sceneNum, dIdx, line.line, null)}
-        disabled={!canGen}
-        label={canGen ? 'Generate Voice' : 'Set ElevenLabs key'}
+        disabled={!genInfo.allowed}
+        label={genInfo.allowed ? 'Generate Voice' : (genInfo.reason === 'plan' ? `Upgrade to ${planLabel(minPlanFor('voice'))}` : 'Set ElevenLabs key')}
+        locked={genInfo.reason === 'plan'}
+        lockedHint={genInfo.reason === 'plan' ? genHint('voice', settings.voiceProvider, plan, 'plan') : null}
+        onUpgrade={onOpenBilling}
         cloudEnabled={cloudEnabled && asset.status === 'done'}
         onSaveToCloud={() => saveToCloud('audio', key, storeKey, { provider: settings.voiceProvider })}
         onDeleteFromCloud={() => deleteFromCloud('audio', key)}
@@ -181,12 +205,12 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters }) {
 }
 
 // ── Scene card ─────────────────────────────────────────────────────────────
-function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generationMode }) {
+function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generationMode, plan, onOpenBilling }) {
   const { settings } = useSettings()
   const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
   const key = `ep${epNum}-s${scene.scene_number}`
   const asset = scenes[key] ?? {}
-  const canGen = canGenerate(settings, 'video', settings.videoProvider)
+  const genInfo = canGenerateInfo(settings, 'video', settings.videoProvider, plan)
   const storeKey = `scene-vid:${seriesSlug}:ep${epNum}:s${scene.scene_number}`
 
   return (
@@ -214,8 +238,11 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
         asset={{ ...asset, saving: saving[storeKey] }}
         onGenerate={() => generateSceneVideo(epNum, scene, charIds)}
         onApprovalChange={s => setSceneApproval(key, s)}
-        disabled={!canGen || generationMode === 'batch'}
-        label={canGen ? 'Generate Video' : 'Set video API key'}
+        disabled={!genInfo.allowed || generationMode === 'batch'}
+        label={genInfo.allowed ? 'Generate Video' : (genInfo.reason === 'plan' ? `Upgrade to ${planLabel(minPlanFor('video'))}` : 'Set video API key')}
+        locked={genInfo.reason === 'plan'}
+        lockedHint={genInfo.reason === 'plan' ? genHint('video', settings.videoProvider, plan, 'plan') : null}
+        onUpgrade={onOpenBilling}
         cloudEnabled={cloudEnabled && asset.status === 'done'}
         onSaveToCloud={() => saveToCloud('video', key, storeKey, { provider: settings.videoProvider, prompt: scene.kling_prompt, quality: settings.videoQuality, aspectRatio: settings.aspectRatio })}
         onDeleteFromCloud={() => deleteFromCloud('video', key)}
@@ -224,7 +251,7 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
       {/* Dialogue */}
       <div style={{ paddingLeft: '8px' }}>
         {(scene.dialogue || []).map((d, i) => (
-          <DialogueLine key={i} line={d} dIdx={i} epNum={epNum} sceneNum={scene.scene_number} characters={characters} />
+          <DialogueLine key={i} line={d} dIdx={i} epNum={epNum} sceneNum={scene.scene_number} characters={characters} plan={plan} onOpenBilling={onOpenBilling} />
         ))}
       </div>
     </div>
@@ -232,7 +259,7 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
 }
 
 // ── Episode section ────────────────────────────────────────────────────────
-function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesRef }) {
+function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesRef, plan, onOpenBilling }) {
   const [showSocial, setShowSocial] = useState(false)
 
   return (
@@ -277,6 +304,8 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
           characters={characters}
           onUpdateKling={v => onUpdate(`scenes.${scene.scene_number - 1}.kling_prompt`, v)}
           generationMode={generationMode}
+          plan={plan}
+          onOpenBilling={onOpenBilling}
         />
       ))}
 
@@ -470,7 +499,7 @@ function ShareDropdown({ seriesId, onClose }) {
 }
 
 // ── ResultsScreen root ─────────────────────────────────────────────────────
-export default function ResultsScreen({ series: initialSeries, seriesId, onNewBook }) {
+export default function ResultsScreen({ series: initialSeries, seriesId, onNewBook, onOpenBilling }) {
   const { settings } = useSettings()
   const { activeWorkspacePlan } = useAuth()
   const { sessionCost, generateBatch, characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia, generateSceneVideo, cloudEnabled, saveToCloud, seriesSlug } = useMedia()
@@ -656,7 +685,7 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
             <p style={{ color: '#c8b890', fontSize: '17px' }}>{series_hook}</p>
           </div>
 
-          <CharacterBible characters={characters} seriesTitle={title} onUpdateChar={updateChar} plan={activeWorkspacePlan} />
+          <CharacterBible characters={characters} seriesTitle={title} onUpdateChar={updateChar} plan={activeWorkspacePlan} onOpenBilling={onOpenBilling} />
 
           {episodes.map(ep => (
             <EpisodeSection
@@ -666,6 +695,8 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
               onUpdate={(field, val) => updateEpisode(ep.number, field, val)}
               generationMode={settings.generationMode}
               seriesRef={series}
+              plan={activeWorkspacePlan}
+              onOpenBilling={onOpenBilling}
             />
           ))}
 
