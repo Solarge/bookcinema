@@ -2,6 +2,7 @@ import { Router } from 'express'
 import User from '../models/User.js'
 import Series from '../models/Series.js'
 import UsageLog from '../models/UsageLog.js'
+import Workspace from '../models/Workspace.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 import { grantCredits } from '../utils/credits.js'
 
@@ -64,6 +65,17 @@ router.patch('/workspaces/:id/credits', async (req, res) => {
     const r = await grantCredits(req.params.id, amount, { note: req.body.note || 'admin grant' })
     if (!r.ok) return res.status(404).json({ error: 'Workspace not found' })
     res.json({ workspaceId: req.params.id, balance: r.balance })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// PATCH /api/admin/workspaces/:id/managed — enable or disable managed-generation beta
+router.patch('/workspaces/:id/managed', async (req, res) => {
+  try {
+    const { enabled } = req.body
+    if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be a boolean' })
+    const workspace = await Workspace.findByIdAndUpdate(req.params.id, { managedBeta: !!enabled }, { new: true })
+    if (!workspace) return res.status(404).json({ error: 'Workspace not found' })
+    res.json({ workspaceId: workspace._id, managedBeta: workspace.managedBeta })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

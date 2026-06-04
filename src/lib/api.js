@@ -162,4 +162,5 @@ export const admin = {
   deactivate:            (id)             => patch(`/api/admin/users/${id}/deactivate`, {}),
   stats:                 ()               => get('/api/admin/stats'),
   grantWorkspaceCredits: (id, amount, note) => patch(`/api/admin/workspaces/${id}/credits`, { amount, note }),
+  setManagedAccess:      (id, enabled)       => patch(`/api/admin/workspaces/${id}/managed`, { enabled }),
 }
