@@ -4,6 +4,7 @@ import { connectDB } from '../db.js'
 import { Worker } from 'bullmq'
 import { GENERATION_QUEUE } from '../queue/generationQueue.js'
 import { processGeneration } from './processGeneration.js'
+import { processCompile } from './processCompile.js'
 import { maybeRefundOnFailure } from './refundOnFailure.js'
 import { SOCIAL_PUBLISH_QUEUE } from '../utils/socialQueue.js'
 import { processSocialPublish } from './processSocialPublish.js'
@@ -36,7 +37,11 @@ await connectDB()
 
 // Generation worker — lockDuration is generous (600s) to accommodate slow video polls
 // (fal.ai kling / Replicate minimax can take up to ~8 minutes for a clip).
-const worker = new Worker(GENERATION_QUEUE, async (job) => processGeneration(job.data), {
+// Compile jobs use the same queue; lockDuration covers ffmpeg concat of a 2-3min video.
+const worker = new Worker(GENERATION_QUEUE, async (job) => {
+  if (job.data?.type === 'compile') return processCompile(job.data)
+  return processGeneration(job.data)
+}, {
   connection,
   concurrency: config.managed.maxConcurrent,
   lockDuration: 600000,

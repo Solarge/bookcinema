@@ -109,8 +109,8 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60,
       background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
       padding: '0 16px',
-      display: 'flex', alignItems: 'center', gap: '10px', height: '38px',
-      flexWrap: 'nowrap', overflow: 'hidden',
+      display: 'flex', alignItems: 'center', gap: '10px', minHeight: '38px',
+      flexWrap: 'wrap',
     }}>
       {/* Plan badge */}
       <span
@@ -181,30 +181,30 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
         {busy ? '…' : '+ Credits'}
       </button>
 
-      {/* Upgrade CTA — only when not on Studio */}
-      {canUpgrade && (
-        <button
-          onClick={onOpenBilling}
-          aria-label={`Upgrade from ${planName} plan`}
-          title={`Upgrade to unlock ${planAllows(plan, 'voice') ? '' : 'voice, '}${planAllows(plan, 'video') ? '' : 'video, '}${planAllows(plan, 'social') ? '' : 'social '}and more`}
-          style={{
-            background: 'var(--gold)',
-            color: '#080b10',
-            border: 'none',
-            fontFamily: "'Cinzel', serif",
-            fontSize: '10px',
-            fontWeight: '700',
-            letterSpacing: '1.5px',
-            textTransform: 'uppercase',
-            padding: '5px 14px',
-            cursor: 'pointer',
-            flexShrink: 0,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Upgrade
-        </button>
-      )}
+      {/* Billing CTA — always present: "Upgrade" until Studio, then "Manage Plan" */}
+      <button
+        onClick={onOpenBilling}
+        aria-label={canUpgrade ? `Upgrade from ${planName} plan` : 'Manage your plan and billing'}
+        title={canUpgrade
+          ? `Upgrade to unlock ${planAllows(plan, 'voice') ? '' : 'voice, '}${planAllows(plan, 'video') ? '' : 'video, '}${planAllows(plan, 'social') ? '' : 'social '}and more`
+          : 'Manage your plan and billing'}
+        style={{
+          background: canUpgrade ? 'var(--gold)' : 'transparent',
+          color: canUpgrade ? '#080b10' : 'var(--gold)',
+          border: canUpgrade ? 'none' : '1px solid var(--gold)',
+          fontFamily: "'Cinzel', serif",
+          fontSize: '10px',
+          fontWeight: '700',
+          letterSpacing: '1.5px',
+          textTransform: 'uppercase',
+          padding: '5px 14px',
+          cursor: 'pointer',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {canUpgrade ? 'Upgrade' : 'Manage Plan'}
+      </button>
     </div>
   )
 }
