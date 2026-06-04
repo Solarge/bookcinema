@@ -12,7 +12,7 @@ import SettingsPanel from './SettingsPanel'
 import StoryboardView from './StoryboardView'
 import SocialCardModal from './SocialCardModal'
 import { useDivModalA11y } from '../hooks/useModalA11y'
-import { series as seriesApi } from '../lib/api'
+import { series as seriesApi, managed as managedApi, pollJob } from '../lib/api'
 import { planAllows, minPlanFor, planLabel, FEATURE_LABELS } from '../utils/plans'
 
 // Whether generation is possible for a media kind given current settings.
@@ -258,8 +258,159 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
   )
 }
 
+// ── Compile Episode Video control ──────────────────────────────────────────
+function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBilling }) {
+  const [compileState, setCompileState] = useState('idle') // idle | compiling | done | error
+  const [compiledUrl, setCompiledUrl] = useState(null)
+  const [errorMsg, setErrorMsg] = useState(null)
+
+  // Gather ready scene video URLs (remoteUrl = S3/provider url, status === 'done')
+  const readyClips = (episode.scenes || [])
+    .map(scene => {
+      const key = `ep${episode.number}-s${scene.scene_number}`
+      const asset = sceneMedia[key] ?? {}
+      return asset.status === 'done' ? (asset.remoteUrl || asset.serverUrl || null) : null
+    })
+    .filter(Boolean)
+
+  const videoPlanAllowed = planAllows(plan, 'video')
+
+  // Plan-locked: show upgrade CTA
+  if (!videoPlanAllowed) {
+    return (
+      <div style={{ margin: '20px 0', padding: '14px 18px', background: '#1a1018', border: '1px solid #4a2060', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+        <div>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '2px', color: '#a060c0', textTransform: 'uppercase' }}>
+            Compile Episode Video
+          </span>
+          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginTop: '4px', lineHeight: '1.6' }}>
+            Stitch all scene clips into a 2–3 min reel. Requires {planLabel(minPlanFor('video'))} plan or higher.
+          </p>
+        </div>
+        <button
+          onClick={onOpenBilling}
+          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '7px 14px', border: '1px solid #a060c0', background: 'transparent', color: '#a060c0', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', flexShrink: 0 }}
+        >
+          Upgrade to {planLabel(minPlanFor('video'))}
+        </button>
+      </div>
+    )
+  }
+
+  async function handleCompile() {
+    if (!seriesId) return
+    if (readyClips.length < 2) return
+    setCompileState('compiling')
+    setErrorMsg(null)
+    setCompiledUrl(null)
+    try {
+      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: episode.number, clips: readyClips })
+      const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
+      if (job.status === 'done' && job.resultUrl) {
+        setCompiledUrl(job.resultUrl)
+        setCompileState('done')
+      } else {
+        throw new Error(job.errorMessage || 'Compile failed')
+      }
+    } catch (err) {
+      let msg = err.message || 'Compile failed'
+      if (err.status === 403 && err.code === 'plan_feature') msg = `Your plan does not include video. Upgrade to ${err.requiredPlan || minPlanFor('video')}.`
+      else if (err.status === 402) msg = 'Insufficient credits to compile. Purchase more credits.'
+      setErrorMsg(msg)
+      setCompileState('error')
+    }
+  }
+
+  const isDisabledNoClips = readyClips.length < 2
+  const isDisabledNoSeries = !seriesId
+  const isDisabled = isDisabledNoClips || isDisabledNoSeries || compileState === 'compiling'
+
+  let hintText = null
+  if (isDisabledNoSeries) hintText = 'Save the series first to enable compilation.'
+  else if (isDisabledNoClips) hintText = `Generate at least 2 scene videos first (${readyClips.length} ready).`
+
+  return (
+    <div style={{ margin: '20px 0 28px', padding: '16px 18px', background: '#0a1020', border: '1px solid #1a3050' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: compileState === 'done' || errorMsg ? '14px' : 0 }}>
+        <div>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '2px', color: 'var(--gold)', textTransform: 'uppercase' }}>
+            Compile Episode Video
+          </span>
+          {hintText && (
+            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginTop: '4px', lineHeight: '1.5' }}>{hintText}</p>
+          )}
+          {!hintText && compileState === 'idle' && (
+            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginTop: '4px', lineHeight: '1.5' }}>
+              {readyClips.length} scene clip{readyClips.length !== 1 ? 's' : ''} ready — stitch into a 2–3 min reel (5 credits)
+            </p>
+          )}
+          {compileState === 'compiling' && (
+            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#60a0d0', marginTop: '4px', lineHeight: '1.5' }}>
+              Compiling… this can take a few minutes
+            </p>
+          )}
+        </div>
+        <button
+          onClick={handleCompile}
+          disabled={isDisabled}
+          aria-label={isDisabled ? (hintText || 'Compiling…') : `Compile episode ${episode.number} video`}
+          style={{
+            fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '7px 16px',
+            border: `1px solid ${isDisabled ? 'var(--border)' : 'var(--gold)'}`,
+            background: 'transparent',
+            color: isDisabled ? 'var(--muted)' : 'var(--gold)',
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
+            letterSpacing: '1px', textTransform: 'uppercase', flexShrink: 0,
+            opacity: isDisabled ? 0.55 : 1,
+            transition: 'all 0.15s',
+          }}
+        >
+          {compileState === 'compiling' ? '⏳ Compiling…' : 'Compile Episode Video (2–3 min)'}
+        </button>
+      </div>
+
+      {/* Error state */}
+      {compileState === 'error' && errorMsg && (
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#e06060', padding: '8px 0', lineHeight: '1.6' }}>
+          {errorMsg}{' '}
+          <button onClick={() => { setCompileState('idle'); setErrorMsg(null) }} style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', padding: 0, textDecoration: 'underline' }}>Retry</button>
+        </div>
+      )}
+
+      {/* Done — compiled video player + download */}
+      {compileState === 'done' && compiledUrl && (
+        <div style={{ marginTop: '4px' }}>
+          <video
+            src={compiledUrl}
+            controls
+            playsInline
+            aria-label={`Compiled episode ${episode.number} video`}
+            style={{ width: '100%', maxWidth: '640px', display: 'block', background: '#000', marginBottom: '10px', border: '1px solid var(--border)' }}
+          />
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <a
+              href={compiledUrl}
+              download={`episode-${episode.number}-compiled.mp4`}
+              aria-label={`Download compiled episode ${episode.number} video`}
+              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 14px', border: '1px solid var(--gold)', color: 'var(--gold)', textDecoration: 'none', letterSpacing: '1px', textTransform: 'uppercase' }}
+            >
+              Download MP4
+            </a>
+            <button
+              onClick={() => { setCompileState('idle'); setCompiledUrl(null) }}
+              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase' }}
+            >
+              Re-compile
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Episode section ────────────────────────────────────────────────────────
-function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesRef, plan, onOpenBilling }) {
+function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesRef, plan, onOpenBilling, seriesId, sceneMedia }) {
   const [showSocial, setShowSocial] = useState(false)
 
   return (
@@ -308,6 +459,15 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
           onOpenBilling={onOpenBilling}
         />
       ))}
+
+      {/* Compile Episode Video */}
+      <CompileEpisodeControl
+        episode={episode}
+        seriesId={seriesId}
+        sceneMedia={sceneMedia}
+        plan={plan}
+        onOpenBilling={onOpenBilling}
+      />
 
       {/* CTA */}
       <div style={{ background: '#3a0808', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
@@ -697,6 +857,8 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
               seriesRef={series}
               plan={activeWorkspacePlan}
               onOpenBilling={onOpenBilling}
+              seriesId={seriesId}
+              sceneMedia={sceneMedia}
             />
           ))}
 

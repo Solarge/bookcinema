@@ -8,6 +8,7 @@ import { addGenerationJob } from '../queue/generationQueue.js'
 import { creditCost } from '../generation/creditCost.js'
 import { debitCredits, refundCredits } from '../utils/credits.js'
 import { planFeatures } from '../plans.js'
+import { validateVideoUrl } from '../utils/urlGuard.js'
 
 const router = Router()
 router.use(requireAuth, resolveWorkspace, generationLimiter)
@@ -87,6 +88,36 @@ router.post('/video', managedAccess('video'), async (req, res) => {
       payload: { prompt: effectivePrompt, aspectRatio, duration, tier },
     })
   } catch (err) { console.error('generate/video error:', err); res.status(500).json({ error: 'Server error' }) }
+})
+
+// POST /api/generate/compile
+router.post('/compile', managedAccess('video'), async (req, res) => {
+  try {
+    const { seriesId, episodeNumber, clips } = req.body
+
+    // Validate clips array
+    if (!Array.isArray(clips) || clips.length < 2) {
+      return res.status(400).json({ error: 'clips must be an array of at least 2 video URLs' })
+    }
+
+    // SSRF guard: validate every clip URL
+    for (let i = 0; i < clips.length; i++) {
+      const check = validateVideoUrl(clips[i])
+      if (!check.ok) {
+        return res.status(400).json({ error: `Invalid clip URL at index ${i}: ${check.reason}` })
+      }
+    }
+
+    return await enqueueGeneration(req, res, {
+      type: 'compile',
+      tier: 'standard',
+      params:  { seriesId: seriesId || null, episodeNumber: episodeNumber ?? null },
+      payload: { clips, seriesId: seriesId || null, episodeNumber: episodeNumber ?? null },
+    })
+  } catch (err) {
+    console.error('generate/compile error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
 })
 
 export default router
