@@ -99,9 +99,47 @@ function cloudBtn(border, color) {
   }
 }
 
+// ── Plan-lock overlay — shown inside asset boxes when the feature is plan-gated ─────
+function PlanLockOverlay({ hint, onUpgrade }) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: '8px', padding: '8px 12px', textAlign: 'center',
+    }}>
+      <span aria-hidden="true" style={{ fontSize: '18px', opacity: 0.6 }}>🔒</span>
+      {hint && (
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', lineHeight: '1.5' }}>
+          {hint}
+        </div>
+      )}
+      {onUpgrade && (
+        <button
+          onClick={onUpgrade}
+          aria-label="Upgrade plan to unlock this feature"
+          style={{
+            background: 'var(--gold)',
+            color: '#080b10',
+            border: 'none',
+            fontFamily: "'Cinzel', serif",
+            fontSize: '9px',
+            fontWeight: '700',
+            letterSpacing: '1.5px',
+            textTransform: 'uppercase',
+            padding: '5px 12px',
+            cursor: 'pointer',
+          }}
+        >
+          Upgrade
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── ImageAsset ─────────────────────────────────────────────────────────────
 export function ImageAsset({
   asset, onGenerate, onApprovalChange, label = 'Generate Image', disabled, disabledHint, plan = 'free',
+  locked = false, lockedHint, onUpgrade,
   cloudEnabled = false, onSaveToCloud, onDeleteFromCloud,
 }) {
   const { status, localUrl, error, approvalStatus, savedToCloud, saving, prompt } = asset ?? {}
@@ -130,7 +168,7 @@ export function ImageAsset({
           maxWidth: '300px',
           height: '200px',
           background: 'var(--surface2)',
-          border: '1px dashed var(--border)',
+          border: `1px dashed ${locked ? 'var(--gold)' : 'var(--border)'}`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -139,6 +177,8 @@ export function ImageAsset({
         }}>
           {status === 'generating' ? (
             <GeneratingIndicator label="Generating image…" />
+          ) : locked ? (
+            <PlanLockOverlay hint={lockedHint} onUpgrade={onUpgrade} />
           ) : (
             <>
               {error && <div role="alert" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080', textAlign: 'center', padding: '0 12px' }}>{error}</div>}
@@ -157,6 +197,7 @@ export function ImageAsset({
 // ── VideoAsset ─────────────────────────────────────────────────────────────
 export function VideoAsset({
   asset, onGenerate, onApprovalChange, label = 'Generate Video', disabled,
+  locked = false, lockedHint, onUpgrade,
   cloudEnabled = false, onSaveToCloud, onDeleteFromCloud,
 }) {
   const { status, localUrl, error, approvalStatus, savedToCloud, saving } = asset ?? {}
@@ -184,7 +225,7 @@ export function VideoAsset({
           maxWidth: '400px',
           height: '100px',
           background: 'var(--surface2)',
-          border: '1px dashed var(--border)',
+          border: `1px dashed ${locked ? 'var(--gold)' : 'var(--border)'}`,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -193,6 +234,8 @@ export function VideoAsset({
         }}>
           {status === 'generating' ? (
             <GeneratingIndicator label="Generating video… (1–3 min)" />
+          ) : locked ? (
+            <PlanLockOverlay hint={lockedHint} onUpgrade={onUpgrade} />
           ) : (
             <>
               {error && <div role="alert" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080', padding: '0 12px', textAlign: 'center' }}>{error}</div>}
@@ -210,6 +253,7 @@ export function VideoAsset({
 // ── AudioAsset ─────────────────────────────────────────────────────────────
 export function AudioAsset({
   asset, onGenerate, label = 'Generate Voice', disabled,
+  locked = false, lockedHint, onUpgrade,
   cloudEnabled = false, onSaveToCloud, onDeleteFromCloud,
 }) {
   const { status, audioUrl, error, savedToCloud, saving } = asset ?? {}
@@ -229,6 +273,28 @@ export function AudioAsset({
         </>
       ) : status === 'generating' ? (
         <span aria-live="polite" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>Generating voice…</span>
+      ) : locked ? (
+        /* Plan-locked voice — inline since AudioAsset is in a flex row */
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span aria-hidden="true" style={{ fontSize: '12px', opacity: 0.5 }}>🔒</span>
+          {lockedHint && (
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)' }}>
+              {lockedHint}
+            </span>
+          )}
+          {onUpgrade && (
+            <button
+              onClick={onUpgrade}
+              aria-label="Upgrade plan to unlock voice generation"
+              style={{
+                background: 'var(--gold)', color: '#080b10', border: 'none',
+                fontFamily: "'Cinzel', serif", fontSize: '9px', fontWeight: '700',
+                letterSpacing: '1.5px', textTransform: 'uppercase',
+                padding: '3px 8px', cursor: 'pointer',
+              }}
+            >Upgrade</button>
+          )}
+        </div>
       ) : (
         <>
           {error && <span role="alert" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f08080' }}>Error</span>}

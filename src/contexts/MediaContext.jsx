@@ -176,7 +176,10 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
       if (settings.mode !== 'managed') addCost('image', settings.imageProvider, settings.imageQuality)
     } catch (err) {
-      setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Image generation requires a higher plan. Upgrade to unlock.')
+        : err.message
+      setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
   }, [settings, getApiKey, seriesSlug, addCost])
 
@@ -256,7 +259,10 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl, error: null } }))
       if (settings.mode !== 'managed') addVoiceCost(line, settings.voiceProvider)
     } catch (err) {
-      setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Voice generation requires a higher plan. Upgrade to unlock.')
+        : err.message
+      setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
   }, [settings, getApiKey, seriesSlug, addVoiceCost])
 

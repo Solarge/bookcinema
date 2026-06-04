@@ -35,7 +35,9 @@ async function request(path, options = {}) {
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
     const err = new Error(body.error || `Request failed: ${res.status}`)
-    if (body.code) err.code = body.code
+    if (body.code)          err.code         = body.code
+    if (body.feature)       err.feature      = body.feature
+    if (body.requiredPlan)  err.requiredPlan  = body.requiredPlan
     err.status = res.status
     throw err
   }

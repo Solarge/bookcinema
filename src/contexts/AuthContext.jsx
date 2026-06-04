@@ -9,16 +9,19 @@ export function AuthProvider({ children }) {
   const [loading, setLoading]   = useState(true)  // initial auth check
   const [activeWorkspace, setActiveWorkspaceState] = useState(null)
   const [activeWorkspacePlan, setActiveWorkspacePlan] = useState('free')
+  const [activeCreditBalance, setActiveCreditBalance] = useState(null) // null = not yet loaded
 
-  // Fetch workspace list and resolve the plan for a given workspace id
+  // Fetch workspace list and resolve the plan + credit balance for a given workspace id
   const resolveWorkspacePlan = useCallback(async (workspaceId) => {
-    if (!workspaceId) { setActiveWorkspacePlan('free'); return }
+    if (!workspaceId) { setActiveWorkspacePlan('free'); setActiveCreditBalance(null); return }
     try {
       const list = await workspacesApi.list()
       const found = list.find(w => w._id === workspaceId || w._id?.toString() === workspaceId?.toString())
       setActiveWorkspacePlan(found?.plan || 'free')
+      setActiveCreditBalance(found?.creditBalance ?? null)
     } catch (_) {
       setActiveWorkspacePlan('free')
+      setActiveCreditBalance(null)
     }
   }, [])
 
@@ -49,6 +52,7 @@ export function AuthProvider({ children }) {
       setActiveWorkspace(null)
       setActiveWorkspaceState(null)
       setActiveWorkspacePlan('free')
+      setActiveCreditBalance(null)
     }
     window.addEventListener('auth:logout', handler)
     return () => window.removeEventListener('auth:logout', handler)
@@ -85,6 +89,7 @@ export function AuthProvider({ children }) {
     setActiveWorkspace(null)
     setActiveWorkspaceState(null)
     setActiveWorkspacePlan('free')
+    setActiveCreditBalance(null)
   }, [])
 
   const updateUser = useCallback((patch) => {
@@ -98,7 +103,7 @@ export function AuthProvider({ children }) {
     resolveWorkspacePlan(workspaceId)
   }, [resolveWorkspacePlan])
 
-  const value = useMemo(() => ({ user, loading, activeWorkspace, activeWorkspacePlan, login, register, logout, updateUser, switchWorkspace, isAdmin: user?.role === 'admin' }), [user, loading, activeWorkspace, activeWorkspacePlan, login, register, logout, updateUser, switchWorkspace])
+  const value = useMemo(() => ({ user, loading, activeWorkspace, activeWorkspacePlan, activeCreditBalance, login, register, logout, updateUser, switchWorkspace, isAdmin: user?.role === 'admin' }), [user, loading, activeWorkspace, activeWorkspacePlan, activeCreditBalance, login, register, logout, updateUser, switchWorkspace])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

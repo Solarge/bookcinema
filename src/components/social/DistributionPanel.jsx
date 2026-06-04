@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { social as socialApi } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
+import { planAllows, minPlanFor, planLabel } from '../../utils/plans'
 
 // Platform display config
 const PLATFORM_META = {
@@ -494,14 +496,61 @@ ScheduledPostsList.propTypes = {
   onRefresh: PropTypes.func.isRequired,
 }
 
+// ── Social plan-gate wall ──────────────────────────────────────────────────
+function SocialPlanGate({ onOpenBilling }) {
+  const req = minPlanFor('social')
+  const reqLabel = planLabel(req)
+  return (
+    <div style={{
+      background: 'var(--surface2)',
+      border: '1px solid var(--border)',
+      padding: '28px 24px',
+      textAlign: 'center',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px',
+    }}>
+      <span aria-hidden="true" style={{ fontSize: '28px', opacity: 0.5 }}>🔒</span>
+      <div style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--cream)', letterSpacing: '2px' }}>
+        Social Distribution
+      </div>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', lineHeight: '1.6', maxWidth: '360px' }}>
+        Schedule and publish posts to YouTube, TikTok, Instagram, and more.
+        Requires the <span style={{ color: 'var(--gold)' }}>{reqLabel}</span> plan or higher.
+      </div>
+      {onOpenBilling && (
+        <button
+          onClick={onOpenBilling}
+          aria-label={`Upgrade to ${reqLabel} to unlock Social Distribution`}
+          style={{
+            background: 'var(--gold)', color: '#080b10', border: 'none',
+            fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: '700',
+            letterSpacing: '2px', textTransform: 'uppercase',
+            padding: '9px 20px', cursor: 'pointer', marginTop: '4px',
+          }}
+        >
+          Upgrade to {reqLabel}
+        </button>
+      )}
+    </div>
+  )
+}
+
+SocialPlanGate.propTypes = {
+  onOpenBilling: PropTypes.func,
+}
+
 // ── DistributionPanel ──────────────────────────────────────────────────────
-export default function DistributionPanel({ videoOptions = [], onMsg }) {
+export default function DistributionPanel({ videoOptions = [], onMsg, onOpenBilling }) {
+  const { activeWorkspacePlan } = useAuth()
   const [providers, setProviders] = useState([])
   const [accounts,  setAccounts]  = useState([])
   const [posts,     setPosts]     = useState([])
   const [loading,   setLoading]   = useState(true)
 
+  // Plan gate: social requires pro+
+  const hasSocialAccess = planAllows(activeWorkspacePlan, 'social')
+
   const loadAll = useCallback(async () => {
+    if (!hasSocialAccess) { setLoading(false); return }
     try {
       const [provs, accs, psts] = await Promise.all([
         socialApi.providers(),
@@ -512,13 +561,24 @@ export default function DistributionPanel({ videoOptions = [], onMsg }) {
       setAccounts(accs ?? [])
       setPosts(psts ?? [])
     } catch (err) {
+      // 403 plan_feature: show the gate instead
+      if (err.code === 'plan_feature' || err.status === 403) {
+        // plan gate enforced server-side; just show the upgrade wall
+        setLoading(false)
+        return
+      }
       onMsg(err.message)
     } finally {
       setLoading(false)
     }
-  }, [onMsg])
+  }, [onMsg, hasSocialAccess])
 
   useEffect(() => { loadAll() }, [loadAll])
+
+  // Show plan gate if plan lacks social, regardless of loading state
+  if (!hasSocialAccess) {
+    return <SocialPlanGate onOpenBilling={onOpenBilling} />
+  }
 
   if (loading) {
     return (
@@ -556,6 +616,7 @@ export default function DistributionPanel({ videoOptions = [], onMsg }) {
 }
 
 DistributionPanel.propTypes = {
-  videoOptions: PropTypes.arrayOf(PropTypes.shape({ label: PropTypes.string, url: PropTypes.string })),
-  onMsg:        PropTypes.func.isRequired,
+  videoOptions:  PropTypes.arrayOf(PropTypes.shape({ label: PropTypes.string, url: PropTypes.string })),
+  onMsg:         PropTypes.func.isRequired,
+  onOpenBilling: PropTypes.func,
 }
