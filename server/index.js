@@ -2,8 +2,23 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
+import morgan from 'morgan'
+import mongoose from 'mongoose'
 import { config } from './config.js'
 import { connectDB } from './db.js'
+
+// ── Optional Sentry (no-op when SENTRY_DSN is unset or dep is missing) ───────
+let Sentry = null
+if (process.env.SENTRY_DSN) {
+  try {
+    Sentry = await import('@sentry/node')
+    Sentry.init({ dsn: process.env.SENTRY_DSN, environment: config.nodeEnv })
+    console.log('✓ Sentry initialized')
+  } catch {
+    console.warn('⚠ @sentry/node not installed — Sentry disabled')
+    Sentry = null
+  }
+}
 
 // Routes
 import authRoutes      from './routes/auth.js'
@@ -33,6 +48,10 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Workspace-Id'],
 }))
+
+// ── Request logging ───────────────────────────────────────────────────────────
+app.use(morgan(config.nodeEnv === 'production' ? 'combined' : 'dev'))
+
 // Webhook must receive RAW body for Stripe signature verification — register BEFORE express.json()
 app.post('/api/billing/webhook', express.raw({ type: 'application/json' }), webhookHandler)
 
@@ -63,13 +82,41 @@ app.use((req, res) => res.status(404).json({ error: `Route not found: ${req.meth
 // ── Global error handler ──────────────────────────────────────────────────────
 app.use((err, req, res, _next) => {
   console.error(err)
+  if (Sentry) Sentry.captureException(err)
   const status = err.status || err.statusCode || 500
   res.status(status).json({ error: err.message || 'Internal server error' })
 })
 
-// ── Start ─────────────────────────────────────────────────────────────────────
-connectDB().then(() => {
-  app.listen(config.port, () => {
-    console.log(`✓ BookFilm Server running on port ${config.port} [${config.nodeEnv}]`)
+// ── Process-level safety nets ─────────────────────────────────────────────────
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled promise rejection:', reason)
+  if (Sentry) Sentry.captureException(reason)
+})
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err)
+  if (Sentry) Sentry.captureException(err)
+  // Allow Sentry to flush before exiting
+  process.exit(1)
+})
+
+// ── Graceful shutdown ─────────────────────────────────────────────────────────
+function shutdown(signal) {
+  console.log(`${signal} received — shutting down gracefully`)
+  httpServer.close(async () => {
+    try { await mongoose.disconnect() } catch {}
+    console.log('✓ Server shut down cleanly')
+    process.exit(0)
   })
+  // Force-exit after 15 s if connections don't drain
+  setTimeout(() => { console.error('Forced exit after timeout'); process.exit(1) }, 15000).unref()
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'))
+process.on('SIGINT',  () => shutdown('SIGINT'))
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+await connectDB()
+const httpServer = app.listen(config.port, () => {
+  console.log(`✓ BookFilm Server running on port ${config.port} [${config.nodeEnv}]`)
 })
