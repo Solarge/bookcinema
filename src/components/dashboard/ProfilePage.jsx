@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { useAuth } from '../../contexts/AuthContext'
-import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi, admin as adminApi } from '../../lib/api'
+import { users as usersApi, analytics as analyticsApi, workspaces as workspacesApi, billing as billingApi } from '../../lib/api'
 import { planFeatures } from '../../utils/planFeatures'
 import DistributionPanel from '../social/DistributionPanel'
+import AdminPanel from './AdminPanel'
 import { useDivModalA11y } from '../../hooks/useModalA11y'
 
 const PLAN_SUMMARIES = {
@@ -44,7 +45,7 @@ export default function ProfilePage({ onClose }) {
   const [wsList, setWsList]               = useState([])
   const [inviteEmail, setInviteEmail]     = useState('')
   const [newWsName, setNewWsName]         = useState('')
-  const [adminWsId, setAdminWsId]         = useState('')
+
 
   async function saveProfile() {
     setSaving(true); setMsg('')
@@ -512,45 +513,7 @@ export default function ProfilePage({ onClose }) {
           )}
 
           {tab === 'admin' && isAdmin && (
-            <div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '16px' }}>Managed Generation Access</div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '16px' }}>
-                Grant or revoke managed-generation beta access (managedBeta) for a workspace by ID.
-              </div>
-              <div style={{ marginBottom: '10px' }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '5px' }}>Workspace ID</div>
-                <input
-                  type="text"
-                  placeholder="Workspace ObjectId"
-                  value={adminWsId}
-                  onChange={e => setAdminWsId(e.target.value)}
-                  aria-label="Workspace ID for managed generation access"
-                  style={{ width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 12px', outline: 'none', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={async () => {
-                    setMsg('')
-                    try {
-                      const r = await adminApi.setManagedAccess(adminWsId.trim(), true)
-                      setMsg(`Managed generation ENABLED for workspace ${r.workspaceId}`)
-                    } catch (err) { setMsg(err.message) }
-                  }}
-                  style={btn(false)}
-                >Enable</button>
-                <button
-                  onClick={async () => {
-                    setMsg('')
-                    try {
-                      const r = await adminApi.setManagedAccess(adminWsId.trim(), false)
-                      setMsg(`Managed generation DISABLED for workspace ${r.workspaceId}`)
-                    } catch (err) { setMsg(err.message) }
-                  }}
-                  style={{ ...btn(false), background: 'transparent', color: '#f08080', border: '1px solid #804040' }}
-                >Disable</button>
-              </div>
-            </div>
+            <AdminPanel onMsg={setMsg} />
           )}
         </div>
       </div>
