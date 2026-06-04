@@ -13,7 +13,7 @@ after(stopTestDB)
 beforeEach(clearTestDB)
 
 test('gives every user a personal workspace and stamps their series', async () => {
-  const user = await User.create({ name: 'Solo', email: 'solo@x.com', password: 'password123' })
+  const user = await User.create({ name: 'Solo', email: 'solo@x.com', password: 'password1234' })
   // legacy series created before workspaceId existed — insert raw to bypass required validation
   const legacy = await Series.collection.insertOne({ userId: user._id, title: 'Legacy', fullOutput: {}, createdAt: new Date(), updatedAt: new Date() })
 
@@ -26,14 +26,14 @@ test('gives every user a personal workspace and stamps their series', async () =
 })
 
 test('is idempotent — running twice does not create duplicate workspaces', async () => {
-  await User.create({ name: 'Solo', email: 'solo2@x.com', password: 'password123' })
+  await User.create({ name: 'Solo', email: 'solo2@x.com', password: 'password1234' })
   await runBackfill()
   await runBackfill()
   assert.equal(await Workspace.countDocuments({ type: 'personal' }), 1)
 })
 
 test('unsets legacy explicit-null shareToken so the sparse unique index is satisfied', async () => {
-  const u = await User.create({ name: 'S', email: 's3@x.com', password: 'password123' })
+  const u = await User.create({ name: 'S', email: 's3@x.com', password: 'password1234' })
   await Series.collection.insertOne({ userId: u._id, title: 'L1', fullOutput: {}, shareToken: null, createdAt: new Date(), updatedAt: new Date() })
   await Series.collection.insertOne({ userId: u._id, title: 'L2', fullOutput: {}, shareToken: null, createdAt: new Date(), updatedAt: new Date() })
   await runBackfill()

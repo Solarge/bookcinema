@@ -3,13 +3,14 @@ import Job from '../models/Job.js'
 import { requireAuth } from '../middleware/auth.js'
 import { resolveWorkspace } from '../middleware/workspace.js'
 import { managedAccess } from '../middleware/managedAccess.js'
+import { generationLimiter } from '../middleware/rateLimit.js'
 import { addGenerationJob } from '../queue/generationQueue.js'
 import { creditCost } from '../generation/creditCost.js'
 import { debitCredits, refundCredits } from '../utils/credits.js'
 import { planFeatures } from '../plans.js'
 
 const router = Router()
-router.use(requireAuth, resolveWorkspace)
+router.use(requireAuth, resolveWorkspace, generationLimiter)
 
 async function enqueueGeneration(req, res, { type, tier, params, payload }) {
   if (tier === 'premium' && !planFeatures(req.workspace.plan).premium) {

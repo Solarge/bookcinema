@@ -21,6 +21,10 @@ import { socialRouter } from './routes/social.js'
 
 const app = express()
 
+// Trust the first proxy hop so express-rate-limit keys on the real client IP
+// (required when running behind a load-balancer, Vercel edge, or Nginx proxy).
+app.set('trust proxy', 1)
+
 // ── Security middleware ───────────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
 app.use(cors({

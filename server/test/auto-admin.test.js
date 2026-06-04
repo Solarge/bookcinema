@@ -22,7 +22,7 @@ function app() {
 }
 
 const ADMIN = 'boss@example.com'
-const reg = (email) => ({ name: 'X', email, password: 'password123', consent: true })
+const reg = (email) => ({ name: 'X', email, password: 'password1234', consent: true })
 
 test('registering with the configured ADMIN_EMAIL grants the admin role', async () => {
   config.admin.email = ADMIN
@@ -46,7 +46,7 @@ test('an existing non-admin user matching ADMIN_EMAIL is promoted on login', asy
   let u = await User.findOne({ email: ADMIN })
   assert.equal(u.role, 'user')
   config.admin.email = ADMIN
-  const res = await request(app()).post('/api/auth/login').send({ email: ADMIN, password: 'password123' })
+  const res = await request(app()).post('/api/auth/login').send({ email: ADMIN, password: 'password1234' })
   assert.equal(res.status, 200)
   assert.equal(res.body.user.role, 'admin')
   u = await User.findOne({ email: ADMIN })

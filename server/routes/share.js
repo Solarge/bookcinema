@@ -1,8 +1,10 @@
 import { Router } from 'express'
 import Series from '../models/Series.js'
 import Asset from '../models/Asset.js'
+import { apiLimiter } from '../middleware/rateLimit.js'
 
 const router = Router()
+router.use(apiLimiter)
 
 // GET /api/share/:token — public read-only series view (no auth required)
 router.get('/:token', async (req, res) => {

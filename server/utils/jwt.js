@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken'
+import { randomUUID } from 'crypto'
 import { config } from '../config.js'
 
 export function signAccess(payload) {
@@ -6,7 +7,10 @@ export function signAccess(payload) {
 }
 
 export function signRefresh(payload) {
-  return jwt.sign(payload, config.jwtRefreshSecret, { expiresIn: config.refreshExpiry })
+  // Always embed a unique jti so individual tokens can be blacklisted on logout
+  // and rotated on refresh without invalidating all sessions for the user.
+  const jti = payload.jti || randomUUID()
+  return jwt.sign({ ...payload, jti }, config.jwtRefreshSecret, { expiresIn: config.refreshExpiry })
 }
 
 export function verifyAccess(token) {

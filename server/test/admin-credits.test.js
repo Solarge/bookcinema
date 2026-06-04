@@ -13,7 +13,7 @@ import { signAccess } from '../utils/jwt.js'
 before(startTestDB); after(stopTestDB); beforeEach(clearTestDB)
 function app() { const a = express(); a.use(express.json()); a.use('/api/admin', adminRoutes); return a }
 async function adminToken() {
-  const u = await User.create({ name: 'Admin', email: `a${Math.random()}@x.com`, password: 'password123', role: 'admin' })
+  const u = await User.create({ name: 'Admin', email: `a${Math.random()}@x.com`, password: 'password1234', role: 'admin' })
   return signAccess({ userId: u._id, email: u.email, role: u.role })
 }
 
@@ -25,7 +25,7 @@ test('admin can grant credits to a workspace', async () => {
   assert.equal(res.body.balance, 55)
 })
 test('non-admin is rejected', async () => {
-  const u = await User.create({ name: 'U', email: `u${Math.random()}@x.com`, password: 'password123', role: 'user' })
+  const u = await User.create({ name: 'U', email: `u${Math.random()}@x.com`, password: 'password1234', role: 'user' })
   const token = signAccess({ userId: u._id, email: u.email, role: u.role })
   const w = await Workspace.create({ name: 'W', type: 'personal', ownerId: new mongoose.Types.ObjectId() })
   const res = await request(app()).patch(`/api/admin/workspaces/${w._id}/credits`).set('Authorization', `Bearer ${token}`).send({ amount: 50 })
