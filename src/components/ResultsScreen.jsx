@@ -96,7 +96,7 @@ function charName(id, chars)  { return chars.find(c => c.id === id)?.name || id 
 // ── Character Bible ────────────────────────────────────────────────────────
 function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }) {
   const { settings } = useSettings()
-  const { characters: charMedia, generateCharacterImage, setCharApproval } = useMedia()
+  const { characters: charMedia, generateCharacterImage, setCharApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
 
   return (
     <section id="characters" style={{ marginBottom: '64px' }}>
@@ -105,15 +105,19 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }
         {characters.map(char => {
           const asset = charMedia[char.id] ?? {}
           const canGen = canGenerate(settings, 'image', settings.imageProvider)
+          const storeKey = `char-img:${seriesSlug}:${char.id}:0`
           return (
             <div key={char.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px' }}>
               <ImageAsset
-                asset={asset}
+                asset={{ ...asset, saving: saving[storeKey] }}
                 onGenerate={() => generateCharacterImage(char, char.midjourney_prompt)}
                 onApprovalChange={s => setCharApproval(char.id, s)}
                 disabled={!canGen}
                 disabledHint={canGen ? null : genHint('image', settings.imageProvider)}
                 plan={plan}
+                cloudEnabled={cloudEnabled && asset.status === 'done'}
+                onSaveToCloud={() => saveToCloud('image', char.id, storeKey, { provider: settings.imageProvider, prompt: char.midjourney_prompt, quality: settings.imageQuality, aspectRatio: settings.aspectRatio })}
+                onDeleteFromCloud={() => deleteFromCloud('image', char.id)}
               />
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
                 <span style={{ fontFamily: "'Cinzel', serif", fontSize: '18px', color: 'var(--cream)' }}>
@@ -148,10 +152,11 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }
 // ── Dialogue line ──────────────────────────────────────────────────────────
 function DialogueLine({ line, dIdx, epNum, sceneNum, characters }) {
   const { settings } = useSettings()
-  const { dialogue, generateDialogueVoice } = useMedia()
+  const { dialogue, generateDialogueVoice, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
   const key = `ep${epNum}-s${sceneNum}-d${dIdx}`
   const asset = dialogue[key] ?? {}
   const canGen = canGenerate(settings, 'voice', settings.voiceProvider)
+  const storeKey = `dialogue-audio:${seriesSlug}:ep${epNum}:s${sceneNum}:d${dIdx}`
 
   return (
     <div style={{ marginBottom: '18px', paddingLeft: '16px', borderLeft: `2px solid ${charColor(line.character, characters)}44` }}>
@@ -163,10 +168,13 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters }) {
       </div>
       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#4a5a6a', marginBottom: '6px' }}>{line.voice_direction}</div>
       <AudioAsset
-        asset={asset}
+        asset={{ ...asset, saving: saving[storeKey] }}
         onGenerate={() => generateDialogueVoice(epNum, sceneNum, dIdx, line.line, null)}
         disabled={!canGen}
         label={canGen ? 'Generate Voice' : 'Set ElevenLabs key'}
+        cloudEnabled={cloudEnabled && asset.status === 'done'}
+        onSaveToCloud={() => saveToCloud('audio', key, storeKey, { provider: settings.voiceProvider })}
+        onDeleteFromCloud={() => deleteFromCloud('audio', key)}
       />
     </div>
   )
@@ -175,10 +183,11 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters }) {
 // ── Scene card ─────────────────────────────────────────────────────────────
 function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generationMode }) {
   const { settings } = useSettings()
-  const { scenes, generateSceneVideo, setSceneApproval } = useMedia()
+  const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
   const key = `ep${epNum}-s${scene.scene_number}`
   const asset = scenes[key] ?? {}
   const canGen = canGenerate(settings, 'video', settings.videoProvider)
+  const storeKey = `scene-vid:${seriesSlug}:ep${epNum}:s${scene.scene_number}`
 
   return (
     <div style={{ marginBottom: '36px' }}>
@@ -202,11 +211,14 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
 
       {/* Video asset */}
       <VideoAsset
-        asset={asset}
+        asset={{ ...asset, saving: saving[storeKey] }}
         onGenerate={() => generateSceneVideo(epNum, scene, charIds)}
         onApprovalChange={s => setSceneApproval(key, s)}
         disabled={!canGen || generationMode === 'batch'}
         label={canGen ? 'Generate Video' : 'Set video API key'}
+        cloudEnabled={cloudEnabled && asset.status === 'done'}
+        onSaveToCloud={() => saveToCloud('video', key, storeKey, { provider: settings.videoProvider, prompt: scene.kling_prompt, quality: settings.videoQuality, aspectRatio: settings.aspectRatio })}
+        onDeleteFromCloud={() => deleteFromCloud('video', key)}
       />
 
       {/* Dialogue */}
@@ -461,13 +473,14 @@ function ShareDropdown({ seriesId, onClose }) {
 export default function ResultsScreen({ series: initialSeries, seriesId, onNewBook }) {
   const { settings } = useSettings()
   const { activeWorkspacePlan } = useAuth()
-  const { sessionCost, generateBatch, characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia, generateSceneVideo } = useMedia()
+  const { sessionCost, generateBatch, characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia, generateSceneVideo, cloudEnabled, saveToCloud, seriesSlug } = useMedia()
   const [series, setSeries] = useState(initialSeries)
   const [showSettings, setShowSettings] = useState(false)
   const [showStoryboard, setShowStoryboard] = useState(false)
   const [showBatchModal, setShowBatchModal] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [zipping, setZipping] = useState(false)
+  const [savingAll, setSavingAll] = useState(false)
 
   const { title, author, logline, series_hook, characters = [], episodes = [], production_guide } = series
 
@@ -513,6 +526,58 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
     saveAs(blob, `${title.replace(/\s+/g, '-').toLowerCase()}-series-bible.html`)
   }
 
+  // ── Save all done + unsaved assets to cloud ──────────────────────────────
+  async function handleSaveAllToCloud() {
+    if (!cloudEnabled || savingAll) return
+    setSavingAll(true)
+    try {
+      const tasks = []
+      // Character images
+      for (const char of series.characters ?? []) {
+        const asset = charMedia[char.id]
+        if (asset?.status === 'done' && !asset.savedToCloud) {
+          const storeKey = `char-img:${seriesSlug}:${char.id}:0`
+          tasks.push(saveToCloud('image', char.id, storeKey, { provider: settings.imageProvider, prompt: char.midjourney_prompt, quality: settings.imageQuality, aspectRatio: settings.aspectRatio }))
+        }
+      }
+      // Scene videos
+      for (const ep of series.episodes ?? []) {
+        for (const scene of ep.scenes ?? []) {
+          const key = `ep${ep.number}-s${scene.scene_number}`
+          const asset = sceneMedia[key]
+          if (asset?.status === 'done' && !asset.savedToCloud) {
+            const storeKey = `scene-vid:${seriesSlug}:ep${ep.number}:s${scene.scene_number}`
+            tasks.push(saveToCloud('video', key, storeKey, { provider: settings.videoProvider, prompt: scene.kling_prompt, quality: settings.videoQuality, aspectRatio: settings.aspectRatio }))
+          }
+        }
+        // Dialogue audio
+        for (const scene of ep.scenes ?? []) {
+          for (let dIdx = 0; dIdx < (scene.dialogue?.length ?? 0); dIdx++) {
+            const key = `ep${ep.number}-s${scene.scene_number}-d${dIdx}`
+            const asset = dialogueMedia[key]
+            if (asset?.status === 'done' && !asset.savedToCloud) {
+              const storeKey = `dialogue-audio:${seriesSlug}:ep${ep.number}:s${scene.scene_number}:d${dIdx}`
+              tasks.push(saveToCloud('audio', key, storeKey, { provider: settings.voiceProvider }))
+            }
+          }
+        }
+      }
+      await Promise.allSettled(tasks)
+    } finally {
+      setSavingAll(false)
+    }
+  }
+
+  // Count how many done assets haven't been saved yet (for the toolbar hint)
+  const unsavedCount = (() => {
+    if (!cloudEnabled) return 0
+    let n = 0
+    for (const a of Object.values(charMedia))   if (a.status === 'done' && !a.savedToCloud) n++
+    for (const a of Object.values(sceneMedia))  if (a.status === 'done' && !a.savedToCloud) n++
+    for (const a of Object.values(dialogueMedia)) if (a.status === 'done' && !a.savedToCloud) n++
+    return n
+  })()
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
 
@@ -556,6 +621,18 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
           </button>
           {showShare && <ShareDropdown seriesId={seriesId} onClose={() => setShowShare(false)} />}
         </div>
+        {/* Cloud save-all (only when authed + seriesId) */}
+        {cloudEnabled && (
+          <button
+            onClick={handleSaveAllToCloud}
+            disabled={savingAll || unsavedCount === 0}
+            aria-label={savingAll ? 'Saving all assets to library…' : `Save all to library${unsavedCount > 0 ? ` (${unsavedCount} unsaved)` : ''}`}
+            title={unsavedCount === 0 ? 'All generated assets are saved' : `Save ${unsavedCount} unsaved asset${unsavedCount !== 1 ? 's' : ''} to cloud library`}
+            style={topBtn(unsavedCount > 0 ? '#1e4a2a' : 'var(--border)', unsavedCount > 0 ? '#6dc87a' : 'var(--muted)')}
+          >
+            {savingAll ? '☁ Saving…' : unsavedCount > 0 ? `☁ Save All (${unsavedCount})` : '☁ All Saved'}
+          </button>
+        )}
         <button onClick={() => setShowSettings(true)} aria-label="Open settings" style={topBtn('var(--border)', 'var(--muted)')}>⚙</button>
         <button onClick={onNewBook} style={topBtn('var(--border)', 'var(--muted)')}>+ New</button>
       </div>

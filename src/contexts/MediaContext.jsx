@@ -1,11 +1,12 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react'
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { useSettings } from './SettingsContext'
+import { useAuth } from './AuthContext'
 import { getImageProvider, getVideoProvider, getVoiceProvider } from '../utils/mediaProviders/index'
-import { fetchAndStore } from '../utils/assetStore'
+import { fetchAndStore, getBlob } from '../utils/assetStore'
 import { getCost, getVoiceCost, loadSessionCost, saveSessionCost } from '../utils/costTracker'
 import { getPreset } from '../utils/genrePresets'
-import { managed as managedApi, pollJob } from '../lib/api'
+import { managed as managedApi, pollJob, assets as assetsApi } from '../lib/api'
 
 const MediaContext = createContext(null)
 
@@ -29,13 +30,101 @@ function localArgs(settings, providerKey) {
   return map[providerKey] ?? {}
 }
 
-export function MediaProvider({ children, seriesSlug = 'default' }) {
+// Map a storeKey (mediaKey result) to the canonical assetKey used when uploading.
+// We reuse the storeKey directly — it's already a stable, unique identifier per slot.
+function toAssetKey(storeKey) {
+  return storeKey
+}
+
+// Determine a reasonable filename + content-type for a Blob before uploading.
+// Falls back to generic types if the blob's own type is empty/unknown.
+function blobMeta(blob, kind) {
+  const type = blob.type || ''
+  if (kind === 'image') {
+    const mime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(type) ? type : 'image/png'
+    const ext = mime.split('/')[1].replace('jpeg', 'jpg')
+    return { mime, filename: `asset.${ext}` }
+  }
+  if (kind === 'video') {
+    const mime = ['video/mp4', 'video/webm', 'video/quicktime'].includes(type) ? type : 'video/mp4'
+    const ext = mime === 'video/quicktime' ? 'mov' : mime.split('/')[1]
+    return { mime, filename: `asset.${ext}` }
+  }
+  // audio
+  const mime = ['audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/mp4', 'audio/webm'].includes(type) ? type : 'audio/mpeg'
+  const ext = { 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/ogg': 'ogg', 'audio/mp4': 'm4a', 'audio/webm': 'webm' }[mime] || 'mp3'
+  return { mime, filename: `asset.${ext}` }
+}
+
+export function MediaProvider({ children, seriesSlug = 'default', seriesId = null }) {
   const { settings, getApiKey } = useSettings()
+  const { user } = useAuth()
   const [characters, setCharacters] = useState({})
   const [scenes,     setScenes]     = useState({})
   const [dialogue,   setDialogue]   = useState({})
   const [sessionCost, setSessionCost] = useState(() => loadSessionCost())
+  // Per-slot saving state: { [storeKey]: 'saving' | 'error' | undefined }
+  const [saving, setSaving] = useState({})
   const portraitRefs = useRef({})
+
+  // Cloud sync is only active when authenticated AND a backend seriesId is available.
+  const cloudEnabled = !!(user && seriesId)
+
+  // ── Hydrate from cloud on mount ──────────────────────────────────────────
+  useEffect(() => {
+    if (!cloudEnabled) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const serverAssets = await assetsApi.list(seriesId)
+        if (cancelled || !Array.isArray(serverAssets)) return
+        for (const sa of serverAssets) {
+          const { _id, assetKey, s3Url, approvalStatus } = sa
+          if (!assetKey) continue
+          // assetKey matches the storeKey produced by mediaKey(). Parse the prefix.
+          // Patterns:
+          //   char-img:<slug>:<charId>:<variationIndex>
+          //   scene-vid:<slug>:<ep>:<scene>
+          //   dialogue-audio:<slug>:<ep>:<scene>:<dIdx>
+          const parts = assetKey.split(':')
+          const prefix = parts[0]
+          const cloudPatch = { serverId: _id, serverUrl: s3Url, savedToCloud: true, approvalStatus: approvalStatus || 'pending' }
+          if (prefix === 'char-img') {
+            const charId = parts[2] // mediaKey('char-img', slug, charId, variationIndex)
+            if (!charId) continue
+            setCharacters(prev => ({
+              ...prev,
+              [charId]: { ...(prev[charId] ?? IDLE), ...cloudPatch },
+            }))
+          } else if (prefix === 'scene-vid') {
+            // mediaKey('scene-vid', slug, 'ep<n>', 's<n>')
+            const epPart = parts[2] // 'ep1'
+            const sPart  = parts[3] // 's1'
+            const key = `${epPart}-${sPart}` // 'ep1-s1'
+            setScenes(prev => ({
+              ...prev,
+              [key]: { ...(prev[key] ?? IDLE), ...cloudPatch },
+            }))
+          } else if (prefix === 'dialogue-audio') {
+            // mediaKey('dialogue-audio', slug, 'ep<n>', 's<n>', 'd<n>')
+            const epPart  = parts[2]
+            const sPart   = parts[3]
+            const dPart   = parts[4]
+            const key = `${epPart}-${sPart}-${dPart}`
+            setDialogue(prev => ({
+              ...prev,
+              [key]: { ...(prev[key] ?? IDLE), ...cloudPatch },
+            }))
+          }
+        }
+      } catch (err) {
+        console.warn('[MediaContext] cloud hydrate failed:', err)
+      }
+    })()
+    return () => { cancelled = true }
+  // We intentionally only run this once on mount (or when cloudEnabled flips on).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudEnabled, seriesId])
 
   const addCost = useCallback((type, provider, quality = 'hd') => {
     setSessionCost(prev => {
@@ -85,7 +174,7 @@ export function MediaProvider({ children, seriesSlug = 'default' }) {
       const localUrl = await fetchAndStore(storeKey, url)
       if (variationIndex === 0) portraitRefs.current[char.id] = localUrl || url
       setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
-      if (settings.mode !== 'managed') addCost('image', settings.imageProvider, settings.imageQuality) // managed cost tracked server-side
+      if (settings.mode !== 'managed') addCost('image', settings.imageProvider, settings.imageQuality)
     } catch (err) {
       setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
     }
@@ -144,15 +233,95 @@ export function MediaProvider({ children, seriesSlug = 'default' }) {
         if (result.audioBlob) await fetchAndStore(storeKey, result.audioBlob)
       }
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl, error: null } }))
-      if (settings.mode !== 'managed') addVoiceCost(line, settings.voiceProvider) // managed cost tracked server-side
+      if (settings.mode !== 'managed') addVoiceCost(line, settings.voiceProvider)
     } catch (err) {
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: err.message } }))
     }
   }, [settings, getApiKey, seriesSlug, addVoiceCost])
 
-  // ── Approval ──────────────────────────────────────────────────────────────
-  const setCharApproval  = useCallback((id, s)  => setCharacters(prev => ({ ...prev, [id]: { ...(prev[id] ?? IDLE), approvalStatus: s } })), [])
-  const setSceneApproval = useCallback((key, s) => setScenes(prev =>     ({ ...prev, [key]: { ...(prev[key] ?? IDLE), approvalStatus: s } })), [])
+  // ── Approval (with optional cloud sync) ──────────────────────────────────
+  const setCharApproval = useCallback((id, s) => {
+    setCharacters(prev => {
+      const updated = { ...prev, [id]: { ...(prev[id] ?? IDLE), approvalStatus: s } }
+      // Best-effort cloud sync
+      const serverId = updated[id]?.serverId
+      if (serverId) assetsApi.setApproval(serverId, s).catch(() => {})
+      return updated
+    })
+  }, [])
+
+  const setSceneApproval = useCallback((key, s) => {
+    setScenes(prev => {
+      const updated = { ...prev, [key]: { ...(prev[key] ?? IDLE), approvalStatus: s } }
+      const serverId = updated[key]?.serverId
+      if (serverId) assetsApi.setApproval(serverId, s).catch(() => {})
+      return updated
+    })
+  }, [])
+
+  // ── Save to cloud ─────────────────────────────────────────────────────────
+  // kind: 'image' | 'video' | 'audio'
+  // slotKey: the state map key (char.id, 'ep1-s1', 'ep1-s1-d0', etc.)
+  // storeKey: the IndexedDB key (mediaKey output)
+  const saveToCloud = useCallback(async (kind, slotKey, storeKey, meta = {}) => {
+    if (!cloudEnabled) return
+    setSaving(prev => ({ ...prev, [storeKey]: 'saving' }))
+    try {
+      const blob = await getBlob(storeKey)
+      if (!blob) throw new Error('Asset not found in local store — generate it first.')
+      const { mime, filename } = blobMeta(blob, kind)
+      const typedBlob = blob.type ? blob : new Blob([blob], { type: mime })
+      const fd = new FormData()
+      fd.append('file', typedBlob, filename)
+      fd.append('assetKey', toAssetKey(storeKey))
+      fd.append('provider', meta.provider || settings.imageProvider || '')
+      if (meta.prompt)      fd.append('prompt', meta.prompt)
+      if (meta.quality)     fd.append('quality', meta.quality)
+      if (meta.aspectRatio) fd.append('aspectRatio', meta.aspectRatio)
+      if (meta.costUsd != null) fd.append('costUsd', String(meta.costUsd))
+
+      let result
+      if (kind === 'image') result = await assetsApi.uploadImage(seriesId, fd)
+      else if (kind === 'video') result = await assetsApi.uploadVideo(seriesId, fd)
+      else result = await assetsApi.uploadAudio(seriesId, fd)
+
+      const cloudPatch = { serverId: result._id, serverUrl: result.s3Url, savedToCloud: true }
+      if (kind === 'image') {
+        setCharacters(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...cloudPatch } }))
+      } else if (kind === 'video') {
+        setScenes(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...cloudPatch } }))
+      } else {
+        setDialogue(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...cloudPatch } }))
+      }
+      setSaving(prev => ({ ...prev, [storeKey]: undefined }))
+    } catch (err) {
+      setSaving(prev => ({ ...prev, [storeKey]: 'error:' + err.message }))
+      // Surface the error message briefly then clear it
+      setTimeout(() => setSaving(prev => ({ ...prev, [storeKey]: undefined })), 8000)
+      console.warn('[MediaContext] saveToCloud failed:', err)
+    }
+  }, [cloudEnabled, seriesId, settings.imageProvider])
+
+  // ── Delete from cloud ─────────────────────────────────────────────────────
+  const deleteFromCloud = useCallback(async (kind, slotKey) => {
+    if (!cloudEnabled) return
+    const getServerId = () => {
+      if (kind === 'image')  return characters[slotKey]?.serverId
+      if (kind === 'video')  return scenes[slotKey]?.serverId
+      return dialogue[slotKey]?.serverId
+    }
+    const serverId = getServerId()
+    if (!serverId) return
+    try {
+      await assetsApi.delete(serverId)
+    } catch (err) {
+      console.warn('[MediaContext] deleteFromCloud failed:', err)
+    }
+    const clearCloud = slot => ({ ...slot, serverId: undefined, serverUrl: undefined, savedToCloud: false })
+    if (kind === 'image')  setCharacters(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
+    else if (kind === 'video') setScenes(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
+    else setDialogue(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
+  }, [cloudEnabled, characters, scenes, dialogue])
 
   // ── Batch ─────────────────────────────────────────────────────────────────
   const generateBatch = useCallback(async (series, mode = 'batch') => {
@@ -175,14 +344,33 @@ export function MediaProvider({ children, seriesSlug = 'default' }) {
     }
   }, [generateCharacterImage, generateSceneVideo, generateDialogueVoice])
 
+  // Expose a helper so components can build a storeKey without duplicating mediaKey logic.
+  const getMediaKey = useCallback((...args) => mediaKey(...args), [])
+
   return (
-    <MediaContext.Provider value={{ characters, scenes, dialogue, sessionCost, generateCharacterImage, generateSceneVideo, generateDialogueVoice, generateBatch, setCharApproval, setSceneApproval, portraitRefs }}>
+    <MediaContext.Provider value={{
+      characters, scenes, dialogue, sessionCost,
+      generateCharacterImage, generateSceneVideo, generateDialogueVoice, generateBatch,
+      setCharApproval, setSceneApproval,
+      portraitRefs,
+      // Cloud sync
+      cloudEnabled,
+      seriesSlug,
+      saving,
+      saveToCloud,
+      deleteFromCloud,
+      getMediaKey,
+    }}>
       {children}
     </MediaContext.Provider>
   )
 }
 
-MediaProvider.propTypes = { children: PropTypes.node.isRequired, seriesSlug: PropTypes.string }
+MediaProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+  seriesSlug: PropTypes.string,
+  seriesId: PropTypes.string,
+}
 
 export function useMedia() {
   const ctx = useContext(MediaContext)
