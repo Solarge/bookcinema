@@ -3,8 +3,13 @@ import User from '../models/User.js'
 import Series from '../models/Series.js'
 import UsageLog from '../models/UsageLog.js'
 import Workspace from '../models/Workspace.js'
+import Job from '../models/Job.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 import { grantCredits } from '../utils/credits.js'
+import { config } from '../config.js'
+import { PLANS } from '../plans.js'
+import { MANAGED_PROVIDERS } from '../generation/registry.js'
+import { listConfigured as listSocialConfigured } from '../social/index.js'
 
 const router = Router()
 router.use(requireAuth, requireRole('admin'))
@@ -94,15 +99,130 @@ router.patch('/workspaces/:id/managed', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// GET /api/admin/stats — platform overview
+// GET /api/admin/workspaces?search= — list all workspaces (newest first, cap 100)
+router.get('/workspaces', async (req, res) => {
+  try {
+    const { search } = req.query
+    const escapedSearch = search ? String(search).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') : null
+    const query = escapedSearch
+      ? { $or: [{ name: { $regex: escapedSearch, $options: 'i' } }, { slug: { $regex: escapedSearch, $options: 'i' } }] }
+      : {}
+    const workspaces = await Workspace.find(query)
+      .select('name slug type plan managedBeta monthlyCredits purchasedCredits ownerId stripeSubscriptionId members createdAt')
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .lean()
+    const result = workspaces.map(w => ({
+      _id:                  w._id,
+      name:                 w.name,
+      slug:                 w.slug,
+      type:                 w.type,
+      plan:                 w.plan,
+      managedBeta:          w.managedBeta,
+      monthlyCredits:       w.monthlyCredits,
+      purchasedCredits:     w.purchasedCredits,
+      creditBalance:        (w.monthlyCredits || 0) + (w.purchasedCredits || 0),
+      memberCount:          Array.isArray(w.members) ? w.members.length : 0,
+      ownerId:              w.ownerId,
+      stripeSubscriptionId: w.stripeSubscriptionId,
+      createdAt:            w.createdAt,
+    }))
+    res.json({ workspaces: result, total: result.length })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// GET /api/admin/jobs?status=&type=&limit= — recent platform-wide generation jobs
+router.get('/jobs', async (req, res) => {
+  try {
+    const rawLimit = Number(req.query.limit) || 50
+    const limit = Math.min(rawLimit, 200)
+    const filter = {}
+    if (req.query.status) filter.status = req.query.status
+    if (req.query.type)   filter.type   = req.query.type
+    const [jobs, statusCounts] = await Promise.all([
+      Job.find(filter)
+        .select('workspaceId createdBy type tier status costUsd credits errorMessage createdAt')
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .lean(),
+      Job.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+    ])
+    const summary = { queued: 0, active: 0, done: 0, failed: 0 }
+    for (const s of statusCounts) {
+      if (s._id in summary) summary[s._id] = s.count
+    }
+    res.json({ jobs, total: jobs.length, summary })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// GET /api/admin/config — read-only system status (NO secrets, booleans + non-secret values only)
+router.get('/config', async (req, res) => {
+  try {
+    // Collect unique adapters across all managed provider chains and report isConfigured().
+    const seen = new Map()
+    for (const type of Object.values(MANAGED_PROVIDERS)) {
+      for (const tier of Object.values(type)) {
+        for (const entry of tier.providers) {
+          if (!seen.has(entry.provider)) {
+            seen.set(entry.provider, entry.adapter)
+          }
+        }
+      }
+    }
+    const providers = Array.from(seen.entries()).map(([provider, adapter]) => ({
+      provider,
+      configured: typeof adapter.isConfigured === 'function' ? adapter.isConfigured() : false,
+    }))
+
+    // Social providers configured status (no secrets).
+    const social = listSocialConfigured()
+
+    // Managed guardrails — values, not secrets.
+    const managed = {
+      enabled:        config.managed.enabled,
+      maxConcurrent:  config.managed.maxConcurrent,
+      starterCredits: config.managed.starterCredits,
+      caps:           { ...config.managed.caps },
+    }
+
+    // Stripe — booleans only, never expose keys/ids.
+    const stripe = {
+      configured: !!config.stripe.secretKey,
+      pricesConfigured: Object.fromEntries(
+        Object.entries(config.stripe.prices).map(([k, v]) => [k, !!v])
+      ),
+    }
+
+    // Redis — boolean only.
+    const redis = { configured: !!config.redis.url }
+
+    res.json({ providers, social, managed, stripe, plans: PLANS, redis })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// GET /api/admin/stats — platform overview (expanded with workspaces + jobs)
 router.get('/stats', async (req, res) => {
   try {
-    const [users, series, totalRevenue] = await Promise.all([
+    const [users, series, totalRevenue, workspaces, jobStatusCounts] = await Promise.all([
       User.countDocuments(),
       Series.countDocuments(),
       UsageLog.aggregate([{ $group: { _id: null, total: { $sum: '$costUsd' } } }]),
+      Workspace.countDocuments(),
+      Job.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
     ])
-    res.json({ users, series, totalCostUsd: totalRevenue[0]?.total ?? 0 })
+    const jobsByStatus = { queued: 0, active: 0, done: 0, failed: 0 }
+    let totalJobs = 0
+    for (const s of jobStatusCounts) {
+      if (s._id in jobsByStatus) jobsByStatus[s._id] = s.count
+      totalJobs += s.count
+    }
+    res.json({
+      users,
+      series,
+      totalCostUsd: totalRevenue[0]?.total ?? 0,
+      workspaces,
+      jobs: { total: totalJobs, byStatus: jobsByStatus },
+    })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
