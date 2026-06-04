@@ -47,7 +47,7 @@ test('register rejects password shorter than 12 chars', async () => {
 test('register accepts a 12-char password', async () => {
   const res = await request(authApp())
     .post('/api/auth/register')
-    .send({ name: 'A', email: 'a@x.com', password: 'password1234', consent: true })
+    .send({ name: 'A', email: 'a@x.com', password: 'password1234', consent: true, ageConfirmed: true })
   assert.equal(res.status, 201)
 })
 
@@ -72,7 +72,7 @@ test('change-password rejects new password shorter than 12 chars', async () => {
 test('10 failed login attempts lock the account (423)', async () => {
   await request(authApp())
     .post('/api/auth/register')
-    .send({ name: 'U', email: 'lockout@x.com', password: 'password1234', consent: true })
+    .send({ name: 'U', email: 'lockout@x.com', password: 'password1234', consent: true, ageConfirmed: true })
 
   for (let i = 0; i < 10; i++) {
     await request(authApp())
@@ -90,7 +90,7 @@ test('10 failed login attempts lock the account (423)', async () => {
 test('successful login resets the failed attempt counter', async () => {
   await request(authApp())
     .post('/api/auth/register')
-    .send({ name: 'U', email: 'reset@x.com', password: 'password1234', consent: true })
+    .send({ name: 'U', email: 'reset@x.com', password: 'password1234', consent: true, ageConfirmed: true })
 
   // 5 bad attempts
   for (let i = 0; i < 5; i++) {
@@ -115,7 +115,7 @@ test('successful login resets the failed attempt counter', async () => {
 test('register sets emailVerifiedAt to null', async () => {
   await request(authApp())
     .post('/api/auth/register')
-    .send({ name: 'V', email: 'verify@x.com', password: 'password1234', consent: true })
+    .send({ name: 'V', email: 'verify@x.com', password: 'password1234', consent: true, ageConfirmed: true })
   const user = await User.findOne({ email: 'verify@x.com' })
   assert.equal(user.emailVerifiedAt, null)
 })
@@ -123,7 +123,7 @@ test('register sets emailVerifiedAt to null', async () => {
 test('GET /verify-email with valid token sets emailVerifiedAt', async () => {
   await request(authApp())
     .post('/api/auth/register')
-    .send({ name: 'V', email: 'verify2@x.com', password: 'password1234', consent: true })
+    .send({ name: 'V', email: 'verify2@x.com', password: 'password1234', consent: true, ageConfirmed: true })
   const user = await User.findOne({ email: 'verify2@x.com' })
   assert.equal(user.emailVerifiedAt, null)
 
@@ -202,7 +202,7 @@ test('POST /refresh issues a new access token and rotates the refresh cookie', a
   // Register to get a refresh cookie
   const registerRes = await request(authApp())
     .post('/api/auth/register')
-    .send({ name: 'R', email: 'rotation@x.com', password: 'password1234', consent: true })
+    .send({ name: 'R', email: 'rotation@x.com', password: 'password1234', consent: true, ageConfirmed: true })
   assert.equal(registerRes.status, 201)
 
   const cookie = registerRes.headers['set-cookie']?.[0]

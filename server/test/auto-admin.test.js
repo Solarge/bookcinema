@@ -22,7 +22,7 @@ function app() {
 }
 
 const ADMIN = 'boss@example.com'
-const reg = (email) => ({ name: 'X', email, password: 'password1234', consent: true })
+const reg = (email) => ({ name: 'X', email, password: 'password1234', consent: true, ageConfirmed: true })
 
 test('registering with the configured ADMIN_EMAIL grants the admin role', async () => {
   config.admin.email = ADMIN

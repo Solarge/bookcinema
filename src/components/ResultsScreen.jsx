@@ -483,6 +483,13 @@ export default function ResultsScreen({ series: initialSeries, onNewBook }) {
           ))}
 
           <ProductionGuide guide={production_guide} />
+
+          {/* AI-generated content disclosure */}
+          <div style={{ marginTop: '48px', paddingTop: '20px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
+            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#3a4a5a', letterSpacing: '1.5px', lineHeight: '1.7' }}>
+              Images, video, and voice on this page are AI-generated. Review before publishing and disclose AI origin per platform rules.
+            </p>
+          </div>
         </main>
       </div>
 

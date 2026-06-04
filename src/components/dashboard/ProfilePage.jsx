@@ -11,6 +11,24 @@ const PLAN_SUMMARIES = {
   studio: 'Premium tiers + white-label · no watermark',
 }
 
+// Display-only pricing constants — these MUST match the Stripe dashboard prices.
+// Update here whenever Stripe prices change.
+const PRICING = {
+  plans: [
+    { key: 'free',   label: 'Free',   price: '$0/mo',   credits: '10 credits/mo',  features: ['Standard AI tiers', 'Watermark on exports', 'BYO API keys', '1 workspace'] },
+    { key: 'pro',    label: 'Pro',    price: '$19/mo',  credits: '200 credits/mo', features: ['Premium AI tiers', 'No watermark', 'Priority generation', 'Team workspaces'] },
+    { key: 'studio', label: 'Studio', price: '$79/mo',  credits: '1000 credits/mo',features: ['Everything in Pro', 'White-label branding', 'API access', 'Dedicated support'] },
+  ],
+  packs: {
+    pack_small:  { credits: 100,  price: '$4.99' },
+    pack_medium: { credits: 500,  price: '$19.99' },
+    pack_large:  { credits: 2000, price: '$69.99' },
+  },
+}
+
+// Placeholder support contact — replace before launch
+const SUPPORT_EMAIL = 'support@bookfilm.studio'
+
 export default function ProfilePage({ onClose }) {
   const { user, logout, updateUser, activeWorkspace, isAdmin } = useAuth()
   const [tab, setTab]               = useState('profile') // profile | security | apikey | analytics
@@ -105,8 +123,43 @@ export default function ProfilePage({ onClose }) {
               <Field label="Credits" value={String(user?.credits ?? 0)} disabled />
               <button onClick={saveProfile} disabled={saving} style={btn(saving)}>{saving ? 'Saving…' : 'Save Profile'}</button>
 
-              {/* Data & Privacy */}
+              {/* Plan comparison */}
               <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>Plan Comparison</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '8px' }}>
+                  {PRICING.plans.map(plan => {
+                    const isCurrent = (user?.plan || 'free') === plan.key
+                    return (
+                      <div key={plan.key} style={{ background: isCurrent ? 'rgba(200,146,42,0.08)' : 'var(--surface2)', border: `1px solid ${isCurrent ? 'var(--gold)' : 'var(--border)'}`, padding: '12px 10px' }}>
+                        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', color: isCurrent ? 'var(--gold)' : 'var(--cream)', letterSpacing: '1px', marginBottom: '2px', textTransform: 'uppercase' }}>{plan.label}</div>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gold)', marginBottom: '6px' }}>{plan.price}</div>
+                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#6dc87a', marginBottom: '8px' }}>{plan.credits}</div>
+                        {plan.features.map(f => (
+                          <div key={f} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', marginBottom: '3px', lineHeight: '1.4' }}>· {f}</div>
+                        ))}
+                        {isCurrent && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--gold)', letterSpacing: '1px', marginTop: '6px' }}>CURRENT</div>}
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#2a3a4a', marginTop: '4px' }}>
+                  Prices displayed are indicative. Actual charges are confirmed at checkout via Stripe.
+                </div>
+              </div>
+
+              {/* Support */}
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: '20px', paddingTop: '16px' }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Support</div>
+                <a
+                  href={`mailto:${SUPPORT_EMAIL}`}
+                  style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--gold)', textDecoration: 'underline' }}
+                >
+                  Need help? Contact support →
+                </a>
+              </div>
+
+              {/* Data & Privacy */}
+              <div style={{ borderTop: '1px solid var(--border)', marginTop: '20px', paddingTop: '20px' }}>
                 <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>Data &amp; Privacy</div>
 
                 <button
@@ -268,19 +321,22 @@ export default function ProfilePage({ onClose }) {
                       <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Buy Credits</div>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {[
-                          ['100 credits', 'pack_small'],
-                          ['500 credits', 'pack_medium'],
-                          ['2000 credits', 'pack_large'],
-                        ].map(([label, key]) => (
-                          <button
-                            key={key}
-                            onClick={async () => {
-                              try { const { url } = await billingApi.checkout({ kind: 'pack', key }); window.location.href = url }
-                              catch (err) { setMsg(err.message) }
-                            }}
-                            style={{ ...btn(false), background: 'var(--surface2)', color: 'var(--gold)', border: '1px solid var(--gold)' }}
-                          >{label}</button>
-                        ))}
+                          ['pack_small'],
+                          ['pack_medium'],
+                          ['pack_large'],
+                        ].map(([key]) => {
+                          const pack = PRICING.packs[key]
+                          return (
+                            <button
+                              key={key}
+                              onClick={async () => {
+                                try { const { url } = await billingApi.checkout({ kind: 'pack', key }); window.location.href = url }
+                                catch (err) { setMsg(err.message) }
+                              }}
+                              style={{ ...btn(false), background: 'var(--surface2)', color: 'var(--gold)', border: '1px solid var(--gold)' }}
+                            >{pack.credits} credits — {pack.price}</button>
+                          )
+                        })}
                       </div>
                     </div>
 

@@ -30,6 +30,12 @@ const userSchema = new mongoose.Schema({
   // GDPR consent — stamped at registration
   consentedAt: { type: Date, default: null },
 
+  // Age confirmation (≥16) — required at registration
+  ageConfirmedAt: { type: Date, default: null },
+
+  // Optional marketing/product-updates consent
+  marketingConsentAt: { type: Date, default: null },
+
   // Email verification
   emailVerifiedAt: { type: Date, default: null },
 

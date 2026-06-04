@@ -125,24 +125,76 @@ export function PrivacyPolicy({ onClose }) {
   )
 }
 
-// ── LegalLinks — two small buttons that open the respective modal ─────────────
+// ── DMCA / Copyright Policy ──────────────────────────────────────────────────
+export function DmcaPolicy({ onClose }) {
+  return (
+    <LegalModal title="DMCA / COPYRIGHT POLICY" onClose={onClose}>
+      <H>User Responsibility for Uploaded Content</H>
+      <P>By submitting or uploading text to BookFilm Studio you represent and warrant that you own or have the necessary rights, licences, and permissions to use that content. You must not submit text that infringes the copyright, trademark, or other intellectual-property rights of any third party. Uploading publicly available excerpts from copyrighted works without authorisation may constitute infringement.</P>
+
+      <H>DMCA Takedown Procedure</H>
+      <P>BookFilm Studio complies with the Digital Millennium Copyright Act (DMCA), 17 U.S.C. § 512. If you believe content hosted on our platform infringes your copyright, please send a written notice to our designated DMCA agent containing all of the following:</P>
+      <P>1. Your physical or electronic signature (or that of a person authorised to act on behalf of the copyright owner).</P>
+      <P>2. Identification of the copyrighted work you claim has been infringed.</P>
+      <P>3. Identification of the allegedly infringing material and sufficient information to locate it (e.g. a URL or description).</P>
+      <P>4. Your name, address, telephone number, and email address.</P>
+      <P>5. A statement that you have a good faith belief the use is not authorised by the copyright owner, its agent, or the law.</P>
+      <P>6. A statement under penalty of perjury that the information is accurate and you are authorised to act.</P>
+
+      <H>DMCA Agent Contact</H>
+      <P>DMCA Agent: Legal Team — BookFilm Studio (placeholder — replace with real agent details before launch)</P>
+      <P>Email: dmca@bookfilm.studio (placeholder)</P>
+      <P>Address: [Registered business address — placeholder]</P>
+
+      <H>Counter-Notification</H>
+      <P>If you believe your content was removed in error, you may send a counter-notification to the DMCA agent above. Counter-notifications must include: your signature; identification of the material removed; a statement under penalty of perjury that the removal was a mistake or misidentification; your contact details; and consent to jurisdiction of the appropriate federal district court.</P>
+
+      <H>Repeat Infringer Policy</H>
+      <P>BookFilm Studio reserves the right to terminate accounts of users who are found to be repeat infringers.</P>
+    </LegalModal>
+  )
+}
+
+// ── AI-Generated Content Disclosure ─────────────────────────────────────────
+export function AiContentDisclosure({ onClose }) {
+  return (
+    <LegalModal title="AI-GENERATED CONTENT DISCLOSURE" onClose={onClose}>
+      <H>Nature of Outputs</H>
+      <P>All images, video clips, voice-overs, scripts, episode outlines, and character profiles produced by BookFilm Studio are AI-synthesised outputs. They are not created by human authors in the traditional sense and do not represent factual accounts, real individuals, or verified information.</P>
+
+      <H>Your Responsibility to Disclose</H>
+      <P>When you share, publish, or distribute AI-generated content produced by this Service on social media platforms, in publications, or in any public context, you are responsible for complying with applicable platform policies and laws regarding disclosure of AI-generated or synthetic media. Many platforms (Instagram, TikTok, YouTube, X/Twitter, LinkedIn) require explicit labelling of AI-generated content. Failure to disclose may violate those platforms&apos; terms of service.</P>
+
+      <H>EU AI Act</H>
+      <P>If you distribute content to recipients in the European Union, Regulation (EU) 2024/1689 (the AI Act) may require you to clearly label AI-generated text, images, audio, and video as such. BookFilm Studio does not assume responsibility for ensuring your downstream use meets these requirements — that obligation rests with you as the deployer of the content.</P>
+
+      <H>No Endorsement or Accuracy Guarantee</H>
+      <P>AI outputs may contain inaccuracies, hallucinations, or content that does not match the source material. BookFilm Studio does not warrant the factual accuracy, completeness, or fitness for purpose of any AI-generated output. You should review all outputs before use.</P>
+
+      <H>Likeness and Defamation Risks</H>
+      <P>AI-generated character descriptions and images are fictional. Any resemblance to real persons is coincidental. You are responsible for ensuring that content you publish does not defame real individuals or violate rights of publicity/privacy.</P>
+    </LegalModal>
+  )
+}
+
+// ── LegalLinks — buttons that open the respective modals ─────────────────────
 export function LegalLinks() {
-  const [open, setOpen] = useState(null) // null | 'terms' | 'privacy'
+  const [open, setOpen] = useState(null) // null | 'terms' | 'privacy' | 'dmca' | 'ai'
+
+  const linkStyle = { background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px' }}>
-        <button
-          onClick={() => setOpen('terms')}
-          style={{ background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-        >Terms of Service</button>
-        <button
-          onClick={() => setOpen('privacy')}
-          style={{ background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }}
-        >Privacy Policy</button>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
+        <button onClick={() => setOpen('terms')}   style={linkStyle}>Terms of Service</button>
+        <button onClick={() => setOpen('privacy')} style={linkStyle}>Privacy Policy</button>
+        <button onClick={() => setOpen('dmca')}    style={linkStyle}>DMCA / Copyright</button>
+        <button onClick={() => setOpen('ai')}      style={linkStyle}>AI Content</button>
       </div>
-      {open === 'terms'   && <TermsOfService onClose={() => setOpen(null)} />}
-      {open === 'privacy' && <PrivacyPolicy  onClose={() => setOpen(null)} />}
+      {open === 'terms'   && <TermsOfService      onClose={() => setOpen(null)} />}
+      {open === 'privacy' && <PrivacyPolicy        onClose={() => setOpen(null)} />}
+      {open === 'dmca'    && <DmcaPolicy           onClose={() => setOpen(null)} />}
+      {open === 'ai'      && <AiContentDisclosure  onClose={() => setOpen(null)} />}
     </>
   )
 }

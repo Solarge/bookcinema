@@ -5,25 +5,28 @@ import { TermsOfService, PrivacyPolicy } from '../legal/LegalPages'
 
 export default function RegisterPage({ onSwitchToLogin }) {
   const { register } = useAuth()
-  const [name, setName]         = useState('')
-  const [email, setEmail]       = useState('')
-  const [password, setPassword] = useState('')
-  const [consent, setConsent]   = useState(false)
-  const [error, setError]       = useState('')
-  const [loading, setLoading]   = useState(false)
-  const [legalOpen, setLegalOpen] = useState(null) // null | 'terms' | 'privacy'
+  const [name, setName]                   = useState('')
+  const [email, setEmail]                 = useState('')
+  const [password, setPassword]           = useState('')
+  const [consent, setConsent]             = useState(false)
+  const [ageConfirmed, setAgeConfirmed]   = useState(false)
+  const [marketingConsent, setMarketing]  = useState(false)
+  const [error, setError]                 = useState('')
+  const [loading, setLoading]             = useState(false)
+  const [legalOpen, setLegalOpen]         = useState(null) // null | 'terms' | 'privacy'
 
   async function handleSubmit() {
     if (!name || !email || !password) return setError('All fields required')
     if (password.length < 8) return setError('Password must be at least 8 characters')
     if (!consent) return setError('You must agree to the Terms of Service and Privacy Policy')
+    if (!ageConfirmed) return setError('You must confirm you are 16 years or older')
     setLoading(true); setError('')
-    try { await register(name, email, password, true) }
+    try { await register(name, email, password, true, ageConfirmed, marketingConsent) }
     catch (err) { setError(err.message) }
     finally { setLoading(false) }
   }
 
-  const isDisabled = loading || !consent
+  const isDisabled = loading || !consent || !ageConfirmed
 
   return (
     <div style={containerStyle}>
@@ -37,8 +40,8 @@ export default function RegisterPage({ onSwitchToLogin }) {
         <input type="email"    placeholder="Email address"  value={email}    onChange={e => setEmail(e.target.value)}    style={inputStyle} />
         <input type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={inputStyle} />
 
-        {/* Consent checkbox */}
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px', cursor: 'pointer' }}>
+        {/* ToS + Privacy consent checkbox */}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '12px', cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={consent}
@@ -58,6 +61,32 @@ export default function RegisterPage({ onSwitchToLogin }) {
               onClick={e => { e.preventDefault(); setLegalOpen('privacy') }}
               style={inlineLinkBtn}
             >Privacy Policy</button>
+          </span>
+        </label>
+
+        {/* Age confirmation — REQUIRED */}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '12px', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={ageConfirmed}
+            onChange={e => setAgeConfirmed(e.target.checked)}
+            style={{ marginTop: '2px', accentColor: 'var(--gold)', flexShrink: 0, cursor: 'pointer' }}
+          />
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', lineHeight: '1.6' }}>
+            I confirm I am <span style={{ color: 'var(--cream)' }}>16 years or older</span>
+          </span>
+        </label>
+
+        {/* Marketing consent — optional */}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={marketingConsent}
+            onChange={e => setMarketing(e.target.checked)}
+            style={{ marginTop: '2px', accentColor: 'var(--gold)', flexShrink: 0, cursor: 'pointer' }}
+          />
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', lineHeight: '1.6' }}>
+            Send me product updates and tips <span style={{ color: '#4a5a6a' }}>(optional)</span>
           </span>
         </label>
 

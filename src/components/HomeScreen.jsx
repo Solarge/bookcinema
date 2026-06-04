@@ -4,11 +4,16 @@ import { checkContentSafety } from '../utils/contentSafety'
 import { GENRE_PRESETS } from '../utils/genrePresets'
 import SettingsPanel from './SettingsPanel'
 
+const COPYRIGHT_ACK_KEY = 'bookfilm_copyright_ack'
+const BYO_NOTICE_KEY    = 'bookfilm_byo_notice_dismissed'
+const LARGE_TEXT_CHARS  = 80_000
+
 export default function HomeScreen({
   onGenerate, onLibrary,
   uploadedText, setUploadedText,
   errorMsg, clearError,
   genrePreset, setGenrePreset,
+  useAuth: useAuthProp,
 }) {
   const [dragOver, setDragOver] = useState(false)
   const [pdfStatus, setPdfStatus] = useState(null)
@@ -19,6 +24,25 @@ export default function HomeScreen({
   const [manualText, setManualText] = useState('')
   const [safetyWarning, setSafetyWarning] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
+
+  // Copyright acknowledgement — one-time, persisted
+  const [copyrightAck, setCopyrightAck] = useState(() => !!localStorage.getItem(COPYRIGHT_ACK_KEY))
+  const [byoNoticeDismissed, setByoNoticeDismissed] = useState(() => !!localStorage.getItem(BYO_NOTICE_KEY))
+
+  // Check if we're in BYO (non-auth) mode
+  const isAuthMode = typeof import.meta !== 'undefined' && import.meta.env?.VITE_USE_AUTH === 'true'
+
+  function handleCopyrightAck(checked) {
+    setCopyrightAck(checked)
+    if (checked) localStorage.setItem(COPYRIGHT_ACK_KEY, '1')
+    else localStorage.removeItem(COPYRIGHT_ACK_KEY)
+  }
+
+  function dismissByoNotice() {
+    setByoNoticeDismissed(true)
+    localStorage.setItem(BYO_NOTICE_KEY, '1')
+  }
+
   const fileInputRef = useRef(null)
 
   async function handleFile(file) {
@@ -59,13 +83,21 @@ export default function HomeScreen({
       ? `Title: ${manualTitle}\n\n${manualText}`
       : uploadedText
     if (!text.trim()) return
+    if (!copyrightAck) return
     const safety = checkContentSafety(text)
     if (!safety.safe) { setSafetyWarning(safety.message); return }
     onGenerate(text, genrePreset)
   }
 
-  const canGenerate = (pdfStatus === 'done' && uploadedText) ||
+  const hasContent = (pdfStatus === 'done' && uploadedText) ||
     (showTextFallback && manualTitle && manualText)
+  const canGenerate = hasContent && copyrightAck
+
+  // Large-text warning (non-blocking)
+  const currentTextLength = showTextFallback
+    ? (manualText || '').length
+    : (uploadedText || '').length
+  const showLargeTextWarning = currentTextLength > LARGE_TEXT_CHARS
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
@@ -99,6 +131,16 @@ export default function HomeScreen({
           <div style={{ background: '#3a0808', border: '1px solid var(--red)', padding: '12px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#f08080' }}>{errorMsg}</span>
             <button onClick={clearError} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '18px' }}>×</button>
+          </div>
+        )}
+
+        {/* BYO data-loss notice (non-auth mode only, one-time dismissable) */}
+        {!isAuthMode && !byoNoticeDismissed && (
+          <div style={{ background: '#0d1a0d', border: '1px solid #2a5a2a', padding: '10px 14px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#6dc87a', lineHeight: '1.6' }}>
+              Your work is saved locally in this browser — export regularly to avoid losing it if you clear storage.
+            </span>
+            <button onClick={dismissByoNotice} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, flexShrink: 0 }}>×</button>
           </div>
         )}
 
@@ -190,6 +232,28 @@ export default function HomeScreen({
             <textarea placeholder="Describe the book — plot, key characters, themes, tone (300–500 words recommended)" value={manualText} onChange={e => setManualText(e.target.value)} rows={7}
               style={{ width: '100%', background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'Cormorant Garamond', serif", fontSize: '16px', padding: '14px 16px', resize: 'vertical', outline: 'none', lineHeight: '1.7' }} />
           </div>
+        )}
+
+        {/* Large-text warning (non-blocking) */}
+        {showLargeTextWarning && (
+          <div style={{ background: '#201800', border: '1px solid #806020', padding: '9px 14px', marginBottom: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#c8a040', lineHeight: '1.5' }}>
+            Large input ({currentTextLength.toLocaleString()} chars) — generation may be slower or hit provider token limits. Consider using a condensed excerpt.
+          </div>
+        )}
+
+        {/* Copyright acknowledgement — required once, persisted */}
+        {!copyrightAck && (
+          <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '12px', cursor: 'pointer', background: 'var(--surface)', border: '1px solid var(--border)', padding: '12px 14px' }}>
+            <input
+              type="checkbox"
+              checked={copyrightAck}
+              onChange={e => handleCopyrightAck(e.target.checked)}
+              style={{ marginTop: '2px', accentColor: 'var(--gold)', flexShrink: 0, cursor: 'pointer' }}
+            />
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', lineHeight: '1.6' }}>
+              I confirm I have the rights to use this text, or it is in the public domain.
+            </span>
+          </label>
         )}
 
         {/* Generate button */}
