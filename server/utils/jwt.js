@@ -6,6 +6,11 @@ export function signAccess(payload) {
   return jwt.sign(payload, config.jwtSecret, { expiresIn: config.jwtExpiry })
 }
 
+// Longer-lived token for email links (verification, etc.) — verified with verifyAccess.
+export function signEmailToken(payload, expiresIn = '24h') {
+  return jwt.sign(payload, config.jwtSecret, { expiresIn })
+}
+
 export function signRefresh(payload) {
   // Always embed a unique jti so individual tokens can be blacklisted on logout
   // and rotated on refresh without invalidating all sessions for the user.

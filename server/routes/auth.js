@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import crypto from 'crypto'
 import User from '../models/User.js'
-import { signAccess, signRefresh, verifyRefresh, verifyAccess } from '../utils/jwt.js'
+import { signAccess, signRefresh, verifyRefresh, verifyAccess, signEmailToken } from '../utils/jwt.js'
 import { sendEmail, passwordResetEmail, verifyEmail } from '../utils/email.js'
 import { config } from '../config.js'
 import { authLimiter } from '../middleware/rateLimit.js'
@@ -45,7 +45,7 @@ router.post('/register', authLimiter, async (req, res) => {
 
     // Send email verification — best-effort (don't fail registration if email send fails)
     try {
-      const verifyToken = signAccess({ userId: fresh._id.toString(), purpose: 'verify_email' })
+      const verifyToken = signEmailToken({ userId: fresh._id.toString(), purpose: 'verify_email' })
       const verifyUrl = `${config.clientUrl}/?verify=${verifyToken}`
       await sendEmail({ to: fresh.email, subject: 'Verify your email — BookFilm Studio', html: verifyEmail(fresh.name, verifyUrl) })
     } catch (emailErr) {
@@ -207,7 +207,7 @@ router.get('/verify-email', async (req, res) => {
 router.post('/resend-verification', requireAuth, async (req, res) => {
   try {
     if (req.user.emailVerifiedAt) return res.status(400).json({ error: 'Email already verified' })
-    const verifyToken = signAccess({ userId: req.user._id.toString(), purpose: 'verify_email' })
+    const verifyToken = signEmailToken({ userId: req.user._id.toString(), purpose: 'verify_email' })
     const verifyUrl = `${config.clientUrl}/?verify=${verifyToken}`
     await sendEmail({ to: req.user.email, subject: 'Verify your email — BookFilm Studio', html: verifyEmail(req.user.name, verifyUrl) })
     res.json({ message: 'Verification email sent' })
