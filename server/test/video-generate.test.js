@@ -96,14 +96,14 @@ test('POST /video 402 when pro workspace is out of credits', async () => {
   assert.equal(res.status, 402)
 })
 
-test('POST /video debits cost-weighted credits (video standard = 20)', async () => {
+test('POST /video debits cost-weighted credits (video standard = 40)', async () => {
   const { token, workspace } = await proUser()
   const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
   await Workspace.findByIdAndUpdate(workspace._id, { monthlyCredits: 100, purchasedCredits: 0, creditPeriod: period })
   const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/video'), token, workspace._id)
     .send({ prompt: 'a fox running', tier: 'standard' })
   assert.equal(res.status, 202)
-  assert.equal((await Workspace.findById(workspace._id)).creditBalance, 80)
+  assert.equal((await Workspace.findById(workspace._id)).creditBalance, 60)
 })
 
 // ---------------------------------------------------------------------------

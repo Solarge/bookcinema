@@ -94,9 +94,13 @@ export const config = {
   },
 
   managed: {
-    enabled:        process.env.MANAGED_GENERATION_ENABLED !== 'false', // default ON
-    maxConcurrent:  Number(process.env.MANAGED_MAX_CONCURRENT) || 3,
-    starterCredits: Number(process.env.MANAGED_STARTER_CREDITS) || 25,
+    enabled:          process.env.MANAGED_GENERATION_ENABLED !== 'false', // default ON
+    maxConcurrent:    Number(process.env.MANAGED_MAX_CONCURRENT) || 3,
+    starterCredits:   Number(process.env.MANAGED_STARTER_CREDITS) || 25,
+    // Platform-wide daily spend cap in USD. 0 = disabled (default).
+    // When set, the middleware sums today's Job.costUsd across ALL workspaces and
+    // blocks new generation if adding estCostFor(type,tier) would exceed this cap.
+    dailySpendCapUsd: Number(process.env.MANAGED_DAILY_SPEND_CAP_USD) || 0,
     caps: {
       text:  Number(process.env.MANAGED_CAP_TEXT_DAILY)  || 20,
       image: Number(process.env.MANAGED_CAP_IMAGE_DAILY) || 50,

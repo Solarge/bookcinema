@@ -6,6 +6,7 @@ import { managedAccess } from '../middleware/managedAccess.js'
 import { generationLimiter } from '../middleware/rateLimit.js'
 import { addGenerationJob } from '../queue/generationQueue.js'
 import { creditCost } from '../generation/creditCost.js'
+import { estCostFor } from '../generation/registry.js'
 import { debitCredits, refundCredits } from '../utils/credits.js'
 import { planFeatures } from '../plans.js'
 import { validateVideoUrl } from '../utils/urlGuard.js'
@@ -26,9 +27,12 @@ async function enqueueGeneration(req, res, { type, tier, params, payload }) {
 
   // Persist which bucket(s) the debit drew from so a terminal-failure refund restores
   // the same buckets (otherwise refunds always fall back to 'purchased').
+  // costUsd is the ESTIMATED provider cost (not exact — provider billing APIs are not polled;
+  // used for spend visibility and the platform daily spend cap check).
   const job = await Job.create({
     workspaceId: req.workspace._id, createdBy: req.user._id, type, tier, status: 'queued', params,
     debitMonthly: debit.fromMonthly ?? 0, debitPurchased: debit.fromPurchased ?? 0,
+    costUsd: estCostFor(type, tier),
   })
   try {
     const queue = req.app.locals.generationQueue
@@ -43,7 +47,7 @@ async function enqueueGeneration(req, res, { type, tier, params, payload }) {
     if (debit.fromPurchased) await refundCredits(req.workspace._id, debit.fromPurchased, { jobId: job._id, type, tier, bucket: 'purchased' })
     return res.status(503).json({ error: 'Generation queue unavailable', jobId: String(job._id) })
   }
-  return res.status(202).json({ jobId: String(job._id) })
+  return res.status(202).json({ jobId: String(job._id), creditsCharged: cost, creditsRemaining: debit.balance })
 }
 
 router.post('/text', managedAccess('text'), async (req, res) => {
@@ -116,6 +120,24 @@ router.post('/compile', managedAccess('video'), async (req, res) => {
     })
   } catch (err) {
     console.error('generate/compile error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// GET /api/generate/estimate?type=&tier=
+// Returns the credit cost + estimated provider cost for a type/tier combination,
+// without debiting any credits. Used by the client to show pre-generation cost info.
+// managedAccess is intentionally NOT applied — this is read-only and lightweight.
+router.get('/estimate', requireAuth, resolveWorkspace, async (req, res) => {
+  try {
+    const { type, tier = 'standard' } = req.query
+    if (!type) return res.status(400).json({ error: 'type is required' })
+    let credits
+    try { credits = creditCost(type, tier) } catch { return res.status(400).json({ error: 'Invalid type or tier' }) }
+    const est = estCostFor(type, tier)
+    return res.json({ type, tier, credits, estCostUsd: est })
+  } catch (err) {
+    console.error('generate/estimate error:', err)
     res.status(500).json({ error: 'Server error' })
   }
 })

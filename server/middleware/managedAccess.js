@@ -2,6 +2,7 @@ import Job from '../models/Job.js'
 import { config } from '../config.js'
 import { applyMonthlyRefill } from '../utils/refill.js'
 import { planAllows, minPlanFor } from '../plans.js'
+import { estCostFor } from '../generation/registry.js'
 
 function startOfUtcDay() { const d = new Date(); d.setUTCHours(0, 0, 0, 0); return d }
 
@@ -48,6 +49,24 @@ export function managedAccess(type, overrides = {}) {
       const cap = overrides.capOverride ?? config.managed.caps[type]
       const todayCount = await Job.countDocuments({ workspaceId: wsId, type, createdAt: { $gte: startOfUtcDay() } })
       if (todayCount >= cap) return res.status(429).json({ error: `Daily ${type} generation limit reached` })
+
+      // Platform-wide daily $ spend kill-switch.
+      // When dailySpendCapUsd > 0, sum today's estimated cost across ALL workspaces
+      // (excluding failed/refunded jobs) and block if adding this job would exceed it.
+      // estCostUsd is an ESTIMATE — not exact provider billing figures.
+      const dailyCapUsd = overrides.dailySpendCapUsdOverride ?? config.managed.dailySpendCapUsd
+      const tier = req.body?.tier || 'standard'
+      if (dailyCapUsd > 0) {
+        const [agg] = await Job.aggregate([
+          { $match: { status: { $nin: ['failed'] }, createdAt: { $gte: startOfUtcDay() } } },
+          { $group: { _id: null, total: { $sum: '$costUsd' } } },
+        ])
+        const todaySpend = agg?.total ?? 0
+        const thisCost = estCostFor(type, tier)
+        if (todaySpend + thisCost > dailyCapUsd) {
+          return res.status(503).json({ error: 'Platform generation capacity reached, please try later', code: 'spend_cap' })
+        }
+      }
 
       next()
     } catch (err) {
