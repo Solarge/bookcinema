@@ -60,6 +60,12 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
 
   function setSuccess(text) { setMsg(text); setMsgKind('success') }
   function setError(text)   { setMsg(text); setMsgKind('error') }
+  // Child panels (Admin/Distribution) report both success + failure through one onMsg —
+  // style failure-looking messages as errors instead of green "success".
+  function panelMsg(text) {
+    const isErr = /error|failed|invalid|must be|not configured|insufficient|unavailable|required|denied/i.test(text || '')
+    setMsg(text); setMsgKind(isErr ? 'error' : 'success')
+  }
 
   async function saveProfile() {
     setSaving(true); setMsg('')
@@ -151,7 +157,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
           {TABS.map(t => (
-            <button key={t} onClick={() => { setTab(t); if (t === 'analytics') { loadAnalytics(); loadJobs() } if (t === 'workspace') loadWorkspace() }}
+            <button key={t} onClick={() => { setMsg(''); setTab(t); if (t === 'analytics') { loadAnalytics(); loadJobs() } if (t === 'workspace') loadWorkspace() }}
               aria-selected={t === tab}
               style={{
               flex: 1, background: 'transparent', border: 'none',
@@ -852,13 +858,13 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
 
           {tab === 'distribution' && (
             <DistributionPanel
-              onMsg={(text) => { setMsg(text); setMsgKind('success') }}
-              onOpenBilling={() => { setTab('workspace'); loadWorkspace() }}
+              onMsg={panelMsg}
+              onOpenBilling={() => { setMsg(''); setTab('workspace'); loadWorkspace() }}
             />
           )}
 
           {tab === 'admin' && isAdmin && (
-            <AdminPanel onMsg={(text) => { setMsg(text); setMsgKind('success') }} />
+            <AdminPanel onMsg={panelMsg} />
           )}
         </div>
       </div>
