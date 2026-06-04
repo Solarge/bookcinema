@@ -181,4 +181,7 @@ export const admin = {
   stats:                 ()               => get('/api/admin/stats'),
   grantWorkspaceCredits: (id, amount, note) => patch(`/api/admin/workspaces/${id}/credits`, { amount, note }),
   setManagedAccess:      (id, enabled)       => patch(`/api/admin/workspaces/${id}/managed`, { enabled }),
+  workspaces:            (search)            => get(`/api/admin/workspaces${search ? `?search=${encodeURIComponent(search)}` : ''}`),
+  jobs:                  (params = {})       => get(`/api/admin/jobs?${new URLSearchParams(params)}`),
+  config:                ()                  => get('/api/admin/config'),
 }

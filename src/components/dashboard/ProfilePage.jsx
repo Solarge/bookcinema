@@ -31,7 +31,7 @@ const PRICING = {
 // Placeholder support contact — replace before launch
 const SUPPORT_EMAIL = 'support@bookfilm.studio'
 
-export default function ProfilePage({ onClose, initialTab = 'profile' }) {
+export default function ProfilePage({ onClose, initialTab = 'profile', onOpenAdmin }) {
   const { user, logout, updateUser, activeWorkspace, activeWorkspacePlan, activeCreditBalance, isAdmin } = useAuth()
   const panelRef = useRef(null)
   useDivModalA11y(onClose, panelRef)
@@ -864,7 +864,33 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
           )}
 
           {tab === 'admin' && isAdmin && (
-            <AdminPanel onMsg={panelMsg} />
+            <div>
+              {onOpenAdmin && (
+                <button
+                  onClick={() => { onClose(); onOpenAdmin() }}
+                  aria-label="Open full admin dashboard"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    background: 'rgba(120,20,20,0.2)',
+                    border: '1px solid #804040',
+                    color: '#f08080',
+                    fontFamily: "'Cinzel', serif",
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    letterSpacing: '2px',
+                    textTransform: 'uppercase',
+                    padding: '12px 16px',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    marginBottom: '20px',
+                  }}
+                >
+                  Open Full Admin Dashboard →
+                </button>
+              )}
+              <AdminPanel onMsg={panelMsg} />
+            </div>
           )}
         </div>
       </div>
@@ -873,8 +899,9 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
 }
 
 ProfilePage.propTypes = {
-  onClose:    PropTypes.func.isRequired,
-  initialTab: PropTypes.string,
+  onClose:     PropTypes.func.isRequired,
+  initialTab:  PropTypes.string,
+  onOpenAdmin: PropTypes.func,
 }
 
 function Field({ label, value, onChange, disabled }) {
