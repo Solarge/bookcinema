@@ -1,11 +1,17 @@
 import './helpers/env.js'
 import { test, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
-import { generate as groqGenerate } from '../generation/providers/groqText.js'
-import { generate as anthropicGenerate } from '../generation/providers/anthropicText.js'
+import { generate as groqGenerate, isConfigured as groqIsConfigured } from '../generation/providers/groqText.js'
+import { generate as anthropicGenerate, isConfigured as anthropicIsConfigured } from '../generation/providers/anthropicText.js'
+import { generate as geminiGenerate, isConfigured as geminiIsConfigured } from '../generation/providers/geminiText.js'
 
 const realFetch = globalThis.fetch
-afterEach(() => { globalThis.fetch = realFetch; delete process.env.GROQ_API_KEY; delete process.env.ANTHROPIC_API_KEY })
+afterEach(() => {
+  globalThis.fetch = realFetch
+  delete process.env.GROQ_API_KEY
+  delete process.env.ANTHROPIC_API_KEY
+  delete process.env.GEMINI_API_KEY
+})
 
 function mockFetchOnce(jsonBody, ok = true, status = 200) {
   globalThis.fetch = async () => ({ ok, status, json: async () => jsonBody, text: async () => JSON.stringify(jsonBody) })
@@ -48,4 +54,60 @@ test('groqText.generate tolerates trailing prose after a ```json fence', async (
   }) })
   const series = await groqGenerate({ bookText: 'b', genrePreset: 'cinematic', language: 'en' })
   assert.equal(series.title, 'Fenced')
+})
+
+// ─── isConfigured() tests ─────────────────────────────────────────────────────
+
+test('groqText.isConfigured returns true only when GROQ_API_KEY is set', () => {
+  delete process.env.GROQ_API_KEY
+  assert.equal(groqIsConfigured(), false)
+  process.env.GROQ_API_KEY = 'test-key'
+  assert.equal(groqIsConfigured(), true)
+})
+
+test('anthropicText.isConfigured returns true only when ANTHROPIC_API_KEY is set', () => {
+  delete process.env.ANTHROPIC_API_KEY
+  assert.equal(anthropicIsConfigured(), false)
+  process.env.ANTHROPIC_API_KEY = 'test-key'
+  assert.equal(anthropicIsConfigured(), true)
+})
+
+test('geminiText.isConfigured returns true only when GEMINI_API_KEY is set', () => {
+  delete process.env.GEMINI_API_KEY
+  assert.equal(geminiIsConfigured(), false)
+  process.env.GEMINI_API_KEY = 'test-key'
+  assert.equal(geminiIsConfigured(), true)
+})
+
+// ─── geminiText.generate tests ───────────────────────────────────────────────
+
+test('geminiText.generate parses the Gemini API response into a series object', async () => {
+  process.env.GEMINI_API_KEY = 'test-key'
+  const seriesObj = { title: 'G', characters: [], episodes: [] }
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => ({ candidates: [{ content: { parts: [{ text: JSON.stringify(seriesObj) }] }, finishReason: 'STOP' }] }),
+  })
+  const series = await geminiGenerate({ bookText: 'a book', genrePreset: 'cinematic', language: 'en' })
+  assert.equal(series.title, 'G')
+})
+
+test('geminiText.generate throws a clear error when GEMINI_API_KEY is missing', async () => {
+  delete process.env.GEMINI_API_KEY
+  await assert.rejects(() => geminiGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /Gemini/)
+})
+
+test('geminiText.generate surfaces a provider error body', async () => {
+  process.env.GEMINI_API_KEY = 'test-key'
+  globalThis.fetch = async () => ({ ok: false, status: 429, json: async () => ({ error: { message: 'quota exceeded' } }) })
+  await assert.rejects(() => geminiGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /quota exceeded/)
+})
+
+test('geminiText.generate throws on MAX_TOKENS finishReason', async () => {
+  process.env.GEMINI_API_KEY = 'test-key'
+  globalThis.fetch = async () => ({
+    ok: true, status: 200,
+    json: async () => ({ candidates: [{ content: { parts: [{ text: '{}' }] }, finishReason: 'MAX_TOKENS' }] }),
+  })
+  await assert.rejects(() => geminiGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /cut off/)
 })

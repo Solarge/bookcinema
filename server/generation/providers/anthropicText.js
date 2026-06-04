@@ -4,6 +4,8 @@ import { parseSeriesJson } from '../parseSeriesJson.js'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 export const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
 
+export function isConfigured() { return !!process.env.ANTHROPIC_API_KEY }
+
 export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', model = DEFAULT_MODEL }) {
   // Read from env every call so tests (and runtime key rotation) take effect immediately.
   const apiKey = process.env.ANTHROPIC_API_KEY

@@ -4,6 +4,8 @@ import { parseSeriesJson } from '../parseSeriesJson.js'
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 export const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
 
+export function isConfigured() { return !!process.env.GROQ_API_KEY }
+
 export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', model = DEFAULT_MODEL }) {
   // Read from env every call so tests (and runtime key rotation) take effect immediately.
   const apiKey = process.env.GROQ_API_KEY

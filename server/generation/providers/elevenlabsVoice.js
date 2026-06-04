@@ -2,6 +2,8 @@ const ELEVEN_URL = 'https://api.elevenlabs.io/v1/text-to-speech'
 export const DEFAULT_VOICE = 'pNInz6obpgDQGcFmaJgB' // narrator
 export const DEFAULT_MODEL = 'eleven_multilingual_v2'
 
+export function isConfigured() { return !!process.env.ELEVENLABS_KEY }
+
 export async function generate({ text, voiceId }) {
   const apiKey = process.env.ELEVENLABS_KEY
   if (!apiKey) throw new Error('ElevenLabs is not configured (ELEVENLABS_KEY missing)')

@@ -49,6 +49,7 @@ export const config = {
   providerKeys: {
     groq:       process.env.GROQ_API_KEY        || null,
     anthropic:  process.env.ANTHROPIC_API_KEY   || null,
+    gemini:     process.env.GEMINI_API_KEY      || null,
     replicate:  process.env.REPLICATE_API_TOKEN || null,
     falai:      process.env.FALAI_KEY           || null,
     openai:     process.env.OPENAI_API_KEY      || null,

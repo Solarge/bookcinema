@@ -1,6 +1,8 @@
 const OPENAI_TTS_URL = 'https://api.openai.com/v1/audio/speech'
 export const DEFAULT_MODEL = 'tts-1'
 
+export function isConfigured() { return !!process.env.OPENAI_API_KEY }
+
 export async function generate({ text, voiceId = 'nova', model = DEFAULT_MODEL }) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('OpenAI is not configured (OPENAI_API_KEY missing)')
