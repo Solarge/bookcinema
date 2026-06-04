@@ -32,13 +32,14 @@ function useWatermarkedUrl(sourceUrl, plan) {
 }
 
 export function ImageAsset({ asset, onGenerate, onApprovalChange, label = 'Generate Image', disabled, disabledHint, plan = 'free' }) {
-  const { status, localUrl, error, approvalStatus } = asset ?? {}
+  const { status, localUrl, error, approvalStatus, prompt } = asset ?? {}
   const displayUrl = useWatermarkedUrl(localUrl, plan)
+  const altText = prompt ? `Generated: ${prompt.slice(0, 80)}` : 'AI-generated image'
   return (
     <div style={{ marginBottom: '12px' }}>
       {localUrl ? (
         <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
-          <img src={displayUrl} alt="Generated character" style={{ width: '100%', maxWidth: '300px', display: 'block', border: '1px solid var(--border)' }} />
+          <img src={displayUrl} alt={altText} style={{ width: '100%', maxWidth: '300px', display: 'block', border: '1px solid var(--border)' }} />
           <div style={{ position: 'absolute', top: '6px', right: '6px', display: 'flex', gap: '4px', flexDirection: 'column', alignItems: 'flex-end' }}>
             {onApprovalChange && <ApprovalBadge status={approvalStatus} onChange={onApprovalChange} />}
             <button onClick={onGenerate} disabled={status === 'generating' || disabled} style={smallBtn('#c8922a', '#080b10')}>↺ Regen</button>

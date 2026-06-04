@@ -58,6 +58,8 @@ export const auth = {
   refresh:  ()        => post('/api/auth/refresh', {}),
   forgotPassword: (email) => post('/api/auth/forgot-password', { email }),
   resetPassword:  (token, password) => post('/api/auth/reset-password', { token, password }),
+  verifyEmail:         (token) => get('/api/auth/verify-email?token=' + encodeURIComponent(token)),
+  resendVerification:  ()      => post('/api/auth/resend-verification', {}),
 }
 
 // ── Series ────────────────────────────────────────────────────────────────────

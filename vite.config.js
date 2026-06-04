@@ -61,12 +61,51 @@ const PWA_CONFIG = VitePWA({
   },
 })
 
-export default defineConfig({
-  plugins: [tailwindcss(), react(), PWA_CONFIG],
-  server: {
-    proxy: {
-      ...makeProxyEntries(CLOUD_PROXIES),
-      ...makeProxyEntries(LOCAL_PROXIES),
+export default defineConfig(({ command, mode }) => {
+  // ── VITE_API_URL build guard ────────────────────────────────────────────────
+  // In a production build, the fallback to localhost:3001 means every API call
+  // will fail for any non-local host.  Fail loudly so the CI/deployment doesn't
+  // silently ship a broken frontend.
+  if (command === 'build' && mode === 'production') {
+    if (!process.env.VITE_API_URL) {
+      throw new Error(
+        '\n[vite] VITE_API_URL is not set.\n' +
+        'A production build without it will fall back to http://localhost:3001\n' +
+        'and all API calls will fail on any non-local host.\n' +
+        'Set VITE_API_URL to your backend URL (e.g. https://api.bookfilm.studio)\n' +
+        'or pass  VITE_API_URL=... npm run build  to proceed.\n'
+      )
+    }
+  }
+
+  return {
+    plugins: [tailwindcss(), react(), PWA_CONFIG],
+
+    server: {
+      proxy: {
+        ...makeProxyEntries(CLOUD_PROXIES),
+        ...makeProxyEntries(LOCAL_PROXIES),
+      },
     },
-  },
+
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            // pdfjs-dist is ~600 KB+ on its own — give it a dedicated chunk so
+            // it doesn't block the initial JS parse for users who never upload a PDF.
+            if (id.includes('pdfjs-dist')) return 'pdfjs'
+
+            // Core React runtime — tiny but often already cached by the browser.
+            if (id.includes('node_modules/react/') ||
+                id.includes('node_modules/react-dom/')) return 'react-vendor'
+
+            // Everything else in node_modules gets a shared vendor chunk so
+            // app-code changes don't bust the third-party cache.
+            if (id.includes('node_modules/')) return 'vendor'
+          },
+        },
+      },
+    },
+  }
 })

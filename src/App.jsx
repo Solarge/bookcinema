@@ -8,15 +8,87 @@ import ResultsScreen from './components/ResultsScreen'
 import LibraryScreen from './components/LibraryScreen'
 import LoginPage from './components/auth/LoginPage'
 import RegisterPage from './components/auth/RegisterPage'
+import ForgotPasswordPage, { ResetPasswordPage } from './components/auth/ForgotPasswordPage'
 import ProfilePage from './components/dashboard/ProfilePage'
 import { generateSeries } from './utils/textProviders/index'
-import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob } from './lib/api'
+import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob, auth as authApi } from './lib/api'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
+
+// ── Small toast notification ──────────────────────────────────────────────────
+function Toast({ msg, kind = 'info', onDismiss }) {
+  const bg    = kind === 'error' ? '#3a0808' : '#0a2010'
+  const border = kind === 'error' ? '#8a1010' : '#4a8a5a'
+  const color  = kind === 'error' ? '#f08080' : '#80d898'
+  return (
+    <div style={{
+      position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)',
+      zIndex: 70, background: bg, border: `1px solid ${border}`, color,
+      fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
+      padding: '10px 18px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '12px',
+      maxWidth: '480px', width: 'max-content',
+    }}>
+      <span>{msg}</span>
+      <button onClick={onDismiss} style={{ background: 'none', border: 'none', color, cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0 }}>×</button>
+    </div>
+  )
+}
+
+// ── Unverified-email banner ───────────────────────────────────────────────────
+function UnverifiedBanner({ onResend }) {
+  const [dismissed, setDismissed] = useState(false)
+  const [sent, setSent]           = useState(false)
+  const [busy, setBusy]           = useState(false)
+
+  if (dismissed) return null
+
+  async function handleResend() {
+    setBusy(true)
+    try { await onResend(); setSent(true) } catch (_) {}
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 65,
+      background: '#1a1200', borderBottom: '1px solid #5a4010',
+      padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      gap: '12px', flexWrap: 'wrap',
+    }}>
+      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#c8a040', letterSpacing: '0.5px' }}>
+        {sent ? 'Verification email sent — check your inbox.' : 'Verify your email to use managed generation.'}
+      </span>
+      {!sent && (
+        <button onClick={handleResend} disabled={busy} style={{
+          background: 'none', border: '1px solid #5a4010', color: '#c8a040',
+          fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
+          padding: '3px 10px', cursor: busy ? 'not-allowed' : 'pointer', letterSpacing: '1px',
+        }}>
+          {busy ? 'Sending…' : 'Resend'}
+        </button>
+      )}
+      <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', color: '#5a4010', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}>×</button>
+    </div>
+  )
+}
 
 // ── Auth gate wrapper ─────────────────────────────────────────────────────────
 function AuthGate({ children }) {
   const { user, loading } = useAuth()
-  const [authView, setAuthView] = useState('login') // 'login' | 'register'
+  // 'login' | 'register' | 'forgot' | 'reset'
+  const [authView, setAuthView] = useState(() => {
+    // If URL is /reset-password?token=..., go straight to reset view
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (window.location.pathname === '/reset-password' && params.get('token')) return 'reset'
+    }
+    return 'login'
+  })
+
+  // Derive reset token from URL once (reset view only)
+  const resetToken = (() => {
+    if (typeof window === 'undefined') return ''
+    return new URLSearchParams(window.location.search).get('token') || ''
+  })()
 
   if (loading) {
     return (
@@ -26,10 +98,17 @@ function AuthGate({ children }) {
     )
   }
 
-  // Not authenticated — show login/register
+  // Not authenticated — show the appropriate auth view
   if (!user) {
     if (authView === 'register') return <RegisterPage onSwitchToLogin={() => setAuthView('login')} />
-    return <LoginPage onSwitchToRegister={() => setAuthView('register')} onForgotPassword={() => {}} />
+    if (authView === 'forgot')   return <ForgotPasswordPage onBackToLogin={() => setAuthView('login')} />
+    if (authView === 'reset')    return <ResetPasswordPage token={resetToken} onBackToLogin={() => setAuthView('login')} />
+    return (
+      <LoginPage
+        onSwitchToRegister={() => setAuthView('register')}
+        onForgotPassword={() => setAuthView('forgot')}
+      />
+    )
   }
 
   return children
@@ -46,6 +125,37 @@ function AppInner() {
   const [genrePreset, setGenrePreset]     = useState('cinematic')
   const [showProfile, setShowProfile]     = useState(false)
   const [inviteMsg, setInviteMsg]         = useState(null)
+  const [toast, setToast]                 = useState(null) // { msg, kind }
+
+  function showToast(msg, kind = 'info') {
+    setToast({ msg, kind })
+    setTimeout(() => setToast(null), 6000)
+  }
+
+  // ── Email verify / verified URL params ──────────────────────────────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const verifyToken = params.get('verify')
+    const verified    = params.get('verified')
+
+    if (verifyToken) {
+      // Strip from URL immediately
+      const url = new URL(window.location.href)
+      url.searchParams.delete('verify')
+      window.history.replaceState({}, '', url.pathname + (url.search || ''))
+
+      authApi.verifyEmail(verifyToken)
+        .then(() => showToast('Email verified — welcome to BookFilm Studio!', 'info'))
+        .catch(err => showToast(`Email verification failed: ${err.message}`, 'error'))
+    } else if (verified === '1') {
+      // Strip from URL
+      const url = new URL(window.location.href)
+      url.searchParams.delete('verified')
+      window.history.replaceState({}, '', url.pathname + (url.search || ''))
+      showToast('Email verified successfully!', 'info')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []) // run once on mount
 
   // Accept a workspace invite if the URL carries ?token= (invite email link).
   useEffect(() => {
@@ -102,8 +212,19 @@ function AppInner() {
   const handleViewLibraryItem = useCallback((series) => { setGeneratedSeries(series); setPage('results') }, [])
   const handleNewBook = useCallback(() => { setGeneratedSeries(null); setUploadedText(''); setErrorMsg(null); setPage('home') }, [])
 
+  // Is the logged-in user's email unverified?
+  const isUnverified = user && !user.emailVerifiedAt
+
   return (
     <div className="film-grain" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+      {/* Unverified-email banner */}
+      {isUnverified && (
+        <UnverifiedBanner onResend={() => authApi.resendVerification()} />
+      )}
+
+      {/* Toast notification */}
+      {toast && <Toast msg={toast.msg} kind={toast.kind} onDismiss={() => setToast(null)} />}
+
       {inviteMsg && (
         <div style={{ position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)', zIndex: 60,
           background: 'var(--surface)', border: '1px solid var(--gold)', color: 'var(--cream)',
@@ -126,7 +247,7 @@ function AppInner() {
           color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace",
           fontSize: '10px', padding: '6px 12px', cursor: 'pointer', letterSpacing: '1px',
         }}>
-          👤 {user.name}
+          {user.name}
         </button>
       )}
 
