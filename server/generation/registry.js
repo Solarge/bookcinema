@@ -1,11 +1,16 @@
 import * as groqText from './providers/groqText.js'
 import * as anthropicText from './providers/anthropicText.js'
 import * as geminiText from './providers/geminiText.js'
+import * as deepseekText from './providers/deepseekText.js'
 import * as openaiTTSVoice from './providers/openaiTTSVoice.js'
+import * as googleTTSVoice from './providers/googleTTSVoice.js'
 import * as elevenlabsVoice from './providers/elevenlabsVoice.js'
 import * as replicateImage from './providers/replicateImage.js'
+import * as stabilityImage from './providers/stabilityImage.js'
 import * as falaiImage from './providers/falaiImage.js'
 import * as replicateVideo from './providers/replicateVideo.js'
+import * as runwayVideo from './providers/runwayVideo.js'
+import * as lumaVideo from './providers/lumaVideo.js'
 import * as falaiVideo from './providers/falaiVideo.js'
 
 // Free-first provider fallback chains.
@@ -17,8 +22,9 @@ export const MANAGED_PROVIDERS = {
     standard: {
       credits: 1, estCostUsd: 0,
       providers: [
-        { provider: 'groq',   adapter: groqText,   model: groqText.DEFAULT_MODEL },
-        { provider: 'gemini', adapter: geminiText, model: geminiText.DEFAULT_MODEL },
+        { provider: 'groq',     adapter: groqText,     model: groqText.DEFAULT_MODEL },
+        { provider: 'gemini',   adapter: geminiText,   model: geminiText.DEFAULT_MODEL },
+        { provider: 'deepseek', adapter: deepseekText, model: deepseekText.DEFAULT_MODEL },
       ],
     },
     premium: {
@@ -33,8 +39,9 @@ export const MANAGED_PROVIDERS = {
     standard: {
       credits: 4, estCostUsd: 0.003,
       providers: [
-        { provider: 'replicate', adapter: replicateImage, model: replicateImage.DEFAULT_MODEL },
-        { provider: 'falai',     adapter: falaiImage,     model: falaiImage.DEFAULT_MODEL },
+        { provider: 'replicate',  adapter: replicateImage,  model: replicateImage.DEFAULT_MODEL },
+        { provider: 'stability',  adapter: stabilityImage,  model: stabilityImage.DEFAULT_MODEL },
+        { provider: 'falai',      adapter: falaiImage,      model: falaiImage.DEFAULT_MODEL },
       ],
     },
     premium: {
@@ -46,11 +53,12 @@ export const MANAGED_PROVIDERS = {
     },
   },
   voice: {
-    // openai first (cheapest) but out-of-quota here → fails over to elevenlabs automatically
+    // openai first (cheapest) but out-of-quota here → fails over to googletts then elevenlabs automatically
     standard: {
       credits: 1, estCostUsd: 0.0005,
       providers: [
         { provider: 'openai',     adapter: openaiTTSVoice, model: openaiTTSVoice.DEFAULT_MODEL },
+        { provider: 'googletts',  adapter: googleTTSVoice, model: googleTTSVoice.DEFAULT_MODEL },
         { provider: 'elevenlabs', adapter: elevenlabsVoice, model: elevenlabsVoice.DEFAULT_MODEL },
       ],
     },
@@ -69,6 +77,8 @@ export const MANAGED_PROVIDERS = {
       credits: 20, estCostUsd: 0.20,
       providers: [
         { provider: 'replicate', adapter: replicateVideo, model: replicateVideo.DEFAULT_MODEL },
+        { provider: 'runway',    adapter: runwayVideo,    model: runwayVideo.DEFAULT_MODEL },
+        { provider: 'luma',      adapter: lumaVideo,      model: lumaVideo.DEFAULT_MODEL },
         { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.DEFAULT_MODEL },
       ],
     },
@@ -76,6 +86,8 @@ export const MANAGED_PROVIDERS = {
       credits: 40, estCostUsd: 0.40,
       providers: [
         { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.DEFAULT_MODEL },
+        { provider: 'runway',    adapter: runwayVideo,    model: runwayVideo.DEFAULT_MODEL },
+        { provider: 'luma',      adapter: lumaVideo,      model: lumaVideo.DEFAULT_MODEL },
         { provider: 'replicate', adapter: replicateVideo, model: replicateVideo.DEFAULT_MODEL },
       ],
     },

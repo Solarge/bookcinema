@@ -76,6 +76,9 @@ export function loadSettings() {
     return {
       ...DEFAULT_SETTINGS,
       ...saved,
+      // BYO is hidden — the product is managed-only. Override any legacy persisted
+      // mode:'byok' so existing users aren't stranded without a way to switch.
+      mode: 'managed',
       apiKeys:    { ...DEFAULT_SETTINGS.apiKeys,    ...saved.apiKeys },
       localUrls:  { ...DEFAULT_SETTINGS.localUrls,  ...saved.localUrls },
       whiteLabel: { ...DEFAULT_SETTINGS.whiteLabel, ...saved.whiteLabel },
