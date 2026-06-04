@@ -59,6 +59,39 @@ export const config = {
     email: process.env.ADMIN_EMAIL || '',
   },
 
+  // Social distribution — all optional, no throw on missing.
+  // Platforms "light up" when clientId + clientSecret are present.
+  social: {
+    tokenKey:     process.env.SOCIAL_TOKEN_KEY      || '',
+    redirectBase: process.env.SOCIAL_REDIRECT_BASE  || process.env.CLIENT_URL || 'http://localhost:5173',
+    platforms: {
+      youtube: {
+        clientId:     process.env.YOUTUBE_CLIENT_ID     || '',
+        clientSecret: process.env.YOUTUBE_CLIENT_SECRET || '',
+      },
+      tiktok: {
+        clientId:     process.env.TIKTOK_CLIENT_KEY    || '',
+        clientSecret: process.env.TIKTOK_CLIENT_SECRET || '',
+      },
+      instagram: {
+        clientId:     process.env.META_APP_ID     || '',
+        clientSecret: process.env.META_APP_SECRET || '',
+      },
+      facebook: {
+        clientId:     process.env.META_APP_ID     || '',
+        clientSecret: process.env.META_APP_SECRET || '',
+      },
+      x: {
+        clientId:     process.env.X_CLIENT_ID     || process.env.TWITTER_CLIENT_ID     || '',
+        clientSecret: process.env.X_CLIENT_SECRET || process.env.TWITTER_CLIENT_SECRET || '',
+      },
+      linkedin: {
+        clientId:     process.env.LINKEDIN_CLIENT_ID     || '',
+        clientSecret: process.env.LINKEDIN_CLIENT_SECRET || '',
+      },
+    },
+  },
+
   managed: {
     enabled:        process.env.MANAGED_GENERATION_ENABLED !== 'false', // default ON
     maxConcurrent:  Number(process.env.MANAGED_MAX_CONCURRENT) || 3,

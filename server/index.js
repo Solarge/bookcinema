@@ -17,6 +17,7 @@ import adminRoutes     from './routes/admin.js'
 import generateRoutes  from './routes/generate.js'
 import jobsRoutes      from './routes/jobs.js'
 import { billingRouter, webhookHandler } from './routes/billing.js'
+import { socialRouter } from './routes/social.js'
 
 const app = express()
 
@@ -47,6 +48,7 @@ app.use('/api/admin',     adminRoutes)
 app.use('/api/generate', generateRoutes)
 app.use('/api/jobs',     jobsRoutes)
 app.use('/api/billing', billingRouter)
+app.use('/api/social',  socialRouter)
 
 // ── Health check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }))

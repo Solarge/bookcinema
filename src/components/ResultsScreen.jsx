@@ -13,6 +13,23 @@ import SettingsPanel from './SettingsPanel'
 import StoryboardView from './StoryboardView'
 import SocialCardModal from './SocialCardModal'
 
+// Whether generation is possible for a media kind given current settings.
+// Managed mode covers image + voice server-side (no client key needed); video has no
+// managed path so it always needs a BYO key. Keyless local providers never need a key.
+const KEYLESS_PROVIDERS = { image: ['comfyui', 'a1111'], voice: ['kokoro', 'xtts'], video: ['localvideo'] }
+const PROVIDER_KEY_REMAP = { 'fal.ai': 'falai', openaitts: 'openai' }
+function canGenerate(settings, kind, provider) {
+  if (settings.mode === 'managed' && (kind === 'image' || kind === 'voice')) return true
+  if ((KEYLESS_PROVIDERS[kind] || []).includes(provider)) return true
+  const keyName = PROVIDER_KEY_REMAP[provider] || provider
+  return !!settings.apiKeys?.[keyName]
+}
+// Short hint shown when a generate button is disabled, so it explains itself.
+function genHint(kind, provider) {
+  const managed = kind === 'image' || kind === 'voice'
+  return `No ${provider} API key set — add one in Settings ⚙${managed ? ', or switch to Managed mode' : ''}.`
+}
+
 // ── Editable field ─────────────────────────────────────────────────────────
 function Editable({ value, onChange, multiline, style, displayStyle }) {
   const [editing, setEditing] = useState(false)
@@ -85,7 +102,7 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
         {characters.map(char => {
           const asset = charMedia[char.id] ?? {}
-          const canGen = !!settings.apiKeys[{ 'fal.ai': 'falai', openai: 'openai', replicate: 'replicate' }[settings.imageProvider]]
+          const canGen = canGenerate(settings, 'image', settings.imageProvider)
           return (
             <div key={char.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px' }}>
               <ImageAsset
@@ -93,6 +110,7 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free' }
                 onGenerate={() => generateCharacterImage(char, char.midjourney_prompt)}
                 onApprovalChange={s => setCharApproval(char.id, s)}
                 disabled={!canGen}
+                disabledHint={canGen ? null : genHint('image', settings.imageProvider)}
                 plan={plan}
               />
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
@@ -131,7 +149,7 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters }) {
   const { dialogue, generateDialogueVoice } = useMedia()
   const key = `ep${epNum}-s${sceneNum}-d${dIdx}`
   const asset = dialogue[key] ?? {}
-  const canGen = !!settings.apiKeys.elevenlabs
+  const canGen = canGenerate(settings, 'voice', settings.voiceProvider)
 
   return (
     <div style={{ marginBottom: '18px', paddingLeft: '16px', borderLeft: `2px solid ${charColor(line.character, characters)}44` }}>
@@ -158,7 +176,7 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
   const { scenes, generateSceneVideo, setSceneApproval } = useMedia()
   const key = `ep${epNum}-s${scene.scene_number}`
   const asset = scenes[key] ?? {}
-  const canGen = !!settings.apiKeys[{ 'fal.ai': 'falai', runway: 'runway', replicate: 'replicate' }[settings.videoProvider]]
+  const canGen = canGenerate(settings, 'video', settings.videoProvider)
 
   return (
     <div style={{ marginBottom: '36px' }}>
