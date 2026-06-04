@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
+import { fileURLToPath } from 'node:url'
 
 // All proxy targets — cloud + local self-hosted
 const CLOUD_PROXIES = {
@@ -55,6 +56,8 @@ const PWA_CONFIG = VitePWA({
   },
   workbox: {
     globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+    // Don't precache the separate admin console into the tenant service worker.
+    globIgnores: ['**/admin.html', '**/assets/admin-*'],
     runtimeCaching: [
       { urlPattern: /^https:\/\/fonts\.googleapis\.com/, handler: 'CacheFirst', options: { cacheName: 'google-fonts' } },
     ],
@@ -90,6 +93,13 @@ export default defineConfig(({ command, mode }) => {
 
     build: {
       rollupOptions: {
+        // Two separate entry bundles: the tenant app (index.html) and the
+        // company admin console (admin.html). Admin code is NOT shipped in the
+        // tenant bundle. Deploy admin.html at admin.<domain> for full isolation.
+        input: {
+          main:  fileURLToPath(new URL('./index.html', import.meta.url)),
+          admin: fileURLToPath(new URL('./admin.html', import.meta.url)),
+        },
         output: {
           manualChunks(id) {
             // pdfjs-dist is ~600 KB+ on its own — give it a dedicated chunk so
