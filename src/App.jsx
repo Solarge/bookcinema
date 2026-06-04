@@ -11,7 +11,6 @@ import RegisterPage from './components/auth/RegisterPage'
 import ForgotPasswordPage, { ResetPasswordPage } from './components/auth/ForgotPasswordPage'
 import ProfilePage from './components/dashboard/ProfilePage'
 import PublicSeriesView from './components/PublicSeriesView'
-import AdminApp from './components/admin/AdminApp'
 import { generateSeries } from './utils/textProviders/index'
 import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob, auth as authApi, billing as billingApi } from './lib/api'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
@@ -469,15 +468,8 @@ function getShareTokenFromUrl() {
   return new URLSearchParams(window.location.search).get('share') || null
 }
 
-// Detect whether we're serving the standalone admin portal.
-function isAdminPath() {
-  if (typeof window === 'undefined') return false
-  const p = window.location.pathname
-  return p === '/admin' || p.startsWith('/admin/')
-}
-
 export default function App() {
-  // 1. Check for ?share= before rendering anything auth-related.
+  // Check for ?share= before rendering anything auth-related.
   const shareToken = getShareTokenFromUrl()
   if (shareToken) {
     return (
@@ -487,16 +479,8 @@ export default function App() {
     )
   }
 
-  // 2. Standalone admin portal — own AuthProvider, NO tenant chrome.
-  if (isAdminPath()) {
-    return (
-      <AuthProvider>
-        <AdminApp />
-      </AuthProvider>
-    )
-  }
-
-  // 3. Normal tenant app.
+  // Normal tenant app. (The admin console is a SEPARATE build — admin.html /
+  // src/admin-main.jsx — and is not part of this tenant bundle.)
   return (
     <AuthProvider>
       <SettingsProvider>
