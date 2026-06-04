@@ -7,7 +7,7 @@ export const DEFAULT_SETTINGS = {
   language:     'en',          // output language code (en | es | fr | de | zh | etc.)
 
   // ── Managed generation (server-side, platform keys) ──────────
-  mode:        'byok',     // 'byok' (client-side, your keys) | 'managed' (server-side, platform keys)
+  mode:        'managed',  // 'byok' (client-side, your keys) | 'managed' (server-side, platform keys)
   managedTier: 'standard', // 'standard' | 'premium'
 
   // ── Image generation ─────────────────────────────────────────
