@@ -55,6 +55,7 @@ const del  = (path, opts)   => request(path, { ...opts, method: 'DELETE' })
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export const auth = {
   register: (data)    => post('/api/auth/register', data),
+  // login accepts an optional totp field for the 2FA step-up
   login:    (data)    => post('/api/auth/login', data),
   logout:   ()        => post('/api/auth/logout', {}),
   refresh:  ()        => post('/api/auth/refresh', {}),
@@ -185,4 +186,8 @@ export const admin = {
   jobs:                  (params = {})       => get(`/api/admin/jobs?${new URLSearchParams(params)}`),
   config:                ()                  => get('/api/admin/config'),
   funnel:                (days = 30)         => get(`/api/admin/funnel?days=${days}`),
+  // 2FA management (admin accounts only)
+  setup2fa:   ()        => post('/api/admin/2fa/setup', {}),
+  enable2fa:  (token)   => post('/api/admin/2fa/enable', { token }),
+  disable2fa: (token)   => post('/api/admin/2fa/disable', { token }),
 }

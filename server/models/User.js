@@ -42,6 +42,10 @@ const userSchema = new mongoose.Schema({
   // Login lockout (brute-force protection)
   failedLoginAttempts: { type: Number, default: 0 },
   lockedUntil:         { type: Date,   default: null },
+
+  // TOTP 2FA (admin accounts only — default off)
+  totpSecretEnc: { type: String, default: null, select: false },  // AES-encrypted; never returned by default
+  totpEnabled:   { type: Boolean, default: false },
 }, { timestamps: true })
 
 // Hash password before save
@@ -61,6 +65,7 @@ userSchema.methods.toSafeObject = function () {
   delete obj.apiKeyHash
   delete obj.resetToken
   delete obj.resetExpires
+  delete obj.totpSecretEnc  // always strip encrypted secret; totpEnabled (bool) is kept
   return obj
 }
 

@@ -9,6 +9,8 @@ import { blacklistToken, isTokenBlacklisted } from '../utils/redis.js'
 import { createPersonalWorkspace } from '../utils/workspace.js'
 import { requireAuth } from '../middleware/auth.js'
 import { track } from '../utils/track.js'
+import { decryptToken } from '../utils/cryptoTokens.js'
+import { authenticator } from 'otplib'
 
 const router = Router()
 
@@ -63,9 +65,10 @@ router.post('/register', authLimiter, async (req, res) => {
 // POST /api/auth/login
 router.post('/login', authLimiter, async (req, res) => {
   try {
-    const { email, password } = req.body
+    const { email, password, totp } = req.body
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' })
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password')
+    // Load password + totpSecretEnc together so we can do TOTP step-up in one query
+    const user = await User.findOne({ email: email.toLowerCase() }).select('+password +totpSecretEnc')
     if (!user) return res.status(401).json({ error: 'Invalid email or password' })
 
     // Check account lockout before verifying password to avoid timing attacks
@@ -84,6 +87,19 @@ router.post('/login', authLimiter, async (req, res) => {
       }
       await user.save()
       return res.status(401).json({ error: 'Invalid email or password' })
+    }
+
+    // TOTP step-up — only for accounts that have enabled 2FA.
+    // A 2FA failure must NOT increment failedLoginAttempts (no lockout on TOTP failures).
+    if (user.totpEnabled) {
+      if (!totp) {
+        return res.status(401).json({ error: 'Two-factor code required', code: '2fa_required' })
+      }
+      const secret = decryptToken(user.totpSecretEnc)
+      const valid = authenticator.verify({ token: String(totp), secret })
+      if (!valid) {
+        return res.status(401).json({ error: 'Invalid two-factor code', code: '2fa_invalid' })
+      }
     }
 
     // Successful login — reset lockout counters

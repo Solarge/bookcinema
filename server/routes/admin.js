@@ -13,6 +13,8 @@ import { config } from '../config.js'
 import { PLANS } from '../plans.js'
 import { MANAGED_PROVIDERS } from '../generation/registry.js'
 import { listConfigured as listSocialConfigured } from '../social/index.js'
+import { encryptToken, decryptToken } from '../utils/cryptoTokens.js'
+import { authenticator } from 'otplib'
 
 const router = Router()
 router.use(requireAuth, requireRole('admin'), adminLimiter)
@@ -381,6 +383,56 @@ router.get('/funnel', async (req, res) => {
         { stage: 'upgraded',      count: upgraded,  rate: pct(upgraded,  activated) },
       ],
     })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── 2FA management (admin accounts only) ─────────────────────────────────────
+
+// POST /api/admin/2fa/setup
+// Generate a TOTP secret, store it encrypted (pending), return otpauthUrl + secret.
+// totpEnabled stays false until the admin confirms a valid code via /enable.
+router.post('/2fa/setup', async (req, res) => {
+  try {
+    const secret = authenticator.generateSecret()
+    const otpauthUrl = authenticator.keyuri(req.user.email, 'BookFilm Admin', secret)
+    // Store encrypted; totpEnabled stays false until confirmed
+    await User.findByIdAndUpdate(req.user._id, {
+      totpSecretEnc: encryptToken(secret),
+      totpEnabled: false,
+    })
+    res.json({ otpauthUrl, secret })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// POST /api/admin/2fa/enable { token }
+// Verify the provided TOTP code against the pending secret, then activate 2FA.
+router.post('/2fa/enable', async (req, res) => {
+  try {
+    const { token } = req.body
+    if (!token) return res.status(400).json({ error: 'token is required' })
+    const user = await User.findById(req.user._id).select('+totpSecretEnc')
+    if (!user.totpSecretEnc) return res.status(400).json({ error: 'No pending 2FA setup. Call /setup first.' })
+    const secret = decryptToken(user.totpSecretEnc)
+    const valid = authenticator.verify({ token: String(token), secret })
+    if (!valid) return res.status(400).json({ error: 'Invalid two-factor code' })
+    await User.findByIdAndUpdate(req.user._id, { totpEnabled: true })
+    res.json({ totpEnabled: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// POST /api/admin/2fa/disable { token }
+// Verify a current TOTP code then clear 2FA.
+router.post('/2fa/disable', async (req, res) => {
+  try {
+    const { token } = req.body
+    if (!token) return res.status(400).json({ error: 'token is required' })
+    const user = await User.findById(req.user._id).select('+totpSecretEnc')
+    if (!user.totpEnabled || !user.totpSecretEnc) return res.status(400).json({ error: '2FA is not enabled' })
+    const secret = decryptToken(user.totpSecretEnc)
+    const valid = authenticator.verify({ token: String(token), secret })
+    if (!valid) return res.status(400).json({ error: 'Invalid two-factor code' })
+    await User.findByIdAndUpdate(req.user._id, { totpEnabled: false, totpSecretEnc: null })
+    res.json({ totpEnabled: false })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

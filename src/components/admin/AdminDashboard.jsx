@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { admin as adminApi } from '../../lib/api'
+import { useAuth } from '../../contexts/AuthContext'
 
 // ── Style helpers (matches AdminPanel + app aesthetic) ──────────────────────
 const mono = (size = '11px', color = 'var(--cream)') => ({
@@ -939,6 +940,160 @@ function SystemSection({ onMsg }) {
 }
 SystemSection.propTypes = { onMsg: PropTypes.func.isRequired }
 
+// ── Section: Security (TOTP 2FA management) ─────────────────────────────────
+function SecuritySection({ onMsg }) {
+  const { user, updateUser } = useAuth()
+  const [step,      setStep]      = useState('idle')  // 'idle' | 'setup' | 'enable' | 'disable'
+  const [secret,    setSecret]    = useState('')
+  const [otpUrl,    setOtpUrl]    = useState('')
+  const [code,      setCode]      = useState('')
+  const [busy,      setBusy]      = useState(false)
+
+  const totpEnabled = user?.totpEnabled ?? false
+
+  async function handleSetup() {
+    setBusy(true)
+    try {
+      const res = await adminApi.setup2fa()
+      setSecret(res.secret)
+      setOtpUrl(res.otpauthUrl)
+      setStep('enable')
+      setCode('')
+    } catch (err) { onMsg(`Setup error: ${err.message}`, 'error') }
+    finally { setBusy(false) }
+  }
+
+  async function handleEnable() {
+    if (!code) return onMsg('Enter the 6-digit code from your authenticator app', 'error')
+    setBusy(true)
+    try {
+      await adminApi.enable2fa(code)
+      updateUser({ totpEnabled: true })
+      setStep('idle')
+      setCode(''); setSecret(''); setOtpUrl('')
+      onMsg('Two-factor authentication enabled.', 'success')
+    } catch (err) { onMsg(err.message || 'Invalid code', 'error'); setCode('') }
+    finally { setBusy(false) }
+  }
+
+  async function handleDisable() {
+    if (!code) return onMsg('Enter the 6-digit code to confirm disable', 'error')
+    setBusy(true)
+    try {
+      await adminApi.disable2fa(code)
+      updateUser({ totpEnabled: false })
+      setStep('idle')
+      setCode('')
+      onMsg('Two-factor authentication disabled.', 'success')
+    } catch (err) { onMsg(err.message || 'Invalid code', 'error'); setCode('') }
+    finally { setBusy(false) }
+  }
+
+  const codeInput = (
+    <input
+      type="text"
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      placeholder="6-digit code"
+      value={code}
+      onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+      aria-label="Authenticator code"
+      style={{ ...inputStyle, width: '130px', letterSpacing: '4px', fontSize: '14px', textAlign: 'center', padding: '9px 8px' }}
+    />
+  )
+
+  return (
+    <div>
+      {/* Status card */}
+      <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{
+          width: '12px', height: '12px', borderRadius: '50%', flexShrink: 0,
+          background: totpEnabled ? '#6dc87a' : 'var(--muted)',
+        }} aria-hidden="true" />
+        <div>
+          <div style={{ ...cinzel('13px', totpEnabled ? '#6dc87a' : 'var(--muted)'), marginBottom: '4px' }}>
+            {totpEnabled ? '2FA Enabled' : '2FA Disabled'}
+          </div>
+          <div style={mono('10px', 'var(--muted)')}>
+            {totpEnabled
+              ? 'Your admin account is protected by TOTP two-factor authentication.'
+              : 'Enable TOTP 2FA to require a time-based code at every sign-in.'}
+          </div>
+        </div>
+      </div>
+
+      {/* Setup / enable flow */}
+      {!totpEnabled && step === 'idle' && (
+        <button onClick={handleSetup} disabled={busy} style={btnStyle('primary', busy)} aria-label="Begin 2FA setup">
+          {busy ? 'Generating…' : 'Enable 2FA'}
+        </button>
+      )}
+
+      {step === 'enable' && (
+        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '20px', maxWidth: '500px' }}>
+          <div style={{ ...sectionLabel, marginBottom: '14px' }}>Scan or enter the secret in your authenticator app</div>
+
+          <div style={{ marginBottom: '14px' }}>
+            <div style={mono('9px', 'var(--muted)')}>Secret (Base32 — for manual entry)</div>
+            <div style={{
+              background: '#0a0806', border: '1px solid var(--border)', padding: '10px 14px',
+              fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: 'var(--gold)',
+              letterSpacing: '2px', wordBreak: 'break-all', marginTop: '6px', userSelect: 'all',
+            }} aria-label="TOTP secret key">{secret}</div>
+          </div>
+
+          <div style={{ marginBottom: '18px' }}>
+            <div style={mono('9px', 'var(--muted)')}>OTPAuth URL (for QR generators)</div>
+            <div style={{
+              background: '#0a0806', border: '1px solid var(--border)', padding: '8px 12px',
+              fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)',
+              wordBreak: 'break-all', marginTop: '6px', userSelect: 'all',
+            }}>
+              <a href={otpUrl} style={{ color: 'var(--muted)', textDecoration: 'none' }} aria-label="OTPAuth URL">{otpUrl}</a>
+            </div>
+          </div>
+
+          <div style={{ ...mono('10px', 'var(--cream)'), marginBottom: '12px' }}>
+            Enter the 6-digit code from your app to confirm:
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {codeInput}
+            <button onClick={handleEnable} disabled={busy || code.length < 6} style={btnStyle('primary', busy || code.length < 6)} aria-label="Confirm and activate 2FA">
+              {busy ? 'Verifying…' : 'Confirm & Activate'}
+            </button>
+            <button onClick={() => { setStep('idle'); setSecret(''); setOtpUrl(''); setCode('') }} style={btnStyle('ghost')} aria-label="Cancel 2FA setup">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Disable flow */}
+      {totpEnabled && step === 'idle' && (
+        <button onClick={() => { setStep('disable'); setCode('') }} style={btnStyle('danger')} aria-label="Begin 2FA disable">
+          Disable 2FA
+        </button>
+      )}
+
+      {step === 'disable' && (
+        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '20px', maxWidth: '400px' }}>
+          <div style={{ ...sectionLabel, marginBottom: '12px' }}>Confirm with your current authenticator code</div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            {codeInput}
+            <button onClick={handleDisable} disabled={busy || code.length < 6} style={btnStyle('danger', busy || code.length < 6)} aria-label="Confirm disable 2FA">
+              {busy ? 'Verifying…' : 'Disable 2FA'}
+            </button>
+            <button onClick={() => { setStep('idle'); setCode('') }} style={btnStyle('ghost')} aria-label="Cancel disable 2FA">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+SecuritySection.propTypes = { onMsg: PropTypes.func.isRequired }
+
 // ── Sidebar nav ─────────────────────────────────────────────────────────────
 const SECTIONS = [
   { key: 'overview',   label: 'Overview'   },
@@ -947,6 +1102,7 @@ const SECTIONS = [
   { key: 'workspaces', label: 'Workspaces' },
   { key: 'jobs',       label: 'Jobs'       },
   { key: 'system',     label: 'System'     },
+  { key: 'security',   label: 'Security'   },
 ]
 
 // ── AdminDashboard (full-page) ───────────────────────────────────────────────
@@ -1083,6 +1239,7 @@ export default function AdminDashboard({ onBack }) {
           {section === 'workspaces' && <WorkspacesSection onMsg={onMsg} />}
           {section === 'jobs'       && <JobsSection       onMsg={onMsg} />}
           {section === 'system'     && <SystemSection     onMsg={onMsg} />}
+          {section === 'security'   && <SecuritySection   onMsg={onMsg} />}
         </main>
       </div>
     </div>

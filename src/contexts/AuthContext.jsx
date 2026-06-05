@@ -91,8 +91,11 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:logout', handler)
   }, [])
 
-  const login = useCallback(async (email, password) => {
-    const data = await authApi.login({ email, password })
+  // totp is optional — only supplied during the 2FA step-up
+  const login = useCallback(async (email, password, totp) => {
+    const payload = { email, password }
+    if (totp) payload.totp = totp
+    const data = await authApi.login(payload)
     setAccessToken(data.accessToken)
     setUser(data.user)
     await seedActiveWorkspace(data.user)
