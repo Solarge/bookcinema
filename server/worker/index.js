@@ -5,6 +5,7 @@ import { Worker } from 'bullmq'
 import { GENERATION_QUEUE } from '../queue/generationQueue.js'
 import { processGeneration } from './processGeneration.js'
 import { processCompile } from './processCompile.js'
+import { processMux } from './processMux.js'
 import { maybeRefundOnFailure } from './refundOnFailure.js'
 import { SOCIAL_PUBLISH_QUEUE } from '../utils/socialQueue.js'
 import { processSocialPublish } from './processSocialPublish.js'
@@ -40,6 +41,7 @@ await connectDB()
 // Compile jobs use the same queue; lockDuration covers ffmpeg concat of a 2-3min video.
 const worker = new Worker(GENERATION_QUEUE, async (job) => {
   if (job.data?.type === 'compile') return processCompile(job.data)
+  if (job.data?.type === 'mux') return processMux(job.data)
   return processGeneration(job.data)
 }, {
   connection,

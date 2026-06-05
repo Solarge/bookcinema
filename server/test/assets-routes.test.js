@@ -95,6 +95,20 @@ test('from-job falls back to the job-type default when assetType is invalid (mus
   assert.equal(res.body.type, 'scene_music')
 })
 
+test('from-job maps a mux job to a scene_video asset (overwrites the silent clip slot)', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const job = await Job.create({
+    workspaceId: workspace._id, createdBy: user._id, type: 'mux', tier: 'standard', status: 'done',
+    resultKey: `generated/${workspace._id}/job1-muxed.mp4`, resultUrl: `https://b.s3.us-east-1.amazonaws.com/generated/${workspace._id}/job1-muxed.mp4`,
+  })
+  const res = await authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id)
+    .send({ jobId: String(job._id), assetKey: 'scene-video:slug:ep1:s2', provider: 'managed' })
+  assert.equal(res.status, 201)
+  assert.equal(res.body.type, 'scene_video')
+  assert.equal(res.body.assetKey, 'scene-video:slug:ep1:s2')
+})
+
 test('from-job is idempotent per (series, assetKey) — regenerate updates in place', async () => {
   const { user, token, workspace } = await makeAuthedUser()
   const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })

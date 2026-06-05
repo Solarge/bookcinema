@@ -19,6 +19,7 @@ import * as replicateMusic from './providers/replicateMusic.js'
 // These are ESTIMATES — real provider billing APIs are not polled.
 export const FLAT_EST_COSTS = {
   compile: 0.02,
+  mux: 0.02,
 }
 
 // Free-first provider fallback chains.
