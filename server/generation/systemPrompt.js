@@ -44,7 +44,7 @@ Analyze the book provided and return a JSON object with this exact structure:
         {
           "scene_number": 1,
           "slug": "INT./EXT. LOCATION — TIME OF DAY",
-          "kling_prompt": "Detailed AI video generation prompt — character reference notes, camera movement, lens, color grade, duration in seconds, mood, photorealistic cinematic style",
+          "kling_prompt": "Detailed text-to-video prompt for a MOVING ~5s shot (NOT a static portrait or a still being panned) — explicit camera movement (push-in, dolly, tracking, pan, tilt, handheld), visible character action and movement, composition that changes across the clip, plus character reference notes, lens, color grade, duration in seconds, mood, photorealistic cinematic style",
           "stage_direction": "What happens physically in the scene",
           "dialogue": [
             {
@@ -66,10 +66,28 @@ Analyze the book provided and return a JSON object with this exact structure:
     "music_direction": "Music style, mood, suggested artists or search terms",
     "posting_schedule": "Recommended posting cadence and timing",
     "engagement_tips": ["tip1", "tip2"]
+  },
+
+  "virality": {
+    "score": 0,
+    "rating": "low | medium | high",
+    "probability_pct": 0,
+    "reasons": ["concrete reasons this series could go viral, tied to THIS story's hooks, themes, and characters"],
+    "risks": ["what could limit its reach"],
+    "improvements": ["specific, actionable advice to maximize virality"],
+    "strongest_hook": "the single most scroll-stopping ~3-second opening hook, as one line",
+    "best_platform": "TikTok | Reels | Shorts | YouTube",
+    "recommended_format": "concrete format advice, e.g. vertical 9:16, <60s, fast cuts"
   }
 }
 
-${episodeDirective} Make the dialogue feel like a real film script — natural, emotionally intelligent, true to the book's themes. Video prompts must be highly detailed and specific enough to generate consistent visual output.`
+CHARACTERS: Identify the FULL cast the source material supports — typically 4–8 named characters, including the protagonist, the antagonist, and the key supporting / ally / love-interest roles that matter to the story. Never reduce the story to just 1–2 characters when the book clearly has more; flesh out the real ensemble. Actually USE this cast across the series: populate each episode's "characters_in_episode" with the characters who appear, and write dialogue for multiple characters (not a monologue) so the ensemble drives the drama.
+
+${episodeDirective} Make the dialogue feel like a real film script — natural, emotionally intelligent, true to the book's themes, and shared across the full cast.
+
+The kling_prompt drives a real TEXT-TO-VIDEO model (Kling, Runway Gen-3, Luma, Minimax) — it must describe a MOVING ~5-second shot, not a static portrait or a still being slowly panned. For every scene's kling_prompt, demand real motion: explicit camera movement (e.g. slow push-in, dolly, tracking, pan, tilt, handheld), visible character action and physical movement, and a composition that visibly changes over the clip. Still include lens, color grade, mood, photorealistic cinematic style, and the duration in seconds. Make video prompts highly detailed and specific enough to generate consistent, motion-rich output.
+
+VIRALITY: After building the production package, honestly analyze THIS specific series' viral potential and fill the "virality" object. Base the score (0–100), rating, and probability_pct on this story's actual hooks, themes, and characters — do not be generically optimistic. Tie every reason, risk, and improvement to concrete details of this adaptation, give one genuinely scroll-stopping strongest_hook, and pick the best_platform and recommended_format for it.`
 }
 
 /**
