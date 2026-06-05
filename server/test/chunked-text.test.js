@@ -157,6 +157,53 @@ test('generateSeriesFromBook: each summary call has maxTokens=3000', async () =>
   }
 })
 
+test('generateSeriesFromBook: single-pass series call requests maxTokens=config.managed.seriesMaxTokens', async () => {
+  const { config } = await import('../config.js')
+  const calls = []
+  const seriesObj = { title: 'T', characters: [], episodes: [] }
+  const fakeComplete = async (args) => {
+    calls.push(args)
+    return JSON.stringify(seriesObj)
+  }
+
+  await generateSeriesFromBook({
+    bookText: 'A short book.',
+    genrePreset: 'cinematic',
+    language: 'en',
+    episodeCount: 'auto',
+    complete: fakeComplete,
+  })
+
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0].json, true)
+  assert.equal(calls[0].maxTokens, config.managed.seriesMaxTokens)
+  assert.equal(config.managed.seriesMaxTokens, 32000)
+})
+
+test('generateSeriesFromBook: reduce-path series call requests maxTokens=config.managed.seriesMaxTokens', async () => {
+  const { config } = await import('../config.js')
+  const origThreshold = config.managed.chunkThresholdChars
+  config.managed.chunkThresholdChars = 50
+
+  const calls = []
+  const seriesObj = { title: 'T', characters: [], episodes: [] }
+  const fakeComplete = async (args) => {
+    calls.push(args)
+    if (args.json === false) return 'summary text'
+    return JSON.stringify(seriesObj)
+  }
+
+  const bookText = ('word ').repeat(40)
+  await generateSeriesFromBook({ bookText, genrePreset: 'cinematic', language: 'en', episodeCount: 'auto', complete: fakeComplete })
+
+  config.managed.chunkThresholdChars = origThreshold
+
+  const finalCall = calls.find(c => c.json === true)
+  assert.ok(finalCall, 'expected a final json series call')
+  assert.equal(finalCall.maxTokens, config.managed.seriesMaxTokens)
+  assert.equal(config.managed.seriesMaxTokens, 32000)
+})
+
 test('generateSeriesFromBook: invalid JSON from final call surfaces a parse error', async () => {
   const { config } = await import('../config.js')
   const origThreshold = config.managed.chunkThresholdChars

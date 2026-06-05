@@ -2,7 +2,7 @@ import './helpers/env.js'
 import { test, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { generate as groqGenerate, isConfigured as groqIsConfigured } from '../generation/providers/groqText.js'
-import { generate as anthropicGenerate, isConfigured as anthropicIsConfigured } from '../generation/providers/anthropicText.js'
+import { generate as anthropicGenerate, isConfigured as anthropicIsConfigured, complete as anthropicComplete, MODEL_MAX_OUTPUT } from '../generation/providers/anthropicText.js'
 import { generate as geminiGenerate, isConfigured as geminiIsConfigured } from '../generation/providers/geminiText.js'
 import { generate as deepseekGenerate, isConfigured as deepseekIsConfigured } from '../generation/providers/deepseekText.js'
 
@@ -47,6 +47,28 @@ test('anthropicText.generate parses the messages API content into a series objec
 test('anthropicText.generate throws when key missing', async () => {
   delete process.env.ANTHROPIC_API_KEY
   await assert.rejects(() => anthropicGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /Anthropic/)
+})
+
+test('anthropicText.complete clamps an over-large maxTokens to the model max, not passed through', async () => {
+  process.env.ANTHROPIC_API_KEY = 'test-key'
+  let capturedBody
+  globalThis.fetch = async (_url, opts) => {
+    capturedBody = JSON.parse(opts.body)
+    return { ok: true, status: 200, json: async () => ({ content: [{ text: 'ok' }], stop_reason: 'end_turn' }) }
+  }
+  await anthropicComplete({ system: 's', user: 'u', maxTokens: MODEL_MAX_OUTPUT + 100000, json: false })
+  assert.equal(capturedBody.max_tokens, MODEL_MAX_OUTPUT, 'over-large maxTokens must be clamped to the model max')
+})
+
+test('anthropicText.complete passes a within-limit maxTokens (e.g. 32000) through unchanged', async () => {
+  process.env.ANTHROPIC_API_KEY = 'test-key'
+  let capturedBody
+  globalThis.fetch = async (_url, opts) => {
+    capturedBody = JSON.parse(opts.body)
+    return { ok: true, status: 200, json: async () => ({ content: [{ text: 'ok' }], stop_reason: 'end_turn' }) }
+  }
+  await anthropicComplete({ system: 's', user: 'u', maxTokens: 32000, json: false })
+  assert.equal(capturedBody.max_tokens, 32000)
 })
 
 test('groqText.generate tolerates trailing prose after a ```json fence', async () => {

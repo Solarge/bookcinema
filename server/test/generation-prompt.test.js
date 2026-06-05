@@ -27,6 +27,26 @@ test('prompt demands a full cast, motion-rich video, and a virality analysis', (
   assert.match(p, /strongest_hook/)
 })
 
+test('prompt includes adaptation-transparency coverage schema + instruction', () => {
+  const p = buildSystemPrompt('cinematic', 'en')
+  assert.match(p, /"coverage"/)
+  assert.match(p, /"coverage_note"/)
+  assert.match(p, /COVERAGE:/)
+  assert.match(p, /book_section/)
+})
+
+test("the 'auto' directive biases strongly toward more + longer episodes", () => {
+  const p = buildSystemPrompt('cinematic', 'en', 'auto')
+  assert.match(p, /more episodes and longer/i)
+  assert.match(p, /10–20/)
+  assert.match(p, /4–8 scenes/)
+})
+
+test('a fixed-count episode directive also asks for 4–8 scenes', () => {
+  const p = buildSystemPrompt('cinematic', 'en', 5)
+  assert.match(p, /4–8 scenes/)
+})
+
 test('prompt includes the music schema fields and a music-direction instruction', () => {
   const p = buildSystemPrompt('cinematic', 'en')
   assert.match(p, /"music_prompt"/)

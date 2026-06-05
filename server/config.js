@@ -99,6 +99,11 @@ export const config = {
     enabled:          process.env.MANAGED_GENERATION_ENABLED !== 'false', // default ON
     maxConcurrent:    Number(process.env.MANAGED_MAX_CONCURRENT) || 3,
     starterCredits:   Number(process.env.MANAGED_STARTER_CREDITS) || 25,
+    // Output-token budget for the series-generation LLM call. The default Anthropic
+    // adapter cap (16000) makes the model self-compress a full book into a few short
+    // episodes; raising this lets it produce MANY longer episodes. Passed explicitly to
+    // the series complete() call (the per-chunk summary call keeps its own small cap).
+    seriesMaxTokens:  Number(process.env.MANAGED_SERIES_MAX_TOKENS) || 32000,
     // Platform-wide daily spend cap in USD. 0 = disabled (default).
     // When set, the middleware sums today's Job.costUsd across ALL workspaces and
     // blocks new generation if adding estCostFor(type,tier) would exceed this cap.
