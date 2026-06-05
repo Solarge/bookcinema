@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS = {
   // ── Managed generation (server-side, platform keys) ──────────
   mode:         'managed',  // 'byok' (client-side, your keys) | 'managed' (server-side, platform keys)
   managedTier:  'standard', // 'standard' | 'premium'
-  episodeCount: 7,          // episodes per series: 3–12 (default 7)
+  episodeCount: 'auto',     // 'auto' = the book decides how many episodes; or a specific number
 
   // ── Image generation ─────────────────────────────────────────
   imageProvider: 'fal.ai',    // fal.ai | openai | replicate | stabilityai | comfyui | a1111

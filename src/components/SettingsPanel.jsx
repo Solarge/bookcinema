@@ -123,31 +123,40 @@ export default function SettingsPanel({ onClose }) {
             </div>
           </Section>
 
-          {/* ── EPISODES PER SERIES ─────────────────────────────────── */}
-          <Section title="Episodes per Series">
+          {/* ── EPISODES ────────────────────────────────────────────── */}
+          <Section title="Episodes">
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#4a5a6a', marginBottom: '10px' }}>
-              More episodes = more scenes + higher credit/time cost.
+              The book decides how many episodes (and how long each runs) it needs — or set a specific count.
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <input
-                type="number"
-                min={3}
-                max={12}
-                value={settings.episodeCount ?? 7}
-                onChange={e => {
-                  const v = Math.min(12, Math.max(3, parseInt(e.target.value, 10) || 7))
-                  updateSettings({ episodeCount: v })
-                }}
-                style={{
-                  width: '64px', background: '#0a0806', border: '1px solid var(--border)',
-                  color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: '13px', padding: '6px 10px', outline: 'none', textAlign: 'center',
-                }}
-              />
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>
-                episodes (3–12)
-              </span>
-            </div>
+            {(() => {
+              const isAuto = settings.episodeCount === 'auto' || settings.episodeCount == null
+              const tabStyle = (on) => ({
+                flex: 1, padding: '8px', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase',
+                background: on ? 'rgba(200,146,42,0.12)' : 'transparent',
+                border: `1px solid ${on ? 'var(--gold)' : 'var(--border)'}`,
+                color: on ? 'var(--gold)' : 'var(--muted)',
+              })
+              return (
+                <>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => updateSettings({ episodeCount: 'auto' })} style={tabStyle(isAuto)} aria-pressed={isAuto}>Auto — as the book needs</button>
+                    <button onClick={() => updateSettings({ episodeCount: 7 })} style={tabStyle(!isAuto)} aria-pressed={!isAuto}>Custom</button>
+                  </div>
+                  {!isAuto && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                      <input
+                        type="number" min={2} max={24} value={settings.episodeCount}
+                        onChange={e => { const v = Math.min(24, Math.max(2, parseInt(e.target.value, 10) || 7)); updateSettings({ episodeCount: v }) }}
+                        aria-label="Number of episodes"
+                        style={{ width: '64px', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', padding: '6px 10px', outline: 'none', textAlign: 'center' }}
+                      />
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>episodes</span>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
           </Section>
 
           {/* ── OUTPUT LANGUAGE ─────────────────────────────────────── */}

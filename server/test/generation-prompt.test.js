@@ -18,52 +18,43 @@ test('buildSystemPrompt falls back to cinematic for an unknown preset', () => {
   assert.ok(unknown.length > 500)
 })
 
-// ── episodeCount parameterisation ────────────────────────────────────────────
+// ── episodeCount: adaptive ('auto') by default, optional fixed override ───────
 
-test('buildSystemPrompt default (no episodeCount arg) produces 7-episode prompt', () => {
-  const p = buildSystemPrompt('cinematic', 'en')
-  assert.match(p, /7-episode/)
-  assert.match(p, /Generate all 7 episodes/)
-
+test('every prompt demands full coverage of the entire book', () => {
+  for (const arg of [undefined, 'auto', 5, 0, 'bad']) {
+    const p = buildSystemPrompt('cinematic', 'en', arg)
+    assert.match(p, /cover the ENTIRE book/i)
+  }
 })
 
-test('buildSystemPrompt with episodeCount=5 produces 5-episode prompt', () => {
+test('default (no episodeCount) is adaptive — the book decides, no fixed count', () => {
+  const p = buildSystemPrompt('cinematic', 'en')
+  assert.match(p, /Decide how many episodes/i)
+  assert.doesNotMatch(p, /Generate exactly/)
+})
+
+test("episodeCount='auto' is adaptive", () => {
+  const p = buildSystemPrompt('cinematic', 'en', 'auto')
+  assert.match(p, /Decide how many episodes/i)
+  assert.doesNotMatch(p, /Generate exactly/)
+})
+
+test('a specific episodeCount forces that count (and covers the whole book)', () => {
   const p = buildSystemPrompt('cinematic', 'en', 5)
   assert.match(p, /5-episode/)
-  assert.match(p, /Generate all 5 episodes/)
-  assert.doesNotMatch(p, /7-episode/)
+  assert.match(p, /Generate exactly 5 episodes/)
+  assert.doesNotMatch(p, /Decide how many episodes/i)
 })
 
-test('buildSystemPrompt clamps episodeCount=99 to 12', () => {
+test('a very large episodeCount is sanity-capped at 24', () => {
   const p = buildSystemPrompt('cinematic', 'en', 99)
-  assert.match(p, /12-episode/)
-  assert.match(p, /Generate all 12 episodes/)
+  assert.match(p, /Generate exactly 24 episodes/)
 })
 
-test('buildSystemPrompt clamps episodeCount=1 to 3', () => {
-  const p = buildSystemPrompt('cinematic', 'en', 1)
-  assert.match(p, /3-episode/)
-  assert.match(p, /Generate all 3 episodes/)
-})
-
-test('buildSystemPrompt clamps episodeCount=0 to 3', () => {
-  const p = buildSystemPrompt('cinematic', 'en', 0)
-  assert.match(p, /3-episode/)
-})
-
-test('buildSystemPrompt handles invalid episodeCount (NaN/string) by defaulting to 7', () => {
-  const p = buildSystemPrompt('cinematic', 'en', 'bad')
-  assert.match(p, /7-episode/)
-})
-
-test('buildSystemPrompt handles episodeCount=3 (lower bound)', () => {
-  const p = buildSystemPrompt('cinematic', 'en', 3)
-  assert.match(p, /3-episode/)
-  assert.match(p, /Generate all 3 episodes/)
-})
-
-test('buildSystemPrompt handles episodeCount=12 (upper bound)', () => {
-  const p = buildSystemPrompt('cinematic', 'en', 12)
-  assert.match(p, /12-episode/)
-  assert.match(p, /Generate all 12 episodes/)
+test('non-positive / invalid episodeCount falls back to adaptive', () => {
+  for (const arg of [0, -3, 'bad', Number.NaN]) {
+    const p = buildSystemPrompt('cinematic', 'en', arg)
+    assert.match(p, /Decide how many episodes/i, `arg ${arg} should be adaptive`)
+    assert.doesNotMatch(p, /Generate exactly/)
+  }
 })

@@ -1,8 +1,15 @@
 import { getPreset } from './presets.js'
 import { buildLanguagePromptInstruction } from './lang.js'
 
-function buildBASE(n) {
-  return `You are a cinematic series producer and screenwriter. Your job is to transform a book into a complete ${n}-episode AI video production package. Every response must be a valid JSON object only — no markdown, no preamble.
+function buildBASE(fixedCount) {
+  // fixedCount === null → let the book decide how many episodes it needs (and how long each runs).
+  const auto = !(Number.isFinite(fixedCount) && fixedCount > 0)
+  const packageLabel = auto ? 'full' : `${fixedCount}-episode`
+  const coverageRule = `CRITICAL: cover the ENTIRE book end to end. Every major chapter, plot arc, turning point, and the ending must be represented across the episodes — do NOT summarize, skip, compress, or stop partway through the book. Adapt the whole work, in order.`
+  const episodeDirective = auto
+    ? `Decide how many episodes the book actually needs to cover ALL of its content — let the source material determine it based on its length, chapters, and natural story arcs (a short story might be 2–3 episodes; a full novel many more). Do NOT force a fixed number, and never pad or truncate to hit a target. Each episode runs as long as its content genuinely needs (typically ~2–3 minutes) with as many scenes as the story requires. ${coverageRule}`
+    : `Generate exactly ${fixedCount} episodes, and ensure those ${fixedCount} episodes together cover the WHOLE book (allocate the book's content evenly across them). Each episode should have 3–4 scenes. ${coverageRule}`
+  return `You are a cinematic series producer and screenwriter. Your job is to transform a book into a complete ${packageLabel} AI video production package. Every response must be a valid JSON object only — no markdown, no preamble.
 
 Analyze the book provided and return a JSON object with this exact structure:
 
@@ -62,7 +69,7 @@ Analyze the book provided and return a JSON object with this exact structure:
   }
 }
 
-Generate all ${n} episodes. Each episode should have 3–4 scenes. Make the dialogue feel like a real film script — natural, emotionally intelligent, true to the book's themes. Video prompts must be highly detailed and specific enough to generate consistent visual output.`
+${episodeDirective} Make the dialogue feel like a real film script — natural, emotionally intelligent, true to the book's themes. Video prompts must be highly detailed and specific enough to generate consistent visual output.`
 }
 
 /**
@@ -70,13 +77,15 @@ Generate all ${n} episodes. Each episode should have 3–4 scenes. Make the dial
  *
  * @param {string} genrePresetKey  - Genre/style preset key (default 'cinematic')
  * @param {string} langCode        - BCP-47 language code (default 'en')
- * @param {number} episodeCount    - Number of episodes to generate, clamped to [3,12] (default 7)
+ * @param {number|string} episodeCount  - 'auto' (default) lets the book decide how many
+ *   episodes it needs. A positive number forces that count (sanity-capped to 24).
  */
-export function buildSystemPrompt(genrePresetKey = 'cinematic', langCode = 'en', episodeCount = 7) {
-  // Clamp a numeric episode count to [3,12]; fall back to 7 only for non-numeric input.
-  const rounded = Math.round(Number(episodeCount))
-  const n = Number.isFinite(rounded) ? Math.min(12, Math.max(3, rounded)) : 7
+export function buildSystemPrompt(genrePresetKey = 'cinematic', langCode = 'en', episodeCount = 'auto') {
+  // Default 'auto' → adaptive (the model picks the count from the book). A positive number
+  // forces that many (capped at 24 to avoid runaway). Anything else → adaptive.
+  const num = Math.round(Number(episodeCount))
+  const fixedCount = Number.isFinite(num) && num > 0 ? Math.min(24, num) : null
   const preset = getPreset(genrePresetKey)
   const langInstruction = buildLanguagePromptInstruction(langCode)
-  return `${buildBASE(n)}\n\nSTYLE INSTRUCTIONS:\n${preset.claudeAddition}\n${preset.systemAddition}${langInstruction}`
+  return `${buildBASE(fixedCount)}\n\nSTYLE INSTRUCTIONS:\n${preset.claudeAddition}\n${preset.systemAddition}${langInstruction}`
 }

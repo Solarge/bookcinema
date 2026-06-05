@@ -104,9 +104,11 @@ export const config = {
     // blocks new generation if adding estCostFor(type,tier) would exceed this cap.
     dailySpendCapUsd: Number(process.env.MANAGED_DAILY_SPEND_CAP_USD) || 0,
     // Maximum length of bookText accepted by /api/generate/text (characters).
-    // Reduces copyright-volume exposure and limits per-request LLM cost.
-    // Operators can raise/lower this via the MANAGED_MAX_BOOKTEXT_CHARS env var.
-    maxBookTextChars: Number(process.env.MANAGED_MAX_BOOKTEXT_CHARS) || 30000,
+    // Default sized to fit a FULL-LENGTH book so generation covers the entire work
+    // (a novel is ~0.5–1M chars). Operators can LOWER this via MANAGED_MAX_BOOKTEXT_CHARS
+    // (e.g. to enforce a copyright excerpt) or raise it. Note: very large inputs need a
+    // large-context provider (e.g. Gemini); the failover chain should route accordingly.
+    maxBookTextChars: Number(process.env.MANAGED_MAX_BOOKTEXT_CHARS) || 2_000_000,
     caps: {
       text:  Number(process.env.MANAGED_CAP_TEXT_DAILY)  || 20,
       image: Number(process.env.MANAGED_CAP_IMAGE_DAILY) || 50,
