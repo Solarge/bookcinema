@@ -104,10 +104,11 @@ export const MANAGED_PROVIDERS = {
     premium: {
       credits: 80, estCostUsd: 1.2,
       providers: [
-        { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.DEFAULT_MODEL },
+        { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.PRO_MODEL },
         { provider: 'runway',    adapter: runwayVideo,    model: runwayVideo.DEFAULT_MODEL },
         { provider: 'luma',      adapter: lumaVideo,      model: lumaVideo.DEFAULT_MODEL },
         { provider: 'replicate', adapter: replicateVideo, model: replicateVideo.DEFAULT_MODEL },
+        { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.DEFAULT_MODEL },   // standard fallback
       ],
     },
   },
