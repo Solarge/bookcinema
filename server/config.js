@@ -16,6 +16,8 @@ export const config = {
   jwtExpiry:    process.env.JWT_EXPIRY        || '15m',
   refreshExpiry:process.env.REFRESH_EXPIRY    || '7d',
   clientUrl:    process.env.CLIENT_URL        || 'http://localhost:5173',
+  adminUrl:     process.env.ADMIN_URL         || '',
+  cookieDomain: process.env.COOKIE_DOMAIN     || '',
 
   aws: {
     region:          required('AWS_REGION'),
@@ -94,9 +96,17 @@ export const config = {
   },
 
   managed: {
-    enabled:        process.env.MANAGED_GENERATION_ENABLED !== 'false', // default ON
-    maxConcurrent:  Number(process.env.MANAGED_MAX_CONCURRENT) || 3,
-    starterCredits: Number(process.env.MANAGED_STARTER_CREDITS) || 25,
+    enabled:          process.env.MANAGED_GENERATION_ENABLED !== 'false', // default ON
+    maxConcurrent:    Number(process.env.MANAGED_MAX_CONCURRENT) || 3,
+    starterCredits:   Number(process.env.MANAGED_STARTER_CREDITS) || 25,
+    // Platform-wide daily spend cap in USD. 0 = disabled (default).
+    // When set, the middleware sums today's Job.costUsd across ALL workspaces and
+    // blocks new generation if adding estCostFor(type,tier) would exceed this cap.
+    dailySpendCapUsd: Number(process.env.MANAGED_DAILY_SPEND_CAP_USD) || 0,
+    // Maximum length of bookText accepted by /api/generate/text (characters).
+    // Reduces copyright-volume exposure and limits per-request LLM cost.
+    // Operators can raise/lower this via the MANAGED_MAX_BOOKTEXT_CHARS env var.
+    maxBookTextChars: Number(process.env.MANAGED_MAX_BOOKTEXT_CHARS) || 30000,
     caps: {
       text:  Number(process.env.MANAGED_CAP_TEXT_DAILY)  || 20,
       image: Number(process.env.MANAGED_CAP_IMAGE_DAILY) || 50,

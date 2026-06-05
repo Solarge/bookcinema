@@ -133,7 +133,7 @@ test('free plan → POST /generate/image → 202 (image allowed on free)', async
 test('free plan → POST /generate/text → 202 (text allowed on free)', async () => {
   const { token, workspace } = await betaUserWithPlan('free')
   const res = await authedGen(request(genApp()).post('/api/generate/text'), token, workspace._id)
-    .send({ bookText: 'Once upon a time', tier: 'standard' })
+    .send({ bookText: 'Once upon a time', rightsConfirmed: true, tier: 'standard' })
   assert.equal(res.status, 202)
 })
 

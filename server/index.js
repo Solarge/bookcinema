@@ -42,8 +42,17 @@ app.set('trust proxy', 1)
 
 // ── Security middleware ───────────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
+// Build the allowed-origins list: always include clientUrl; add adminUrl when configured.
+const _allowedOrigins = [config.clientUrl]
+if (config.adminUrl) _allowedOrigins.push(config.adminUrl)
+
 app.use(cors({
-  origin: config.clientUrl,
+  origin: (origin, cb) => {
+    // Allow requests with no origin (server-to-server, curl, Postman in dev) and
+    // any origin that is in the explicit allowed list.
+    if (!origin || _allowedOrigins.includes(origin)) return cb(null, true)
+    cb(new Error(`CORS: origin ${origin} not allowed`))
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Workspace-Id'],
@@ -74,7 +83,31 @@ app.use('/api/billing', billingRouter)
 app.use('/api/social',  socialRouter)
 
 // ── Health check ──────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => res.json({ status: 'ok', ts: new Date().toISOString() }))
+app.get('/health', async (req, res) => {
+  const mongoOk = mongoose.connection.readyState === 1
+
+  // Redis ping — best-effort with a short timeout; null when Redis is not configured.
+  let redisOk = null
+  try {
+    const { getRedis } = await import('./utils/redis.js')
+    // Race the client lookup+ping against a 500 ms timeout so health stays fast.
+    const pingWithTimeout = Promise.race([
+      (async () => {
+        const redisClient = await getRedis()
+        if (!redisClient) return null   // Redis not configured
+        await redisClient.ping()
+        return true
+      })(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 500)),
+    ])
+    redisOk = await pingWithTimeout  // null = not configured, true = ok
+  } catch {
+    redisOk = false
+  }
+
+  const status = mongoOk ? 'ok' : 'degraded'
+  res.status(mongoOk ? 200 : 503).json({ status, mongo: mongoOk, redis: redisOk, ts: new Date().toISOString() })
+})
 
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` }))

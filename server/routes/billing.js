@@ -5,8 +5,11 @@ import Workspace from '../models/Workspace.js'
 import ProcessedWebhookEvent from '../models/ProcessedWebhookEvent.js'
 import { getStripe, planForPriceId } from '../utils/stripe.js'
 import { grantCredits } from '../utils/credits.js'
+import { currentPeriod } from '../utils/refill.js'
+import { planCredits } from '../plans.js'
 import { config } from '../config.js'
 import { seatCount } from '../utils/seats.js'
+import { sendEmail, dunningEmail } from '../utils/email.js'
 
 export const billingRouter = Router()
 billingRouter.use(requireAuth, resolveWorkspace)
@@ -107,19 +110,46 @@ export async function webhookHandler(req, res) {
       const active = ['active', 'trialing'].includes(sub.status)
       let targetId = sub.metadata?.workspaceId
       if (!targetId) { const ws = await Workspace.findOne({ stripeCustomerId: sub.customer }); targetId = ws?._id }
-      if (targetId) await Workspace.findByIdAndUpdate(targetId, { plan: active && plan ? plan : 'free', stripeSubscriptionId: sub.id })
+      if (targetId) {
+        const resolvedPlan = active && plan ? plan : 'free'
+        const update = { plan: resolvedPlan, stripeSubscriptionId: sub.id }
+        // Clear paymentPastDue when subscription becomes active again
+        if (active) update.paymentPastDue = false
+        // Immediately refill credits when plan becomes active with a known plan
+        if (active && plan) {
+          update.monthlyCredits = planCredits(resolvedPlan)
+          update.creditPeriod = currentPeriod()
+        }
+        await Workspace.findByIdAndUpdate(targetId, update)
+      }
     } else if (event.type === 'customer.subscription.deleted') {
+      // Stripe's retry window is the grace period — only hard-downgrade on subscription deletion.
       const sub = event.data.object
       const ws = await Workspace.findOne({ stripeCustomerId: sub.customer })
-      if (ws) await Workspace.findByIdAndUpdate(ws._id, { plan: 'free' })
+      if (ws) await Workspace.findByIdAndUpdate(ws._id, { plan: 'free', paymentPastDue: false })
     } else if (event.type === 'invoice.payment_failed') {
-      // Dunning: downgrade the workspace to 'free' on a failed renewal payment.
-      // Stripe will also send customer.subscription.updated with status='past_due', which
-      // handles the same case, but we handle it here too for belt-and-suspenders coverage
-      // and for invoice-level retry tracking.
+      // Dunning grace: do NOT downgrade immediately. Set paymentPastDue flag + send dunning email.
+      // Stripe's Smart Retries give the user several days before subscription.deleted fires.
+      // The actual downgrade to free happens only on customer.subscription.deleted above.
       const inv = event.data.object
       const ws = await Workspace.findOne({ stripeCustomerId: inv.customer })
-      if (ws) await Workspace.findByIdAndUpdate(ws._id, { plan: 'free' })
+      if (ws) {
+        await Workspace.findByIdAndUpdate(ws._id, { paymentPastDue: true })
+        // Send dunning email — best-effort, never fail the webhook
+        try {
+          const owner = await (await import('../models/User.js')).default.findById(ws.ownerId)
+          if (owner) {
+            const billingUrl = `${config.clientUrl}/?billing=portal`
+            await sendEmail({
+              to: owner.email,
+              subject: 'Action required: payment failed — BookFilm Studio',
+              html: dunningEmail(ws.name, billingUrl),
+            })
+          }
+        } catch (emailErr) {
+          console.warn('[billing] dunning email failed (non-fatal):', emailErr.message)
+        }
+      }
     }
     res.json({ received: true })
   } catch (err) {

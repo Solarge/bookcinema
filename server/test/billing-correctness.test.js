@@ -43,9 +43,11 @@ function postWebhook(app, evt) {
 }
 const authed = (r, t, w) => r.set('Authorization', `Bearer ${t}`).set('X-Workspace-Id', w.toString())
 
-// ─── 1. Dunning: invoice.payment_failed ────────────────────────────────────
+// ─── 1. Dunning: invoice.payment_failed (grace — no downgrade) ─────────────
+// New behavior: payment_failed sets paymentPastDue=true but does NOT downgrade.
+// Only customer.subscription.deleted performs the actual downgrade to free.
 
-test('webhook: invoice.payment_failed downgrades workspace plan to free', async () => {
+test('webhook: invoice.payment_failed sets paymentPastDue=true and leaves plan unchanged', async () => {
   const { workspace } = await makeAuthedUser()
   // Put the workspace on a paid plan first
   await Workspace.findByIdAndUpdate(workspace._id, { plan: 'pro', stripeCustomerId: 'cus_dunning' })
@@ -57,10 +59,14 @@ test('webhook: invoice.payment_failed downgrades workspace plan to free', async 
   const app = webhookApp((body) => JSON.parse(body.toString()))
   const r = await postWebhook(app, evt)
   assert.equal(r.status, 200)
-  assert.equal((await Workspace.findById(workspace._id)).plan, 'free')
+  const updated = await Workspace.findById(workspace._id)
+  // Grace: plan is unchanged — no immediate downgrade
+  assert.equal(updated.plan, 'pro', 'plan must stay pro on payment_failed (dunning grace)')
+  // paymentPastDue flag is set so UI can show a banner
+  assert.equal(updated.paymentPastDue, true, 'paymentPastDue must be set to true')
 })
 
-test('webhook: invoice.payment_failed is idempotent (duplicate event acked)', async () => {
+test('webhook: invoice.payment_failed is idempotent (duplicate event acked, plan still unchanged)', async () => {
   const { workspace } = await makeAuthedUser()
   await Workspace.findByIdAndUpdate(workspace._id, { plan: 'pro', stripeCustomerId: 'cus_dun2' })
   const evt = { id: 'evt_inv_fail2', type: 'invoice.payment_failed', data: { object: { customer: 'cus_dun2' } } }
@@ -68,7 +74,24 @@ test('webhook: invoice.payment_failed is idempotent (duplicate event acked)', as
   await postWebhook(app, evt)
   const r2 = await postWebhook(app, evt)
   assert.equal(r2.body.duplicate, true)
-  assert.equal((await Workspace.findById(workspace._id)).plan, 'free')
+  // After duplicate, plan is still unchanged (grace behavior persists)
+  assert.equal((await Workspace.findById(workspace._id)).plan, 'pro', 'plan must stay pro even after duplicate event')
+})
+
+test('webhook: customer.subscription.deleted downgrades plan to free', async () => {
+  const { workspace } = await makeAuthedUser()
+  await Workspace.findByIdAndUpdate(workspace._id, { plan: 'pro', stripeCustomerId: 'cus_deleted', paymentPastDue: true })
+  const evt = {
+    id: 'evt_sub_deleted',
+    type: 'customer.subscription.deleted',
+    data: { object: { id: 'sub_del1', customer: 'cus_deleted' } },
+  }
+  const app = webhookApp((body) => JSON.parse(body.toString()))
+  const r = await postWebhook(app, evt)
+  assert.equal(r.status, 200)
+  const updated = await Workspace.findById(workspace._id)
+  assert.equal(updated.plan, 'free', 'subscription.deleted must downgrade plan to free')
+  assert.equal(updated.paymentPastDue, false, 'paymentPastDue must be cleared on subscription deletion')
 })
 
 // ─── 2. Dunning: subscription.updated with various statuses ─────────────────

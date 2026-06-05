@@ -16,19 +16,19 @@ const Q = { add: async () => ({ id: 'b' }) }
 test('free plan is blocked from premium tier (403)', async () => {
   const { token, workspace } = await makeAuthedUser()
   await Workspace.findByIdAndUpdate(workspace._id, { managedBeta: true, plan: 'free' })
-  const res = await authed(request(app(Q)).post('/api/generate/text'), token, workspace._id).send({ bookText: 'x', tier: 'premium' })
+  const res = await authed(request(app(Q)).post('/api/generate/text'), token, workspace._id).send({ bookText: 'x', rightsConfirmed: true, tier: 'premium' })
   assert.equal(res.status, 403)
 })
 test('pro plan can use premium tier', async () => {
   const { token, workspace } = await makeAuthedUser()
   await Workspace.findByIdAndUpdate(workspace._id, { managedBeta: true, plan: 'pro', monthlyCredits: 100, purchasedCredits: 0, creditPeriod: '9999-12' })
-  const res = await authed(request(app(Q)).post('/api/generate/text'), token, workspace._id).send({ bookText: 'x', tier: 'premium' })
+  const res = await authed(request(app(Q)).post('/api/generate/text'), token, workspace._id).send({ bookText: 'x', rightsConfirmed: true, tier: 'premium' })
   assert.equal(res.status, 202)
 })
 test('managed request triggers a monthly refill (free workspace gets 25 then debits 1)', async () => {
   const { token, workspace } = await makeAuthedUser()
   await Workspace.findByIdAndUpdate(workspace._id, { managedBeta: true, plan: 'free', monthlyCredits: 0, purchasedCredits: 0, creditPeriod: '2000-01' })
-  const res = await authed(request(app(Q)).post('/api/generate/text'), token, workspace._id).send({ bookText: 'x', tier: 'standard' })
+  const res = await authed(request(app(Q)).post('/api/generate/text'), token, workspace._id).send({ bookText: 'x', rightsConfirmed: true, tier: 'standard' })
   assert.equal(res.status, 202)
   const ws = await Workspace.findById(workspace._id)
   assert.equal(ws.creditBalance, 24)

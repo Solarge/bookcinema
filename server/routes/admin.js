@@ -4,7 +4,9 @@ import Series from '../models/Series.js'
 import UsageLog from '../models/UsageLog.js'
 import Workspace from '../models/Workspace.js'
 import Job from '../models/Job.js'
+import AdminAuditLog from '../models/AdminAuditLog.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
+import { adminLimiter } from '../middleware/rateLimit.js'
 import { grantCredits } from '../utils/credits.js'
 import { config } from '../config.js'
 import { PLANS } from '../plans.js'
@@ -12,7 +14,24 @@ import { MANAGED_PROVIDERS } from '../generation/registry.js'
 import { listConfigured as listSocialConfigured } from '../social/index.js'
 
 const router = Router()
-router.use(requireAuth, requireRole('admin'))
+router.use(requireAuth, requireRole('admin'), adminLimiter)
+
+// ── Audit log helper ─────────────────────────────────────────────────────────
+// Best-effort: writes must not break the mutation if the log write fails.
+async function audit(req, { action, targetType, targetId, detail }) {
+  try {
+    await AdminAuditLog.create({
+      actorId:    req.user._id,
+      actorEmail: req.user.email,
+      action,
+      targetType: targetType || '',
+      targetId:   targetId   ? String(targetId) : '',
+      detail:     detail     ?? null,
+    })
+  } catch (err) {
+    console.error('[admin-audit] Failed to write audit log (non-fatal):', err.message)
+  }
+}
 
 // GET /api/admin/users
 router.get('/users', async (req, res) => {
@@ -41,6 +60,12 @@ router.patch('/users/:id/credits', async (req, res) => {
     const amount = Number(credits)
     if (!Number.isFinite(amount)) return res.status(400).json({ error: 'credits must be a number' })
     const r = await grantCredits(workspace._id, amount, { note: `admin ${operation}`, bucket: 'monthly' })
+    await audit(req, {
+      action:     'user.credits.grant',
+      targetType: 'User',
+      targetId:   user._id,
+      detail:     { amount, operation, workspaceId: workspace._id },
+    })
     res.json({ userId: user._id, workspaceId: workspace._id, balance: r.balance })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -52,8 +77,20 @@ router.patch('/users/:id/plan', async (req, res) => {
     const { plan, role } = req.body
     const user = await User.findById(req.params.id)
     if (!user) return res.status(404).json({ error: 'User not found' })
-    // role still lives on User (auth/admin gate)
-    if (role) await User.findByIdAndUpdate(req.params.id, { role })
+
+    // ── Self-demotion guard ──────────────────────────────────────────────────
+    // An admin cannot change their own role to something other than 'admin'.
+    if (role && role !== 'admin' && String(req.params.id) === String(req.user._id)) {
+      return res.status(400).json({ error: 'You cannot change your own admin role' })
+    }
+
+    let roleChanged = false
+    const roleBefore = user.role
+
+    if (role) {
+      await User.findByIdAndUpdate(req.params.id, { role })
+      roleChanged = role !== roleBefore
+    }
     if (plan) {
       const workspace = await Workspace.findOneAndUpdate(
         { ownerId: user._id, type: 'personal' },
@@ -62,6 +99,27 @@ router.patch('/users/:id/plan', async (req, res) => {
       )
       if (!workspace) return res.status(404).json({ error: 'Personal workspace not found' })
     }
+
+    // Audit role change (including promotions)
+    if (roleChanged) {
+      await audit(req, {
+        action:     'user.role.change',
+        targetType: 'User',
+        targetId:   user._id,
+        detail:     { before: roleBefore, after: role },
+      })
+    }
+
+    // Audit plan change
+    if (plan) {
+      await audit(req, {
+        action:     'user.plan.set',
+        targetType: 'User',
+        targetId:   user._id,
+        detail:     { plan, role: role || undefined },
+      })
+    }
+
     const updatedUser = await User.findById(req.params.id)
     const workspace = await Workspace.findOne({ ownerId: user._id, type: 'personal' })
     res.json({ ...updatedUser.toSafeObject(), workspacePlan: workspace?.plan ?? null })
@@ -73,6 +131,12 @@ router.patch('/users/:id/deactivate', async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true })
     if (!user) return res.status(404).json({ error: 'User not found' })
+    await audit(req, {
+      action:     'user.deactivate',
+      targetType: 'User',
+      targetId:   user._id,
+      detail:     { email: user.email },
+    })
     res.json({ message: `User ${user.email} deactivated` })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -84,6 +148,12 @@ router.patch('/workspaces/:id/credits', async (req, res) => {
     if (!Number.isFinite(amount) || amount === 0) return res.status(400).json({ error: 'amount must be a non-zero number' })
     const r = await grantCredits(req.params.id, amount, { note: req.body.note || 'admin grant' })
     if (!r.ok) return res.status(404).json({ error: 'Workspace not found' })
+    await audit(req, {
+      action:     'workspace.credits.grant',
+      targetType: 'Workspace',
+      targetId:   req.params.id,
+      detail:     { amount, note: req.body.note || 'admin grant', balance: r.balance },
+    })
     res.json({ workspaceId: req.params.id, balance: r.balance })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -95,6 +165,12 @@ router.patch('/workspaces/:id/managed', async (req, res) => {
     if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be a boolean' })
     const workspace = await Workspace.findByIdAndUpdate(req.params.id, { managedBeta: !!enabled }, { new: true })
     if (!workspace) return res.status(404).json({ error: 'Workspace not found' })
+    await audit(req, {
+      action:     'workspace.managed.set',
+      targetType: 'Workspace',
+      targetId:   workspace._id,
+      detail:     { enabled },
+    })
     res.json({ workspaceId: workspace._id, managedBeta: workspace.managedBeta })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
@@ -155,6 +231,19 @@ router.get('/jobs', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+// GET /api/admin/audit?limit= — recent audit log entries (newest first, cap 200)
+router.get('/audit', async (req, res) => {
+  try {
+    const rawLimit = Number(req.query.limit) || 50
+    const limit = Math.min(rawLimit, 200)
+    const entries = await AdminAuditLog.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean()
+    res.json({ entries, total: entries.length })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 // GET /api/admin/config — read-only system status (NO secrets, booleans + non-secret values only)
 router.get('/config', async (req, res) => {
   try {
@@ -200,15 +289,23 @@ router.get('/config', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// GET /api/admin/stats — platform overview (expanded with workspaces + jobs)
+// Monthly price per plan (USD). Free = 0. Used for MRR calculation.
+const PLAN_MONTHLY_PRICE = { free: 0, pro: 19, studio: 79 }
+
+// GET /api/admin/stats — platform overview (expanded with workspaces + jobs + MRR)
 router.get('/stats', async (req, res) => {
   try {
-    const [users, series, totalRevenue, workspaces, jobStatusCounts] = await Promise.all([
+    const [users, series, totalRevenue, workspaces, jobStatusCounts, planCounts] = await Promise.all([
       User.countDocuments(),
       Series.countDocuments(),
       UsageLog.aggregate([{ $group: { _id: null, total: { $sum: '$costUsd' } } }]),
       Workspace.countDocuments(),
       Job.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      // Count paying plans — only personal workspaces with an active subscription (stripeSubscriptionId set)
+      Workspace.aggregate([
+        { $match: { plan: { $in: ['pro', 'studio'] }, stripeSubscriptionId: { $ne: null } } },
+        { $group: { _id: '$plan', count: { $sum: 1 } } },
+      ]),
     ])
     const jobsByStatus = { queued: 0, active: 0, done: 0, failed: 0 }
     let totalJobs = 0
@@ -216,12 +313,23 @@ router.get('/stats', async (req, res) => {
       if (s._id in jobsByStatus) jobsByStatus[s._id] = s.count
       totalJobs += s.count
     }
+    // MRR: sum of (plan price × subscriber count) across paying plans
+    const subscriptions = { pro: 0, studio: 0 }
+    let mrr = 0
+    for (const p of planCounts) {
+      if (p._id in subscriptions) {
+        subscriptions[p._id] = p.count
+        mrr += (PLAN_MONTHLY_PRICE[p._id] || 0) * p.count
+      }
+    }
     res.json({
       users,
       series,
       totalCostUsd: totalRevenue[0]?.total ?? 0,
       workspaces,
       jobs: { total: totalJobs, byStatus: jobsByStatus },
+      mrr,
+      subscriptions,
     })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })

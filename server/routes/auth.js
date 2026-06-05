@@ -216,14 +216,18 @@ router.post('/resend-verification', requireAuth, async (req, res) => {
   }
 })
 
-function cookieOpts() {
-  return {
+export function cookieOpts() {
+  const opts = {
     httpOnly: true,
     secure:   config.nodeEnv === 'production',
     sameSite: 'lax',
     maxAge:   7 * 24 * 60 * 60 * 1000, // 7 days
     path:     '/api/auth/refresh',
   }
+  // When COOKIE_DOMAIN is set (e.g. ".yourdomain.com"), include it so the
+  // refresh cookie is valid across app. and admin. subdomains.
+  if (config.cookieDomain) opts.domain = config.cookieDomain
+  return opts
 }
 
 export default router

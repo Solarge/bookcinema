@@ -32,6 +32,11 @@ const workspaceSchema = new mongoose.Schema({
   stripeCustomerId:     { type: String, default: null },
   stripeSubscriptionId: { type: String, default: null },
 
+  // Billing lifecycle state
+  paymentPastDue:       { type: Boolean, default: false },
+  // Track "low credit" notification to avoid spamming — reset on monthly refill
+  lowCreditNotifiedAt:  { type: Date, default: null },
+
   members: [memberSchema],
   invites: [inviteSchema],
   settings: {

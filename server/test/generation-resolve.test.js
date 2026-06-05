@@ -57,8 +57,8 @@ test('resolve entries carry credits', () => {
   assert.equal(resolve('image', 'premium').credits, 10)
   assert.equal(resolve('voice', 'standard').credits, 1)
   assert.equal(resolve('voice', 'premium').credits, 5)
-  assert.equal(resolve('video', 'standard').credits, 20)
-  assert.equal(resolve('video', 'premium').credits, 40)
+  assert.equal(resolve('video', 'standard').credits, 40)
+  assert.equal(resolve('video', 'premium').credits, 80)
 })
 
 test('resolveProviders is a convenience shorthand returning the providers array', () => {
