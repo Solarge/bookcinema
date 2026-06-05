@@ -887,6 +887,41 @@
   text-transform: uppercase;
 }
 
+/* ── Add Sound (mux) ─────────────────────────────────────────────────────── */
+.rs-add-sound-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.rs-add-sound-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  padding: 7px 12px;
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  cursor: pointer;
+}
+
+.rs-add-sound-btn:disabled {
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.rs-add-sound-indicator {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #6dc87a;
+  text-transform: uppercase;
+}
+
 /* ── Episode soundtrack score ────────────────────────────────────────────── */
 .rs-soundtrack-panel {
   margin: 16px 0 8px;

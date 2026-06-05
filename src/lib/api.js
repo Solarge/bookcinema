@@ -143,6 +143,7 @@ export const managed = {
   generateVoice:   (data) => post('/api/generate/voice',   data), // { text, voiceId, tier } -> { jobId }
   generateVideo:   (data) => post('/api/generate/video',   data), // { prompt, aspectRatio, duration, tier } -> { jobId }
   generateMusic:   (data) => post('/api/generate/music',   data), // { prompt, duration, tier } -> { jobId }
+  mux:             (data) => post('/api/generate/mux',     data), // { videoUrl, voiceUrls: [url,...], musicUrl } -> { jobId }
   compileEpisode:  (data) => post('/api/generate/compile', data), // { seriesId, episodeNumber, clips: [url,...], soundtrackUrl? } -> { jobId }
   getJob:          (id)   => get(`/api/jobs/${id}`),
   listJobs:        ()     => get('/api/jobs'),
