@@ -1,0 +1,78 @@
+/* ── Book Coverage panel (.rs-coverage-*) ──────────────────────────────────
+   Shows how the uploaded book was split/adapted into episodes. Follows the
+   BookFilm design system (results.css + design-system.css): --gold / --bg /
+   --surface / --border / --muted / --cream tokens, Cinzel section heads,
+   JetBrains Mono eyebrows. No dynamic/inline styles needed.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.rs-coverage-section {
+  margin-bottom: 64px;
+}
+
+.rs-coverage-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin: -6px 0 16px;
+}
+
+.rs-coverage-note {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  color: var(--cream);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── Per-episode coverage rows ────────────────────────────────────────────── */
+.rs-coverage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rs-coverage-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+}
+
+.rs-coverage-ep {
+  flex-shrink: 0;
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--gold);
+  min-width: 56px;
+  line-height: 1.3;
+}
+
+.rs-coverage-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rs-coverage-section-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--cream);
+}
+
+.rs-coverage-adapts {
+  color: #c0b090;
+  font-size: 14px;
+  line-height: 1.5;
+}
