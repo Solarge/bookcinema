@@ -13,6 +13,7 @@ import * as runwayVideo from './providers/runwayVideo.js'
 import * as lumaVideo from './providers/lumaVideo.js'
 import * as falaiVideo from './providers/falaiVideo.js'
 import * as replicateMusic from './providers/replicateMusic.js'
+import * as falaiMusic from './providers/falaiMusic.js'
 
 // Fixed estimated cost for job types that don't go through the provider registry
 // (e.g. compile = server-side ffmpeg; small fixed cost for CPU/egress).
@@ -122,12 +123,14 @@ export const MANAGED_PROVIDERS = {
       credits: 10, estCostUsd: 0.1,
       providers: [
         { provider: 'replicate', adapter: replicateMusic, model: replicateMusic.DEFAULT_MODEL },
+        { provider: 'falai',     adapter: falaiMusic,     model: falaiMusic.DEFAULT_MODEL },
       ],
     },
     premium: {
       credits: 15, estCostUsd: 0.15,
       providers: [
         { provider: 'replicate', adapter: replicateMusic, model: replicateMusic.DEFAULT_MODEL },
+        { provider: 'falai',     adapter: falaiMusic,     model: falaiMusic.DEFAULT_MODEL },
       ],
     },
   },
