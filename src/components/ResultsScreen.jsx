@@ -198,7 +198,7 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBil
 // ── Scene card ─────────────────────────────────────────────────────────────
 function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generationMode, plan, onOpenBilling }) {
   const { settings } = useSettings()
-  const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug, sceneMusic, generateSceneMusic, dialogue, addSceneSound } = useMedia()
+  const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug, sceneMusic, generateSceneMusic, dialogue, addSceneSound, assembleScene } = useMedia()
   const key = `ep${epNum}-s${scene.scene_number}`
   const asset = scenes[key] ?? {}
   const genInfo = canGenerateInfo(settings, 'video', settings.videoProvider, plan)
@@ -221,6 +221,9 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
     : (!hasVoice && !hasMusicAudio)
       ? 'Generate a dialogue voice and/or scene music first.'
       : null
+
+  // ── Assemble Scene: one-click generate-missing (video + voices + music) + mux ──
+  const isAssembling = asset.status === 'generating'
 
   return (
     <div className="rs-scene-card">
@@ -256,6 +259,23 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
         onSaveToCloud={() => saveToCloud('video', key, storeKey, { provider: settings.videoProvider, prompt: scene.kling_prompt, quality: settings.videoQuality, aspectRatio: settings.aspectRatio })}
         onDeleteFromCloud={() => deleteFromCloud('video', key)}
       />
+
+      {/* Assemble Scene — one-click: generate missing video + voices + music, then mux */}
+      {settings.mode === 'managed' && (
+        <div className="rs-assemble-row">
+          <button
+            type="button"
+            className="rs-assemble-btn"
+            onClick={() => assembleScene(epNum, scene, charIds)}
+            disabled={isAssembling}
+            title="Generate video + voices + music and combine with sound — all in one click"
+            aria-label={`Assemble scene ${scene.scene_number}: generate everything missing and combine with sound`}
+          >
+            {isAssembling ? '✨ Assembling…' : '✨ Assemble Scene'}
+          </button>
+          <span className="rs-assemble-hint">Generate video + voices + music and combine with sound</span>
+        </div>
+      )}
 
       {/* Add Sound — mux the silent clip with dialogue voice + scene music bed */}
       {settings.mode === 'managed' && (

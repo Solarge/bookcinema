@@ -70,6 +70,16 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
   const [saving, setSaving] = useState({})
   const portraitRefs = useRef({})
 
+  // Latest-state refs — kept current on every render so async pipelines (assembleScene)
+  // can read the freshest slot values for skip-checks without stale closures. The pipeline
+  // itself threads fresh URLs via return values, so it never depends on post-setState timing.
+  const scenesRef     = useRef(scenes)
+  const dialogueRef   = useRef(dialogue)
+  const sceneMusicRef = useRef(sceneMusic)
+  scenesRef.current     = scenes
+  dialogueRef.current   = dialogue
+  sceneMusicRef.current = sceneMusic
+
   // Cloud sync is only active when authenticated AND a backend seriesId is available.
   const cloudEnabled = !!(user && seriesId)
 
@@ -280,12 +290,14 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, jobId, error: null } }))
       if (settings.mode !== 'managed') addCost('video', settings.videoProvider, settings.videoQuality)
       await persistJobAsset('video', key, storeKey, jobId, { provider: 'managed', aspectRatio: settings.aspectRatio, prompt: scene.kling_prompt })
+      return localUrl || url
     } catch (err) {
       // Surface plan_feature 403 errors with a useful upgrade message
       const displayMsg = err.code === 'plan_feature'
         ? (err.message || 'Video generation requires a higher plan. Upgrade to unlock.')
         : err.message
       setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
+      return null
     }
   }, [settings, getApiKey, seriesSlug, addCost, persistJobAsset])
 
@@ -315,11 +327,13 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl, jobId, error: null } }))
       if (settings.mode !== 'managed') addVoiceCost(line, settings.voiceProvider)
       await persistJobAsset('audio', key, storeKey, jobId, { provider: 'managed', prompt: line })
+      return audioUrl
     } catch (err) {
       const displayMsg = err.code === 'plan_feature'
         ? (err.message || 'Voice generation requires a higher plan. Upgrade to unlock.')
         : err.message
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
+      return null
     }
   }, [settings, getApiKey, seriesSlug, addVoiceCost, persistJobAsset])
 
@@ -337,11 +351,13 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       const localUrl = await fetchAndStore(storeKey, url)
       setSceneMusic(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl: localUrl || url, jobId, error: null } }))
       await persistJobAsset('scene-music', key, storeKey, jobId, { provider: 'managed', prompt: scene.music_prompt })
+      return localUrl || url
     } catch (err) {
       const displayMsg = err.code === 'plan_feature'
         ? (err.message || 'Music generation requires a higher plan. Upgrade to unlock.')
         : err.message
       setSceneMusic(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
+      return null
     }
   }, [settings, seriesSlug, persistJobAsset])
 
@@ -369,29 +385,17 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     }
   }, [settings, seriesSlug, persistJobAsset])
 
-  // ── Add Sound: mux silent scene clip with dialogue voice + scene music ──────
-  // Produces a sounded clip and OVERWRITES the scene_video slot (same assetKey),
-  // so the episode Compile naturally stitches sounded clips.
-  const addSceneSound = useCallback(async (epNum, scene) => {
+  // ── Mux core: combine an explicit video URL with explicit voice/music URLs ───
+  // Shared by addSceneSound (which reads URLs from state) and assembleScene (which
+  // threads freshly-generated URLs). Produces a sounded clip and OVERWRITES the
+  // scene_video slot (same assetKey) so the episode Compile stitches sounded clips.
+  const muxSceneWithUrls = useCallback(async (epNum, scene, { videoUrl, voiceUrls = [], musicUrl = null }) => {
     const key = `ep${epNum}-s${scene.scene_number}`
-    const sceneSlot = scenes[key]
-    const videoUrl = sceneSlot?.serverUrl || sceneSlot?.remoteUrl || sceneSlot?.localUrl
     if (!videoUrl) {
       setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), error: 'Generate the scene video first' } }))
       return
     }
-    // Collect dialogue voice URLs for this scene. Dialogue slots are keyed
-    // `${key}-d${i}` (see generateDialogueVoice), i over scene.dialogue.length.
-    const voiceUrls = []
-    const dialogueCount = scene.dialogue?.length ?? 0
-    for (let i = 0; i < dialogueCount; i++) {
-      const slot = dialogue[`${key}-d${i}`]
-      const url = slot?.serverUrl || slot?.audioUrl
-      if (url) voiceUrls.push(url)
-    }
-    const musicSlot = sceneMusic[key]
-    const musicUrl = musicSlot?.serverUrl || musicSlot?.audioUrl || null
-    if (voiceUrls.length === 0 && !musicUrl) {
+    if ((voiceUrls?.length ?? 0) === 0 && !musicUrl) {
       setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), error: 'Generate voice and/or scene music first' } }))
       return
     }
@@ -416,7 +420,78 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
         : err.message
       setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
-  }, [scenes, dialogue, sceneMusic, settings.aspectRatio, seriesSlug, persistJobAsset])
+  }, [settings.aspectRatio, seriesSlug, persistJobAsset])
+
+  // ── Add Sound: gather the scene's already-generated URLs from state and mux ──
+  const addSceneSound = useCallback(async (epNum, scene) => {
+    const key = `ep${epNum}-s${scene.scene_number}`
+    const sceneSlot = scenes[key]
+    const videoUrl = sceneSlot?.serverUrl || sceneSlot?.remoteUrl || sceneSlot?.localUrl
+    if (!videoUrl) {
+      setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), error: 'Generate the scene video first' } }))
+      return
+    }
+    // Collect dialogue voice URLs for this scene. Dialogue slots are keyed
+    // `${key}-d${i}` (see generateDialogueVoice), i over scene.dialogue.length.
+    const voiceUrls = []
+    const dialogueCount = scene.dialogue?.length ?? 0
+    for (let i = 0; i < dialogueCount; i++) {
+      const slot = dialogue[`${key}-d${i}`]
+      const url = slot?.serverUrl || slot?.audioUrl
+      if (url) voiceUrls.push(url)
+    }
+    const musicSlot = sceneMusic[key]
+    const musicUrl = musicSlot?.serverUrl || musicSlot?.audioUrl || null
+    if (voiceUrls.length === 0 && !musicUrl) {
+      setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), error: 'Generate voice and/or scene music first' } }))
+      return
+    }
+    await muxSceneWithUrls(epNum, scene, { videoUrl, voiceUrls, musicUrl })
+  }, [scenes, dialogue, sceneMusic, muxSceneWithUrls])
+
+  // ── Assemble Scene: one-click generate-what's-missing + mux ─────────────────
+  // Threads freshly-generated URLs through return values (never reads them back from
+  // state mid-pipeline), so it's immune to React stale-closure / batched-setState bugs.
+  // Refs supply the initial skip-checks only.
+  const assembleScene = useCallback(async (epNum, scene, charIds = []) => {
+    const key = `ep${epNum}-s${scene.scene_number}`
+    try {
+      // 1) Video — reuse if present, else generate.
+      const existing = scenesRef.current[key]
+      let videoUrl = existing?.serverUrl || existing?.remoteUrl || existing?.localUrl
+      if (!videoUrl) {
+        videoUrl = await generateSceneVideo(epNum, scene, charIds)
+      }
+      if (!videoUrl) {
+        setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: 'Could not generate the scene video' } }))
+        return
+      }
+
+      // 2) Voices — one per dialogue line; reuse existing, else generate.
+      const voiceUrls = []
+      const dialogueCount = scene.dialogue?.length ?? 0
+      for (let i = 0; i < dialogueCount; i++) {
+        const dkey = `${key}-d${i}`
+        const ex = dialogueRef.current[dkey]
+        let vu = ex?.serverUrl || ex?.audioUrl
+        if (!vu) vu = await generateDialogueVoice(epNum, scene.scene_number, i, scene.dialogue[i].line, null)
+        if (vu) voiceUrls.push(vu)
+      }
+
+      // 3) Music — reuse existing, else generate when there's a prompt.
+      const exM = sceneMusicRef.current[key]
+      let musicUrl = exM?.serverUrl || exM?.audioUrl || null
+      if (!musicUrl && scene.music_prompt) musicUrl = await generateSceneMusic(epNum, scene)
+
+      // 4) Mux it all together via the shared core (explicit URLs — no state reads).
+      await muxSceneWithUrls(epNum, scene, { videoUrl, voiceUrls, musicUrl })
+    } catch (err) {
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Assembling the scene requires a higher plan. Upgrade to unlock.')
+        : err.message
+      setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
+    }
+  }, [generateSceneVideo, generateDialogueVoice, generateSceneMusic, muxSceneWithUrls])
 
   // ── Approval (with optional cloud sync) ──────────────────────────────────
   const setCharApproval = useCallback((id, s) => {
@@ -558,6 +633,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       generateCharacterImage, generateSceneVideo, generateDialogueVoice, generateBatch,
       generateSceneMusic, generateEpisodeSoundtrack,
       addSceneSound,
+      assembleScene,
       setCharApproval, setSceneApproval,
       portraitRefs,
       // Cloud sync
