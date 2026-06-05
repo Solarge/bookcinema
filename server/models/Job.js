@@ -3,7 +3,7 @@ import mongoose from 'mongoose'
 const jobSchema = new mongoose.Schema({
   workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
   createdBy:   { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  type:        { type: String, enum: ['text', 'image', 'voice', 'video', 'compile'], required: true },
+  type:        { type: String, enum: ['text', 'image', 'voice', 'video', 'music', 'compile'], required: true },
   tier:        { type: String, enum: ['standard', 'premium'], default: 'standard' },
   status:      { type: String, enum: ['queued', 'active', 'done', 'failed'], default: 'queued', index: true },
 

@@ -34,10 +34,15 @@ async function downloadToTemp(url, index) {
  * Run ffmpeg concat (re-encode with libx264/aac) on an array of clip URLs.
  * Returns a Buffer of the output mp4.
  *
+ * When `soundtrackUrl` is provided it is downloaded as an extra ffmpeg input and
+ * mixed UNDER the concatenated dialogue/scene audio as a ducked background score
+ * (music volume ~0.3, amix=duration=first so the score never extends the video).
+ *
  * @param {string[]} clipUrls
+ * @param {string|null} [soundtrackUrl]
  * @returns {Promise<Buffer>}
  */
-export async function concatVideosReal(clipUrls) {
+export async function concatVideosReal(clipUrls, soundtrackUrl = null) {
   // Dynamic import so the module can load in test environments that don't have
   // the binary — tests inject their own concatVideos.
   const { default: ffmpeg } = await import('fluent-ffmpeg')
@@ -45,6 +50,7 @@ export async function concatVideosReal(clipUrls) {
   ffmpeg.setFfmpegPath(ffmpegStatic)
 
   const tmpFiles = []
+  let soundtrackFile = null
   const outFile = path.join(os.tmpdir(), `compile-out-${process.pid}-${Date.now()}.mp4`)
 
   try {
@@ -53,11 +59,18 @@ export async function concatVideosReal(clipUrls) {
       tmpFiles.push(await downloadToTemp(clipUrls[i], i))
     }
 
+    // Download the optional soundtrack to its own temp file.
+    if (soundtrackUrl) {
+      soundtrackFile = await downloadToTemp(soundtrackUrl, 'soundtrack')
+    }
+
     // Build concat filter: scale + setsar to normalise, then concat
     await new Promise((resolve, reject) => {
       const cmd = ffmpeg()
 
       for (const f of tmpFiles) cmd.input(f)
+      // The soundtrack, when present, is the LAST input (index n).
+      if (soundtrackFile) cmd.input(soundtrackFile)
 
       // Build filter_complex:
       // For each input: [i:v]scale=1280:720:force_original_aspect_ratio=decrease,
@@ -77,15 +90,25 @@ export async function concatVideosReal(clipUrls) {
         concatInputs.push(`[v${i}][a${i}]`)
       }
 
-      const filterComplex =
+      let filterComplex =
         filterParts.join(';') + ';' +
         concatInputs.join('') + `concat=n=${n}:v=1:a=1[outv][outa]`
+
+      // Mux the soundtrack UNDER the concatenated audio: lower the score volume and
+      // amix with duration=first so the music is trimmed to the video length.
+      let audioOut = '[outa]'
+      if (soundtrackFile) {
+        filterComplex +=
+          `;[${n}:a]volume=0.3,aresample=44100[music]` +
+          `;[outa][music]amix=inputs=2:duration=first:dropout_transition=0[mixa]`
+        audioOut = '[mixa]'
+      }
 
       cmd
         .complexFilter(filterComplex)
         .outputOptions([
           '-map [outv]',
-          '-map [outa]',
+          `-map ${audioOut}`,
           '-c:v libx264',
           '-preset fast',
           '-crf 22',
@@ -103,7 +126,9 @@ export async function concatVideosReal(clipUrls) {
     return buf
   } finally {
     // Clean up temp files (best-effort)
-    for (const f of [...tmpFiles, outFile]) {
+    const cleanup = [...tmpFiles, outFile]
+    if (soundtrackFile) cleanup.push(soundtrackFile)
+    for (const f of cleanup) {
       try { if (fs.existsSync(f)) fs.unlinkSync(f) } catch { /* ignore */ }
     }
   }
@@ -124,12 +149,12 @@ export async function processCompile(data, deps = {}) {
   const uploadFn = deps.uploadFn || defaultUpload
 
   const { jobId, workspaceId, createdBy, payload } = data
-  const { clips } = payload
+  const { clips, soundtrackUrl = null } = payload
 
   await Job.findByIdAndUpdate(jobId, { status: 'active' })
 
   try {
-    const videoBuffer = await concatVideos(clips)
+    const videoBuffer = await concatVideos(clips, soundtrackUrl)
 
     const key = `generated/${workspaceId}/${jobId}-compiled.mp4`
     const resultUrl = await uploadFn(key, videoBuffer, 'video/mp4')

@@ -46,6 +46,8 @@ Analyze the book provided and return a JSON object with this exact structure:
           "slug": "INT./EXT. LOCATION — TIME OF DAY",
           "kling_prompt": "Detailed text-to-video prompt for a MOVING ~5s shot (NOT a static portrait or a still being panned) — explicit camera movement (push-in, dolly, tracking, pan, tilt, handheld), visible character action and movement, composition that changes across the clip, plus character reference notes, lens, color grade, duration in seconds, mood, photorealistic cinematic style",
           "stage_direction": "What happens physically in the scene",
+          "needs_music": false,
+          "music_prompt": "Music-generation prompt for a short supportive bed under THIS scene IF it needs one — genre, instrumentation, tempo, mood aligned to the scene; empty string when needs_music is false",
           "dialogue": [
             {
               "character": "character_slug",
@@ -56,7 +58,12 @@ Analyze the book provided and return a JSON object with this exact structure:
         }
       ],
       "cta": "Call-to-action line for end of episode post",
-      "hashtags": ["hashtag1", "hashtag2"]
+      "hashtags": ["hashtag1", "hashtag2"],
+      "soundtrack": {
+        "needs_soundtrack": true,
+        "music_prompt": "Cohesive episode score prompt — genre, instrumentation, tempo, mood that captures this episode's arc",
+        "duration_sec": 120
+      }
     }
   ],
 
@@ -86,6 +93,8 @@ CHARACTERS: Identify the FULL cast the source material supports — typically 4�
 ${episodeDirective} Make the dialogue feel like a real film script — natural, emotionally intelligent, true to the book's themes, and shared across the full cast.
 
 The kling_prompt drives a real TEXT-TO-VIDEO model (Kling, Runway Gen-3, Luma, Minimax) — it must describe a MOVING ~5-second shot, not a static portrait or a still being slowly panned. For every scene's kling_prompt, demand real motion: explicit camera movement (e.g. slow push-in, dolly, tracking, pan, tilt, handheld), visible character action and physical movement, and a composition that visibly changes over the clip. Still include lens, color grade, mood, photorealistic cinematic style, and the duration in seconds. Make video prompts highly detailed and specific enough to generate consistent, motion-rich output.
+
+MUSIC: Decide honestly WHERE music is actually required — not every scene needs a bed (silence and ambient tension are valid choices). For each scene set "needs_music" truthfully and, when true, write a concrete "music_prompt" (genre, instrumentation, tempo, mood) aligned to that scene's mood; keep scene beds SHORT and supportive so they sit under dialogue, never overpowering it. For each episode, set "soundtrack.needs_soundtrack" and write a cohesive episode score "music_prompt" that captures the whole episode's arc (a unifying score, not a per-scene snippet), with a realistic "duration_sec". Keep every music_prompt consistent with production_guide.music_direction.
 
 VIRALITY: After building the production package, honestly analyze THIS specific series' viral potential and fill the "virality" object. Base the score (0–100), rating, and probability_pct on this story's actual hooks, themes, and characters — do not be generically optimistic. Tie every reason, risk, and improvement to concrete details of this adaptation, give one genuinely scroll-stopping strongest_hook, and pick the best_platform and recommended_format for it.`
 }
