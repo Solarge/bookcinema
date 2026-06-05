@@ -88,13 +88,16 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
           //   dialogue-audio:<slug>:<ep>:<scene>:<dIdx>
           const parts = assetKey.split(':')
           const prefix = parts[0]
-          const cloudPatch = { serverId: _id, serverUrl: s3Url, savedToCloud: true, approvalStatus: approvalStatus || 'pending' }
+          // The presigned s3Url is the display source on reopen. Image/video render off
+          // `localUrl`, audio off `audioUrl` — set them (plus status:'done') so a rehydrated
+          // asset actually shows instead of falling back to the "Generate" button.
+          const cloudPatch = { serverId: _id, serverUrl: s3Url, savedToCloud: true, status: 'done', error: null, approvalStatus: approvalStatus || 'pending' }
           if (prefix === 'char-img') {
             const charId = parts[2] // mediaKey('char-img', slug, charId, variationIndex)
             if (!charId) continue
             setCharacters(prev => ({
               ...prev,
-              [charId]: { ...(prev[charId] ?? IDLE), ...cloudPatch },
+              [charId]: { ...(prev[charId] ?? IDLE), ...cloudPatch, localUrl: s3Url, remoteUrl: s3Url },
             }))
           } else if (prefix === 'scene-vid') {
             // mediaKey('scene-vid', slug, 'ep<n>', 's<n>')
@@ -103,7 +106,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
             const key = `${epPart}-${sPart}` // 'ep1-s1'
             setScenes(prev => ({
               ...prev,
-              [key]: { ...(prev[key] ?? IDLE), ...cloudPatch },
+              [key]: { ...(prev[key] ?? IDLE), ...cloudPatch, localUrl: s3Url, remoteUrl: s3Url },
             }))
           } else if (prefix === 'dialogue-audio') {
             // mediaKey('dialogue-audio', slug, 'ep<n>', 's<n>', 'd<n>')
@@ -113,7 +116,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
             const key = `${epPart}-${sPart}-${dPart}`
             setDialogue(prev => ({
               ...prev,
-              [key]: { ...(prev[key] ?? IDLE), ...cloudPatch },
+              [key]: { ...(prev[key] ?? IDLE), ...cloudPatch, audioUrl: s3Url },
             }))
           }
         }
