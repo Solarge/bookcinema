@@ -22,6 +22,32 @@ test('GET /:id returns a job in the active workspace', async () => {
   assert.equal(res.body.result.text, '{"title":"X"}')
 })
 
+test('GET /:id presigns media result URL (not the raw public bucket URL)', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const key = `generated/${workspace._id}/abc123.png`
+  const job = await Job.create({
+    workspaceId: workspace._id, createdBy: user._id, type: 'image', tier: 'standard', status: 'done',
+    resultUrl: `https://bucket.s3.us-east-1.amazonaws.com/${key}`, resultKey: key,
+  })
+  const res = await authed(request(app()).get(`/api/jobs/${job._id}`), token, workspace._id)
+  assert.equal(res.status, 200)
+  // Presigned URLs carry an AWS signature query string; the raw public URL does not.
+  assert.match(res.body.result.url, /X-Amz-Signature=/)
+  assert.ok(res.body.result.url.includes(key), 'presigned URL points at the stored key')
+})
+
+test('GET /:id falls back to keyFromUrl for legacy jobs without resultKey', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const key = `generated/${workspace._id}/legacy.png`
+  const job = await Job.create({
+    workspaceId: workspace._id, createdBy: user._id, type: 'image', tier: 'standard', status: 'done',
+    resultUrl: `https://bucket.s3.us-east-1.amazonaws.com/${key}`, // no resultKey
+  })
+  const res = await authed(request(app()).get(`/api/jobs/${job._id}`), token, workspace._id)
+  assert.equal(res.status, 200)
+  assert.match(res.body.result.url, /X-Amz-Signature=/)
+})
+
 test('GET / lists jobs for the active workspace only', async () => {
   const { user, token, workspace } = await makeAuthedUser()
   await Job.create({ workspaceId: workspace._id, createdBy: user._id, type: 'text', tier: 'standard' })

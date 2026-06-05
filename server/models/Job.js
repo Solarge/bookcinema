@@ -11,6 +11,9 @@ const jobSchema = new mongoose.Schema({
 
   resultText:  { type: String, default: null },
   resultUrl:   { type: String, default: null },
+  // S3 object key for media results — presigned at read-time so the bucket can keep
+  // Block Public Access on. resultUrl is kept for backward-compat / fallback.
+  resultKey:   { type: String, default: null },
 
   costUsd:      { type: Number, default: 0 },
   errorMessage: { type: String, default: null },
