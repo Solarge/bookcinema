@@ -109,6 +109,10 @@ export const config = {
     // (e.g. to enforce a copyright excerpt) or raise it. Note: very large inputs need a
     // large-context provider (e.g. Gemini); the failover chain should route accordingly.
     maxBookTextChars: Number(process.env.MANAGED_MAX_BOOKTEXT_CHARS) || 2_000_000,
+    // Above this size (characters), generation summarises the book section by section first
+    // (map-reduce), then generates the series from the combined summaries — ensuring full
+    // coverage of very long books that would overflow a single LLM context window.
+    chunkThresholdChars: Number(process.env.MANAGED_CHUNK_THRESHOLD_CHARS) || 60000,
     caps: {
       text:  Number(process.env.MANAGED_CAP_TEXT_DAILY)  || 20,
       image: Number(process.env.MANAGED_CAP_IMAGE_DAILY) || 50,

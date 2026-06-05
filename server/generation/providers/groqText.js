@@ -1,29 +1,41 @@
-import { buildSystemPrompt } from '../systemPrompt.js'
-import { parseSeriesJson } from '../parseSeriesJson.js'
+import { generateSeriesFromBook } from '../chunkedText.js'
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 export const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
 
 export function isConfigured() { return !!process.env.GROQ_API_KEY }
 
-export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', episodeCount = 7, model = DEFAULT_MODEL }) {
-  // Read from env every call so tests (and runtime key rotation) take effect immediately.
+/**
+ * Raw LLM call — returns the response text (not parsed).
+ *
+ * @param {object} opts
+ * @param {string}  opts.system
+ * @param {string}  opts.user
+ * @param {string}  [opts.model]
+ * @param {number}  [opts.maxTokens=8000]
+ * @param {boolean} [opts.json=true]   false → plain text (summary calls)
+ */
+export async function complete({ system, user, model = DEFAULT_MODEL, maxTokens = 8000, json = true }) {
   const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) throw new Error('Groq is not configured (GROQ_API_KEY missing)')
 
   let res
   try {
+    const body = {
+      model,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+    }
+    if (json) body.response_format = { type: 'json_object' }
+
     res = await fetch(GROQ_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model, max_tokens: 8000, temperature: 0.7,
-        response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: buildSystemPrompt(genrePreset, language, episodeCount) },
-          { role: 'user', content: `Here is the book to transform into a cinematic series:\n\n${bookText}` },
-        ],
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(120000),
     })
   } catch (err) {
@@ -35,5 +47,17 @@ export async function generate({ bookText, genrePreset = 'cinematic', language =
     throw new Error(err?.error?.message || `Groq API error ${res.status}`)
   }
   const data = await res.json()
-  return parseSeriesJson(data.choices?.[0]?.message?.content)
+  return data.choices?.[0]?.message?.content ?? ''
+}
+
+/**
+ * Generate a full series from book text.
+ * Delegates to generateSeriesFromBook (single-pass for short books, map-reduce for large).
+ * Interface unchanged for the failover worker.
+ */
+export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', episodeCount = 7, model = DEFAULT_MODEL }) {
+  return generateSeriesFromBook({
+    bookText, genrePreset, language, episodeCount,
+    complete: (args) => complete({ ...args, model: args.model ?? model }),
+  })
 }
