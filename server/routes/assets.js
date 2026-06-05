@@ -1,15 +1,21 @@
 import { Router } from 'express'
+import mongoose from 'mongoose'
 import Asset from '../models/Asset.js'
 import Series from '../models/Series.js'
+import Job from '../models/Job.js'
 import UsageLog from '../models/UsageLog.js'
 import { requireAuth } from '../middleware/auth.js'
 import { resolveWorkspace } from '../middleware/workspace.js'
 import { uploadImage, uploadVideo, uploadAudio } from '../middleware/upload.js'
 import { uploadLimiter } from '../middleware/rateLimit.js'
 import { deleteObject, getPresignedUrl } from '../utils/s3.js'
+import { config } from '../config.js'
 
 const router = Router()
 router.use(requireAuth, resolveWorkspace)
+
+// Managed generation job type → Asset type
+const JOB_TYPE_TO_ASSET = { image: 'character_image', video: 'scene_video', voice: 'dialogue_audio', audio: 'dialogue_audio' }
 
 // Replace the stored public s3Url with a short-lived presigned URL the browser can
 // actually load (the bucket keeps Block Public Access on). Falls back to the stored
@@ -30,6 +36,42 @@ router.get('/:seriesId', async (req, res) => {
   try {
     const assets = await Asset.find({ seriesId: req.params.seriesId, workspaceId: req.workspace._id }).sort({ createdAt: 1 })
     res.json(await Promise.all(assets.map(withSignedUrl)))
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// POST /api/assets/:seriesId/from-job — promote a completed managed generation job's
+// S3 result into a persisted Asset, referencing the existing object (no re-upload, no
+// browser CORS dependency). Idempotent per (series, assetKey) so regenerating a slot
+// updates the existing asset rather than piling up duplicates.
+router.post('/:seriesId/from-job', async (req, res) => {
+  try {
+    const { jobId, assetKey, provider, quality, aspectRatio, prompt } = req.body
+    if (!jobId || !assetKey) return res.status(400).json({ error: 'jobId and assetKey are required' })
+    if (!mongoose.isValidObjectId(jobId)) return res.status(400).json({ error: 'Invalid jobId' })
+
+    const ownsSeries = await Series.exists({ _id: req.params.seriesId, workspaceId: req.workspace._id })
+    if (!ownsSeries) return res.status(404).json({ error: 'Series not found' })
+
+    const job = await Job.findOne({ _id: jobId, workspaceId: req.workspace._id })
+    if (!job) return res.status(404).json({ error: 'Job not found' })
+    if (job.status !== 'done' || !job.resultKey) return res.status(409).json({ error: 'Job has no stored result' })
+
+    const assetType = JOB_TYPE_TO_ASSET[job.type]
+    if (!assetType) return res.status(400).json({ error: `Job type '${job.type}' cannot be saved as an asset` })
+
+    const fields = {
+      userId: req.user._id, workspaceId: req.workspace._id, seriesId: req.params.seriesId,
+      type: assetType, assetKey,
+      s3Key: job.resultKey, s3Url: job.resultUrl, s3Bucket: config.aws.bucketName,
+      provider: provider || '', quality: quality || 'hd', aspectRatio: aspectRatio || '9:16', prompt: prompt || '',
+      costUsd: job.costUsd || 0,
+    }
+    const asset = await Asset.findOneAndUpdate(
+      { seriesId: req.params.seriesId, workspaceId: req.workspace._id, assetKey },
+      fields,
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    )
+    res.status(201).json(await withSignedUrl(asset))
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
