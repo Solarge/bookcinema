@@ -133,6 +133,19 @@ router.delete('/me', async (req, res) => {
     const personalWs = await Workspace.find({ ownerId: req.user._id, type: 'personal' })
     const wsIds = personalWs.map(w => w._id)
     if (wsIds.length) {
+      // Cancel any active Stripe subscriptions — best-effort, don't fail the deletion
+      const stripe = req.app.locals.stripe
+      if (stripe) {
+        for (const ws of personalWs) {
+          if (ws.stripeSubscriptionId) {
+            try {
+              await stripe.subscriptions.cancel(ws.stripeSubscriptionId)
+            } catch (stripeErr) {
+              console.warn('[users] stripe subscription cancel failed (non-fatal):', stripeErr.message)
+            }
+          }
+        }
+      }
       await Series.deleteMany({ workspaceId: { $in: wsIds } })
       await Asset.deleteMany({ workspaceId: { $in: wsIds } })
       await Job.deleteMany({ workspaceId: { $in: wsIds } })

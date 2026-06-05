@@ -51,3 +51,32 @@ export function passwordResetEmail(resetUrl) {
 <p><a href="${resetUrl}">Reset Password</a> (expires in 1 hour)</p>
 <p>If you didn't request this, ignore this email.</p>`
 }
+
+export function welcomeEmail(name) {
+  return `<p>Hi ${name},</p>
+<p>Welcome to BookFilm Studio! Your email is verified and you're ready to turn books into cinematic AI video series.</p>
+<p>Get started by pasting any book text or uploading a PDF — we'll generate a full 7-episode production package including characters, scenes, images, voice, and video.</p>
+<p>Happy creating!</p>`
+}
+
+export function dunningEmail(workspaceName, billingUrl) {
+  return `<p>Hi,</p>
+<p>A payment for your <strong>${workspaceName}</strong> workspace on BookFilm Studio has failed.</p>
+<p>To keep your current plan and avoid a downgrade, please update your payment method:</p>
+<p><a href="${billingUrl}">Update Payment Method</a></p>
+<p>If you believe this is a mistake, please contact us.</p>`
+}
+
+export function lowCreditEmail(name, balance, billingUrl) {
+  return `<p>Hi ${name},</p>
+<p>Your BookFilm Studio workspace is running low on credits — you have <strong>${balance} credits</strong> remaining.</p>
+<p>Top up now to keep your productions going:</p>
+<p><a href="${billingUrl}">Buy Credits</a></p>`
+}
+
+export function jobCompleteEmail(name, jobType, resultUrl) {
+  return `<p>Hi ${name},</p>
+<p>Your <strong>${jobType}</strong> generation on BookFilm Studio is ready!</p>
+${resultUrl ? `<p><a href="${resultUrl}">View your result</a></p>` : '<p>Log in to BookFilm Studio to view your result.</p>'}
+<p>Thanks for using BookFilm Studio.</p>`
+}

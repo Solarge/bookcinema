@@ -289,15 +289,23 @@ router.get('/config', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
-// GET /api/admin/stats — platform overview (expanded with workspaces + jobs)
+// Monthly price per plan (USD). Free = 0. Used for MRR calculation.
+const PLAN_MONTHLY_PRICE = { free: 0, pro: 19, studio: 79 }
+
+// GET /api/admin/stats — platform overview (expanded with workspaces + jobs + MRR)
 router.get('/stats', async (req, res) => {
   try {
-    const [users, series, totalRevenue, workspaces, jobStatusCounts] = await Promise.all([
+    const [users, series, totalRevenue, workspaces, jobStatusCounts, planCounts] = await Promise.all([
       User.countDocuments(),
       Series.countDocuments(),
       UsageLog.aggregate([{ $group: { _id: null, total: { $sum: '$costUsd' } } }]),
       Workspace.countDocuments(),
       Job.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      // Count paying plans — only personal workspaces with an active subscription (stripeSubscriptionId set)
+      Workspace.aggregate([
+        { $match: { plan: { $in: ['pro', 'studio'] }, stripeSubscriptionId: { $ne: null } } },
+        { $group: { _id: '$plan', count: { $sum: 1 } } },
+      ]),
     ])
     const jobsByStatus = { queued: 0, active: 0, done: 0, failed: 0 }
     let totalJobs = 0
@@ -305,12 +313,23 @@ router.get('/stats', async (req, res) => {
       if (s._id in jobsByStatus) jobsByStatus[s._id] = s.count
       totalJobs += s.count
     }
+    // MRR: sum of (plan price × subscriber count) across paying plans
+    const subscriptions = { pro: 0, studio: 0 }
+    let mrr = 0
+    for (const p of planCounts) {
+      if (p._id in subscriptions) {
+        subscriptions[p._id] = p.count
+        mrr += (PLAN_MONTHLY_PRICE[p._id] || 0) * p.count
+      }
+    }
     res.json({
       users,
       series,
       totalCostUsd: totalRevenue[0]?.total ?? 0,
       workspaces,
       jobs: { total: totalJobs, byStatus: jobsByStatus },
+      mrr,
+      subscriptions,
     })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })

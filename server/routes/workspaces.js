@@ -129,6 +129,29 @@ router.patch('/:id/members/:userId', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
+// POST /api/workspaces/:id/transfer-ownership — transfer ownership to an existing member (owner only)
+router.post('/:id/transfer-ownership', async (req, res) => {
+  try {
+    const { newOwnerId } = req.body
+    if (!newOwnerId || !mongoose.isValidObjectId(newOwnerId)) return res.status(400).json({ error: 'newOwnerId must be a valid user id' })
+    const ws = mongoose.isValidObjectId(req.params.id) ? await Workspace.findById(req.params.id) : null
+    if (!ws || ws.ownerId.toString() !== req.user._id.toString()) return res.status(403).json({ error: 'Only the workspace owner can transfer ownership' })
+    // New owner must already be a member
+    const targetMember = ws.members.find(m => m.userId.toString() === newOwnerId)
+    if (!targetMember) return res.status(400).json({ error: 'Target user is not a member of this workspace' })
+    // Cannot transfer to yourself
+    if (newOwnerId === req.user._id.toString()) return res.status(400).json({ error: 'Cannot transfer ownership to yourself' })
+    // Swap roles: new owner → 'owner', old owner → 'admin'
+    for (const m of ws.members) {
+      if (m.userId.toString() === newOwnerId) m.role = 'owner'
+      else if (m.userId.toString() === req.user._id.toString()) m.role = 'admin'
+    }
+    ws.ownerId = newOwnerId
+    await ws.save()
+    res.json(ws)
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
 // DELETE /api/workspaces/:id/members/:userId — remove member (owner/admin)
 router.delete('/:id/members/:userId', async (req, res) => {
   try {

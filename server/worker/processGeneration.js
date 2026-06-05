@@ -3,6 +3,11 @@ import UsageLog from '../models/UsageLog.js'
 import Workspace from '../models/Workspace.js'
 import { resolve as defaultResolve } from '../generation/resolve.js'
 import { uploadBuffer as defaultUpload } from '../utils/s3.js'
+import { sendEmail, jobCompleteEmail } from '../utils/email.js'
+import { config } from '../config.js'
+
+// Job types that warrant a "your generation is ready" email (slower jobs only)
+const NOTIFY_TYPES = new Set(['video', 'compile'])
 
 export async function processGeneration(data, deps = {}) {
   const resolveFn = deps.resolveFn || defaultResolve
@@ -56,6 +61,25 @@ export async function processGeneration(data, deps = {}) {
     }
     await Job.findByIdAndUpdate(jobId, update)
     await UsageLog.create({ userId: createdBy, workspaceId, action: 'generate_' + type, provider, success: true })
+
+    // Job-complete notification for slow job types — best-effort, never block the result
+    if (NOTIFY_TYPES.has(type)) {
+      try {
+        const User = (await import('../models/User.js')).default
+        const creator = await User.findById(createdBy)
+        if (creator) {
+          const resultLink = update.resultUrl || `${config.clientUrl}/`
+          await sendEmail({
+            to: creator.email,
+            subject: `Your ${type} generation is ready — BookFilm Studio`,
+            html: jobCompleteEmail(creator.name, type, resultLink),
+          })
+        }
+      } catch (notifyErr) {
+        console.warn('[processGeneration] job-complete email failed (non-fatal):', notifyErr.message)
+      }
+    }
+
     return { ok: true }
   } catch (err) {
     const msg = (err?.message || 'generation failed').slice(0, 500)
