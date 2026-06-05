@@ -6,14 +6,13 @@ import { useDivModalA11y } from '../hooks/useModalA11y'
 import { GENRE_PRESETS } from '../utils/genrePresets'
 import { LANGUAGES } from '../utils/languageConfig'
 import { planFeatures } from '../utils/planFeatures'
+import '../styles/settings.css'
 
 // ── Section wrapper ────────────────────────────────────────────────────────
 function Section({ title, children }) {
   return (
-    <div style={{ marginBottom: '26px' }}>
-      <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', letterSpacing: '3px', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '10px', paddingBottom: '6px', borderBottom: '1px solid var(--border)' }}>
-        {title}
-      </div>
+    <div className="set-section">
+      <div className="set-section-title">{title}</div>
       {children}
     </div>
   )
@@ -21,20 +20,20 @@ function Section({ title, children }) {
 Section.propTypes = { title: PropTypes.string.isRequired, children: PropTypes.node.isRequired }
 
 // ── Radio row ──────────────────────────────────────────────────────────────
-function OptionRow({ id, label, sublabel, checked, onChange }) {
+function OptionRow({ label, sublabel, checked, onChange }) {
   return (
-    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '10px', cursor: 'pointer' }}>
-      <input type="radio" checked={checked} onChange={onChange} style={{ marginTop: '3px', flexShrink: 0, accentColor: 'var(--gold)' }} />
+    <label className="set-option-row">
+      <input type="radio" checked={checked} onChange={onChange} className="set-option-radio" />
       <div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: checked ? 'var(--cream)' : 'var(--muted)', letterSpacing: '0.5px' }}>
+        <div className={`set-option-label${checked ? ' is-checked' : ''}`}>
           {label}
         </div>
-        {sublabel && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#4a5a6a', marginTop: '2px' }}>{sublabel}</div>}
+        {sublabel && <div className="set-option-sublabel">{sublabel}</div>}
       </div>
     </label>
   )
 }
-OptionRow.propTypes = { id: PropTypes.string.isRequired, label: PropTypes.string.isRequired, sublabel: PropTypes.string, checked: PropTypes.bool.isRequired, onChange: PropTypes.func.isRequired }
+OptionRow.propTypes = { label: PropTypes.string.isRequired, sublabel: PropTypes.string, checked: PropTypes.bool.isRequired, onChange: PropTypes.func.isRequired }
 
 const VIDEO_QUALITY_OPTIONS = [
   { value: 'standard', label: 'Standard 720p',          sub: 'Faster generation — good for drafts' },
@@ -64,29 +63,31 @@ export default function SettingsPanel({ onClose }) {
   const panelRef = useRef(null)
   useDivModalA11y(onClose, panelRef)
 
+  const isAuto = settings.episodeCount === 'auto' || settings.episodeCount == null
+
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 300, display: 'flex' }} role="presentation" onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()}>
-      <div style={{ flex: 1 }} />
+    <div className="set-overlay" role="presentation" onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()}>
+      <div className="set-overlay-spacer" />
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-panel-title"
-        style={{ width: '400px', background: 'var(--surface)', borderLeft: '1px solid var(--border)', height: '100vh', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}
+        className="set-panel"
         onClick={e => e.stopPropagation()}
       >
 
         {/* Header */}
-        <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 1 }}>
-          <span id="settings-panel-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>GENERATION SETTINGS</span>
-          <button onClick={onClose} aria-label="Close settings" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        <div className="set-header">
+          <span id="settings-panel-title" className="set-header-title">GENERATION SETTINGS</span>
+          <button onClick={onClose} aria-label="Close settings" className="set-close-btn">×</button>
         </div>
 
-        <div style={{ padding: '20px', flex: 1 }}>
+        <div className="set-body">
 
           {/* ── GENERATION TIER ─────────────────────────────────────── */}
           <Section title="Generation Tier">
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+            <div className="set-tab-row">
               {[['standard', 'Standard'], ['premium', 'Premium']].map(([val, label]) => {
                 const isLocked = val === 'premium' && !hasPremium
                 const isActive = settings.managedTier === val
@@ -96,27 +97,17 @@ export default function SettingsPanel({ onClose }) {
                     onClick={() => { if (!isLocked) updateSettings({ managedTier: val }) }}
                     disabled={isLocked}
                     title={isLocked ? 'Requires Pro or Studio plan — upgrade to unlock' : undefined}
-                    style={{
-                      flex: 1, padding: '8px 10px',
-                      background: isActive && !isLocked ? 'rgba(200,146,42,0.12)' : 'transparent',
-                      border: `1px solid ${isActive && !isLocked ? 'var(--gold)' : 'var(--border)'}`,
-                      color: isLocked ? 'var(--muted)' : isActive ? 'var(--gold)' : 'var(--muted)',
-                      fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
-                      letterSpacing: '1px',
-                      cursor: isLocked ? 'not-allowed' : 'pointer',
-                      textTransform: 'uppercase',
-                      opacity: isLocked ? 0.5 : 1,
-                    }}
+                    className={`set-tab-btn${isActive && !isLocked ? ' is-active' : ''}`}
                   >
                     {label}
                     {isLocked && (
-                      <span style={{ marginLeft: '5px', fontSize: '8px', color: 'var(--muted)', letterSpacing: '0.5px' }}>🔒 Pro</span>
+                      <span className="set-lock-badge">🔒 Pro</span>
                     )}
                   </button>
                 )
               })}
             </div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', lineHeight: '1.6' }}>
+            <div className="set-tier-desc">
               {hasPremium
                 ? 'Premium tier uses higher-quality models for images, video, and voice.'
                 : 'Upgrade to Pro or Studio to unlock Premium tier generation.'}
@@ -125,54 +116,49 @@ export default function SettingsPanel({ onClose }) {
 
           {/* ── EPISODES ────────────────────────────────────────────── */}
           <Section title="Episodes">
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#4a5a6a', marginBottom: '10px' }}>
+            <div className="set-hint">
               The book decides how many episodes (and how long each runs) it needs — or set a specific count.
             </div>
-            {(() => {
-              const isAuto = settings.episodeCount === 'auto' || settings.episodeCount == null
-              const tabStyle = (on) => ({
-                flex: 1, padding: '8px', cursor: 'pointer', fontFamily: "'JetBrains Mono', monospace",
-                fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase',
-                background: on ? 'rgba(200,146,42,0.12)' : 'transparent',
-                border: `1px solid ${on ? 'var(--gold)' : 'var(--border)'}`,
-                color: on ? 'var(--gold)' : 'var(--muted)',
-              })
-              return (
-                <>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button onClick={() => updateSettings({ episodeCount: 'auto' })} style={tabStyle(isAuto)} aria-pressed={isAuto}>Auto — as the book needs</button>
-                    <button onClick={() => updateSettings({ episodeCount: 7 })} style={tabStyle(!isAuto)} aria-pressed={!isAuto}>Custom</button>
-                  </div>
-                  {!isAuto && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-                      <input
-                        type="number" min={2} max={24} value={settings.episodeCount}
-                        onChange={e => { const v = Math.min(24, Math.max(2, parseInt(e.target.value, 10) || 7)); updateSettings({ episodeCount: v }) }}
-                        aria-label="Number of episodes"
-                        style={{ width: '64px', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', padding: '6px 10px', outline: 'none', textAlign: 'center' }}
-                      />
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>episodes</span>
-                    </div>
-                  )}
-                </>
-              )
-            })()}
+            <div className="set-ep-row">
+              <button
+                onClick={() => updateSettings({ episodeCount: 'auto' })}
+                className={`set-tab-btn${isAuto ? ' is-active' : ''}`}
+                aria-pressed={isAuto}
+              >Auto — as the book needs</button>
+              <button
+                onClick={() => updateSettings({ episodeCount: 7 })}
+                className={`set-tab-btn${!isAuto ? ' is-active' : ''}`}
+                aria-pressed={!isAuto}
+              >Custom</button>
+            </div>
+            {!isAuto && (
+              <div className="set-ep-count-row">
+                <input
+                  type="number"
+                  min={2}
+                  max={24}
+                  value={settings.episodeCount}
+                  onChange={e => { const v = Math.min(24, Math.max(2, parseInt(e.target.value, 10) || 7)); updateSettings({ episodeCount: v }) }}
+                  aria-label="Number of episodes"
+                  className="set-ep-input"
+                />
+                <span className="set-ep-label">episodes</span>
+              </div>
+            )}
           </Section>
 
           {/* ── OUTPUT LANGUAGE ─────────────────────────────────────── */}
           <Section title="Output Language">
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#4a5a6a', marginBottom: '10px' }}>
+            <div className="set-hint">
               All generated text (dialogue, titles, captions) will be in the selected language.
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            <div className="set-grid-2">
               {LANGUAGES.map(lang => (
-                <button key={lang.code} onClick={() => updateSettings({ language: lang.code })} style={{
-                  background: settings.language === lang.code ? 'rgba(200,146,42,0.1)' : 'transparent',
-                  border: `1px solid ${settings.language === lang.code ? 'var(--gold)' : 'var(--border)'}`,
-                  color: settings.language === lang.code ? 'var(--gold)' : 'var(--muted)',
-                  padding: '7px 10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
-                  letterSpacing: '0.5px', cursor: 'pointer', textAlign: 'left', display: 'flex', gap: '6px', alignItems: 'center',
-                }}>
+                <button
+                  key={lang.code}
+                  onClick={() => updateSettings({ language: lang.code })}
+                  className={`set-sel-btn${settings.language === lang.code ? ' is-active' : ''}`}
+                >
                   <span>{lang.flag}</span><span>{lang.label}</span>
                 </button>
               ))}
@@ -221,15 +207,13 @@ export default function SettingsPanel({ onClose }) {
 
           {/* ── GENRE PRESET ─────────────────────────────────────────── */}
           <Section title="Genre / Style Preset">
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+            <div className="set-grid-2">
               {Object.entries(GENRE_PRESETS).map(([key, preset]) => (
-                <button key={key} onClick={() => updateSettings({ genrePreset: key })} style={{
-                  background: settings.genrePreset === key ? 'rgba(200,146,42,0.1)' : 'transparent',
-                  border: `1px solid ${settings.genrePreset === key ? 'var(--gold)' : 'var(--border)'}`,
-                  color: settings.genrePreset === key ? 'var(--gold)' : 'var(--muted)',
-                  padding: '8px 10px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
-                  letterSpacing: '1px', cursor: 'pointer', textAlign: 'left',
-                }}>
+                <button
+                  key={key}
+                  onClick={() => updateSettings({ genrePreset: key })}
+                  className={`set-genre-btn${settings.genrePreset === key ? ' is-active' : ''}`}
+                >
                   {preset.emoji} {preset.label}
                 </button>
               ))}
@@ -238,24 +222,39 @@ export default function SettingsPanel({ onClose }) {
 
           {/* ── WHITE LABEL ──────────────────────────────────────────── */}
           <Section title="White Label / Agency">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px', cursor: 'pointer' }}>
-              <input type="checkbox" checked={settings.whiteLabel.enabled} onChange={e => updateSettings({ whiteLabel: { enabled: e.target.checked } })} style={{ accentColor: 'var(--gold)' }} />
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--cream)' }}>Enable white-labelling</span>
+            <label className="set-wl-toggle-label">
+              <input
+                type="checkbox"
+                checked={settings.whiteLabel.enabled}
+                onChange={e => updateSettings({ whiteLabel: { enabled: e.target.checked } })}
+                className="set-wl-toggle-checkbox"
+              />
+              <span className="set-wl-toggle-text">Enable white-labelling</span>
             </label>
             {settings.whiteLabel.enabled && (
               <>
                 {[['appName','App Name','BookFilm Studio'],['logoUrl','Logo URL','https://…']].map(([field, label, ph]) => (
-                  <div key={field} style={{ marginBottom: '10px' }}>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', marginBottom: '4px', textTransform: 'uppercase' }}>{label}</div>
-                    <input type="text" value={settings.whiteLabel[field] || ''} onChange={e => updateSettings({ whiteLabel: { [field]: e.target.value } })} placeholder={ph}
-                      style={{ width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '7px 10px', outline: 'none' }} />
+                  <div key={field} className="set-wl-field">
+                    <div className="set-wl-field-label">{label}</div>
+                    <input
+                      type="text"
+                      value={settings.whiteLabel[field] || ''}
+                      onChange={e => updateSettings({ whiteLabel: { [field]: e.target.value } })}
+                      placeholder={ph}
+                      className="set-wl-input"
+                    />
                   </div>
                 ))}
-                <div style={{ marginBottom: '10px' }}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', marginBottom: '4px', textTransform: 'uppercase' }}>Primary Colour</div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <input type="color" value={settings.whiteLabel.primaryColor || '#c8922a'} onChange={e => updateSettings({ whiteLabel: { primaryColor: e.target.value } })} style={{ width: '36px', height: '28px', border: '1px solid var(--border)', background: 'none', cursor: 'pointer', padding: '2px' }} />
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)' }}>{settings.whiteLabel.primaryColor || '#c8922a'}</span>
+                <div className="set-wl-field">
+                  <div className="set-wl-field-label">Primary Colour</div>
+                  <div className="set-color-row">
+                    <input
+                      type="color"
+                      value={settings.whiteLabel.primaryColor || '#c8922a'}
+                      onChange={e => updateSettings({ whiteLabel: { primaryColor: e.target.value } })}
+                      className="set-color-picker"
+                    />
+                    <span className="set-color-value">{settings.whiteLabel.primaryColor || '#c8922a'}</span>
                   </div>
                 </div>
               </>

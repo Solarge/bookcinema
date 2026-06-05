@@ -1,0 +1,289 @@
+/* ── SettingsPanel component styles ──────────────────────────────────────── */
+
+/* Overlay */
+.set-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+}
+.set-overlay-spacer {
+  flex: 1;
+}
+
+/* Sliding panel */
+.set-panel {
+  width: 400px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sticky header */
+.set-header {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.set-header-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 3px;
+}
+.set-close-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+.set-close-btn:hover {
+  color: var(--cream);
+}
+
+/* Body */
+.set-body {
+  padding: 20px;
+  flex: 1;
+}
+
+/* Section wrapper */
+.set-section {
+  margin-bottom: 26px;
+}
+.set-section-title {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Sub-hint text below a section title */
+.set-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #4a5a6a;
+  margin-bottom: 10px;
+}
+
+/* Tier / tab button row */
+.set-tab-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.set-tab-btn {
+  flex: 1;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.set-tab-btn.is-active {
+  background: rgba(200, 146, 42, 0.12);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.set-tab-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.set-lock-badge {
+  margin-left: 5px;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+/* Tier / plan description */
+.set-tier-desc {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* Episode auto/custom toggle */
+.set-ep-row {
+  display: flex;
+  gap: 8px;
+}
+.set-ep-count-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.set-ep-input {
+  width: 64px;
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 6px 10px;
+  outline: none;
+  text-align: center;
+}
+.set-ep-input:focus {
+  border-color: var(--gold);
+}
+.set-ep-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* Language / Genre 2-col grids */
+.set-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+/* Selector button (language, genre) */
+.set-sel-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 7px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.set-sel-btn.is-active {
+  background: rgba(200, 146, 42, 0.1);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Genre preset button (slightly different padding) */
+.set-genre-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 8px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-align: left;
+}
+.set-genre-btn.is-active {
+  background: rgba(200, 146, 42, 0.1);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* Radio option row */
+.set-option-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.set-option-radio {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--gold);
+}
+.set-option-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+.set-option-label.is-checked {
+  color: var(--cream);
+}
+.set-option-sublabel {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #4a5a6a;
+  margin-top: 2px;
+}
+
+/* White-label section */
+.set-wl-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+.set-wl-toggle-checkbox {
+  accent-color: var(--gold);
+}
+.set-wl-toggle-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--cream);
+}
+.set-wl-field {
+  margin-bottom: 10px;
+}
+.set-wl-field-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.set-wl-input {
+  width: 100%;
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 7px 10px;
+  outline: none;
+}
+.set-wl-input:focus {
+  border-color: var(--gold);
+}
+.set-color-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.set-color-picker {
+  width: 36px;
+  height: 28px;
+  border: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+}
+.set-color-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}

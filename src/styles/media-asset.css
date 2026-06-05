@@ -1,0 +1,311 @@
+/* ── MediaAsset component styles ─────────────────────────────────────────── */
+
+/* ── Shared wrapper ───────────────────────────────────────────────────────── */
+.ma-asset-wrap {
+  margin-bottom: 12px;
+}
+
+/* ── Image asset ──────────────────────────────────────────────────────────── */
+.ma-img-container {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+.ma-img {
+  width: 100%;
+  max-width: 300px;
+  display: block;
+  border: 1px solid var(--border);
+}
+.ma-img-overlay {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 4px;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* placeholder box (image + video) */
+.ma-placeholder {
+  width: 100%;
+  max-width: 300px;
+  height: 200px;
+  background: var(--surface2);
+  border: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.ma-placeholder.is-locked {
+  border-color: var(--gold);
+}
+
+/* ── Video asset ──────────────────────────────────────────────────────────── */
+.ma-video-wrap {
+  margin-bottom: 12px;
+}
+.ma-video-container {
+  position: relative;
+}
+.ma-video {
+  width: 100%;
+  max-width: 400px;
+  display: block;
+  border: 1px solid var(--border);
+  background: #000;
+}
+.ma-video-controls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.ma-video-placeholder {
+  width: 100%;
+  max-width: 400px;
+  height: 100px;
+  background: var(--surface2);
+  border: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ma-video-placeholder.is-locked {
+  border-color: var(--gold);
+}
+
+/* ── Audio asset ──────────────────────────────────────────────────────────── */
+.ma-audio-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.ma-audio-player {
+  height: 28px;
+  flex: 1;
+  min-width: 180px;
+}
+.ma-audio-generating {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+.ma-audio-locked {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ma-audio-lock-icon {
+  font-size: 12px;
+  opacity: 0.5;
+}
+.ma-audio-lock-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+}
+.ma-audio-error {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #f08080;
+}
+
+/* ── Generating indicator (spinner) ──────────────────────────────────────── */
+.ma-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--gold);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin-reel 1s linear infinite;
+}
+.ma-spinner-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* ── Plan-lock overlay ────────────────────────────────────────────────────── */
+.ma-lock-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  text-align: center;
+}
+.ma-lock-icon {
+  font-size: 18px;
+  opacity: 0.6;
+}
+.ma-lock-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.ma-lock-upgrade-btn {
+  background: var(--gold);
+  color: #080b10;
+  border: none;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+/* Inline (audio row) variant */
+.ma-lock-upgrade-btn-sm {
+  background: var(--gold);
+  color: #080b10;
+  border: none;
+  font-family: 'Cinzel', serif;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+/* ── Primary generate button ─────────────────────────────────────────────── */
+.ma-primary-btn {
+  background: var(--gold);
+  color: #080b10;
+  border: none;
+  padding: 7px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.ma-primary-btn:disabled,
+.ma-primary-btn.is-disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* ── Small regen / action button ─────────────────────────────────────────── */
+.ma-small-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 4px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+/* Gold regen variant */
+.ma-small-btn-gold {
+  background: #c8922a;
+  border: 1px solid #c8922a;
+  color: #080b10;
+  padding: 4px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+/* Save link */
+.ma-save-link {
+  background: transparent;
+  border: 1px solid #1e2d3d;
+  color: var(--muted);
+  padding: 4px 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  text-decoration: none;
+  display: inline-block;
+}
+
+/* ── Cloud controls ───────────────────────────────────────────────────────── */
+.ma-cloud-saved-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ma-cloud-saved-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #6dc87a;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.ma-cloud-btn-remove {
+  background: transparent;
+  border: 1px solid #3a1818;
+  color: #c05050;
+  padding: 3px 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.ma-cloud-unsaved-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.ma-cloud-btn-save {
+  background: transparent;
+  border: 1px solid #1e3a2a;
+  color: #6dc87a;
+  padding: 3px 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.ma-cloud-btn-save:disabled {
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.ma-cloud-error {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #f08080;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Error text inside placeholder ───────────────────────────────────────── */
+.ma-error-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #f08080;
+  text-align: center;
+  padding: 0 12px;
+}
+/* Video placeholder error already uses the same padding via .ma-error-text */
+.ma-disabled-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  text-align: center;
+  padding: 0 12px;
+}
