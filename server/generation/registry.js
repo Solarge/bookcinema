@@ -12,6 +12,7 @@ import * as replicateVideo from './providers/replicateVideo.js'
 import * as runwayVideo from './providers/runwayVideo.js'
 import * as lumaVideo from './providers/lumaVideo.js'
 import * as falaiVideo from './providers/falaiVideo.js'
+import * as replicateMusic from './providers/replicateMusic.js'
 
 // Fixed estimated cost for job types that don't go through the provider registry
 // (e.g. compile = server-side ffmpeg; small fixed cost for CPU/egress).
@@ -109,6 +110,23 @@ export const MANAGED_PROVIDERS = {
         { provider: 'luma',      adapter: lumaVideo,      model: lumaVideo.DEFAULT_MODEL },
         { provider: 'replicate', adapter: replicateVideo, model: replicateVideo.DEFAULT_MODEL },
         { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.DEFAULT_MODEL },   // standard fallback
+      ],
+    },
+  },
+  // Music / soundtrack — generated scores (per-scene beds + per-episode score).
+  // Served by Replicate MusicGen; both tiers use the same model today (the premium
+  // tier exists for cohesive longer episode scores and is priced higher accordingly).
+  music: {
+    standard: {
+      credits: 10, estCostUsd: 0.1,
+      providers: [
+        { provider: 'replicate', adapter: replicateMusic, model: replicateMusic.DEFAULT_MODEL },
+      ],
+    },
+    premium: {
+      credits: 15, estCostUsd: 0.15,
+      providers: [
+        { provider: 'replicate', adapter: replicateMusic, model: replicateMusic.DEFAULT_MODEL },
       ],
     },
   },

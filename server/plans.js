@@ -6,17 +6,17 @@ export const PLANS = {
     label: 'Free',
     credits: 25, premium: false, watermark: true, whiteLabel: false, maxSeats: 1,
     // Capabilities unlocked at this plan:
-    features: { text: true, image: true, voice: false, video: false, social: false, premiumTier: false },
+    features: { text: true, image: true, voice: false, video: false, music: false, social: false, premiumTier: false },
   },
   pro: {
     label: 'Pro',
     credits: 500, premium: true, watermark: false, whiteLabel: false, maxSeats: null,
-    features: { text: true, image: true, voice: true, video: true, social: true, premiumTier: true },
+    features: { text: true, image: true, voice: true, video: true, music: true, social: true, premiumTier: true },
   },
   studio: {
     label: 'Studio',
     credits: 2000, premium: true, watermark: false, whiteLabel: true, maxSeats: null,
-    features: { text: true, image: true, voice: true, video: true, social: true, premiumTier: true },
+    features: { text: true, image: true, voice: true, video: true, music: true, social: true, premiumTier: true },
   },
 }
 

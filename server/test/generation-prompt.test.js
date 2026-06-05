@@ -27,6 +27,15 @@ test('prompt demands a full cast, motion-rich video, and a virality analysis', (
   assert.match(p, /strongest_hook/)
 })
 
+test('prompt includes the music schema fields and a music-direction instruction', () => {
+  const p = buildSystemPrompt('cinematic', 'en')
+  assert.match(p, /"music_prompt"/)
+  assert.match(p, /"needs_music"/)
+  assert.match(p, /"soundtrack"/)
+  assert.match(p, /"needs_soundtrack"/)
+  assert.match(p, /MUSIC:/)
+})
+
 test('buildSystemPrompt falls back to cinematic for an unknown preset', () => {
   const unknown = buildSystemPrompt('does-not-exist', 'en')
   assert.equal(typeof unknown, 'string')

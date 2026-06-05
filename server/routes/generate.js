@@ -116,6 +116,32 @@ router.post('/voice', managedAccess('voice'), async (req, res) => {
   } catch (err) { console.error('generate/voice error:', err); res.status(500).json({ error: 'Server error' }) }
 })
 
+// POST /api/generate/music — generate a music bed / soundtrack score.
+// Mirrors POST /voice for moderation/debit/validation shape.
+router.post('/music', managedAccess('music'), async (req, res) => {
+  try {
+    const { prompt, duration: rawDuration = 20, tier = 'standard' } = req.body
+    if (!prompt || typeof prompt !== 'string') return res.status(400).json({ error: 'prompt is required' })
+    if (prompt.length > 2000) return res.status(400).json({ error: 'prompt is too long (max 2000 characters)' })
+    if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+
+    // Clamp duration to 3–60 seconds (default 20).
+    const num = Number(rawDuration)
+    const duration = Number.isFinite(num) ? Math.min(60, Math.max(3, Math.round(num))) : 20
+
+    // Server-side moderation — runs BEFORE credit debit so blocked content is never charged.
+    const mod = await moderateText(prompt)
+    if (mod.flagged) {
+      return res.status(422).json({
+        error: 'This content violates our usage policy and cannot be generated.',
+        code: 'content_blocked',
+      })
+    }
+
+    return await enqueueGeneration(req, res, { type: 'music', tier, params: { prompt, duration }, payload: { prompt, duration, tier } })
+  } catch (err) { console.error('generate/music error:', err); res.status(500).json({ error: 'Server error' }) }
+})
+
 // POST /api/generate/image
 router.post('/image', managedAccess('image'), async (req, res) => {
   try {
@@ -164,7 +190,7 @@ router.post('/video', managedAccess('video'), async (req, res) => {
 // POST /api/generate/compile
 router.post('/compile', managedAccess('video'), async (req, res) => {
   try {
-    const { seriesId, episodeNumber, clips } = req.body
+    const { seriesId, episodeNumber, clips, soundtrackUrl } = req.body
 
     // Validate clips array
     if (!Array.isArray(clips) || clips.length < 2) {
@@ -179,11 +205,19 @@ router.post('/compile', managedAccess('video'), async (req, res) => {
       }
     }
 
+    // Optional soundtrack score muxed under the concatenated audio. Same SSRF guard as clips.
+    if (soundtrackUrl != null) {
+      const check = validateVideoUrl(soundtrackUrl)
+      if (!check.ok) {
+        return res.status(400).json({ error: `Invalid soundtrack URL: ${check.reason}` })
+      }
+    }
+
     return await enqueueGeneration(req, res, {
       type: 'compile',
       tier: 'standard',
       params:  { seriesId: seriesId || null, episodeNumber: episodeNumber ?? null },
-      payload: { clips, seriesId: seriesId || null, episodeNumber: episodeNumber ?? null },
+      payload: { clips, soundtrackUrl: soundtrackUrl || null, seriesId: seriesId || null, episodeNumber: episodeNumber ?? null },
     })
   } catch (err) {
     console.error('generate/compile error:', err)

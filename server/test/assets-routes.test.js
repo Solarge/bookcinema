@@ -69,6 +69,32 @@ test('from-job promotes a completed job into a presigned Asset', async () => {
   assert.equal(await Asset.countDocuments({ seriesId: series._id }), 1)
 })
 
+test('from-job honors a valid assetType override (music job → episode_score)', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const job = await Job.create({
+    workspaceId: workspace._id, createdBy: user._id, type: 'music', tier: 'standard', status: 'done',
+    resultKey: `generated/${workspace._id}/score.mp3`, resultUrl: `https://b.s3.us-east-1.amazonaws.com/generated/${workspace._id}/score.mp3`,
+  })
+  const res = await authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id)
+    .send({ jobId: String(job._id), assetKey: 'ep1:score', assetType: 'episode_score' })
+  assert.equal(res.status, 201)
+  assert.equal(res.body.type, 'episode_score')
+})
+
+test('from-job falls back to the job-type default when assetType is invalid (music → scene_music)', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const job = await Job.create({
+    workspaceId: workspace._id, createdBy: user._id, type: 'music', tier: 'standard', status: 'done',
+    resultKey: `generated/${workspace._id}/bed.mp3`, resultUrl: `https://b.s3.us-east-1.amazonaws.com/generated/${workspace._id}/bed.mp3`,
+  })
+  const res = await authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id)
+    .send({ jobId: String(job._id), assetKey: 'ep1-s2:bed', assetType: 'not_a_real_type' })
+  assert.equal(res.status, 201)
+  assert.equal(res.body.type, 'scene_music')
+})
+
 test('from-job is idempotent per (series, assetKey) — regenerate updates in place', async () => {
   const { user, token, workspace } = await makeAuthedUser()
   const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })

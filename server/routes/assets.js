@@ -15,7 +15,10 @@ const router = Router()
 router.use(requireAuth, resolveWorkspace)
 
 // Managed generation job type → Asset type
-const JOB_TYPE_TO_ASSET = { image: 'character_image', video: 'scene_video', voice: 'dialogue_audio', audio: 'dialogue_audio' }
+const JOB_TYPE_TO_ASSET = { image: 'character_image', video: 'scene_video', voice: 'dialogue_audio', audio: 'dialogue_audio', music: 'scene_music' }
+
+// Valid Asset.type enum values — used to validate an optional caller-supplied assetType override.
+const ASSET_TYPES = new Set(Asset.schema.path('type').enumValues)
 
 // Derive the S3 object key from a stored public URL (for jobs/assets created before
 // resultKey/s3Key was stored, or by an older worker build).
@@ -51,7 +54,7 @@ router.get('/:seriesId', async (req, res) => {
 // updates the existing asset rather than piling up duplicates.
 router.post('/:seriesId/from-job', async (req, res) => {
   try {
-    const { jobId, assetKey, provider, quality, aspectRatio, prompt } = req.body
+    const { jobId, assetKey, provider, quality, aspectRatio, prompt, assetType: requestedAssetType } = req.body
     if (!jobId || !assetKey) return res.status(400).json({ error: 'jobId and assetKey are required' })
     if (!mongoose.isValidObjectId(jobId)) return res.status(400).json({ error: 'Invalid jobId' })
 
@@ -64,7 +67,12 @@ router.post('/:seriesId/from-job', async (req, res) => {
     const s3Key = job.resultKey || keyFromUrl(job.resultUrl)
     if (job.status !== 'done' || !s3Key) return res.status(409).json({ error: 'Job has no stored result' })
 
-    const assetType = JOB_TYPE_TO_ASSET[job.type]
+    // Honor an explicit assetType override when it's a valid Asset.type enum value
+    // (e.g. a 'music' job saved as 'episode_score' rather than the default 'scene_music').
+    // Otherwise fall back to the job-type default mapping.
+    const assetType = (requestedAssetType && ASSET_TYPES.has(requestedAssetType))
+      ? requestedAssetType
+      : JOB_TYPE_TO_ASSET[job.type]
     if (!assetType) return res.status(400).json({ error: `Job type '${job.type}' cannot be saved as an asset` })
 
     const fields = {

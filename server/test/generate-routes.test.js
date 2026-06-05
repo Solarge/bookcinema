@@ -80,6 +80,57 @@ test('POST /voice 403 when workspace not allowlisted', async () => {
   assert.equal(res.status, 403)
 })
 
+test('POST /music creates a queued music job and enqueues it (202) for a pro workspace', async () => {
+  const { token, workspace } = await betaUser({ plan: 'pro' })
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullm1' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/music'), token, workspace._id)
+    .send({ prompt: 'epic orchestral battle score', duration: 30, tier: 'standard' })
+  assert.equal(res.status, 202, `expected 202, got ${res.status}: ${JSON.stringify(res.body)}`)
+  const job = await Job.findById(res.body.jobId)
+  assert.equal(job.type, 'music')
+  assert.equal(job.status, 'queued')
+  assert.equal(job.params.duration, 30)
+  assert.equal(enq[0].type, 'music')
+  assert.equal(enq[0].payload.prompt, 'epic orchestral battle score')
+})
+
+test('POST /music 400 on missing prompt', async () => {
+  const { token, workspace } = await betaUser({ plan: 'pro' })
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/music'), token, workspace._id)
+    .send({ tier: 'standard' })
+  assert.equal(res.status, 400)
+})
+
+test('POST /music 403 plan_feature on free plan', async () => {
+  const { token, workspace } = await betaUser({ plan: 'free' })
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/music'), token, workspace._id)
+    .send({ prompt: 'a calm piano piece', tier: 'standard' })
+  assert.equal(res.status, 403)
+  assert.equal(res.body.code, 'plan_feature')
+  assert.equal(res.body.feature, 'music')
+  assert.equal(res.body.requiredPlan, 'pro')
+})
+
+test('POST /music debits music credits (standard = 10)', async () => {
+  const { token, workspace } = await betaUser({ plan: 'pro' })
+  const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
+  await Workspace.findByIdAndUpdate(workspace._id, { monthlyCredits: 25, purchasedCredits: 0, creditPeriod: period })
+  const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/music'), token, workspace._id)
+    .send({ prompt: 'a tense cinematic bed', tier: 'standard' })
+  assert.equal(res.status, 202)
+  assert.equal((await Workspace.findById(workspace._id)).creditBalance, 15)
+})
+
+test('POST /music clamps duration to 3–60 seconds', async () => {
+  const { token, workspace } = await betaUser({ plan: 'pro' })
+  const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/music'), token, workspace._id)
+    .send({ prompt: 'a long ambient drone', duration: 999, tier: 'standard' })
+  assert.equal(res.status, 202)
+  const job = await Job.findById(res.body.jobId)
+  assert.equal(job.params.duration, 60)
+})
+
 test('POST /image creates a queued image job and enqueues it (202)', async () => {
   const { token, workspace } = await betaUser()
   const enq = []
