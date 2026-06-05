@@ -58,6 +58,7 @@ export async function processGeneration(data, deps = {}) {
       const ext = result.ext || 'bin'
       const key = `generated/${workspaceId}/${jobId}.${ext}`
       update.resultUrl = await uploadFn(key, result.buffer, result.mimeType || 'application/octet-stream')
+      update.resultKey = key // presigned at read-time in the jobs route
     }
     await Job.findByIdAndUpdate(jobId, update)
     await UsageLog.create({ userId: createdBy, workspaceId, action: 'generate_' + type, provider, success: true })
