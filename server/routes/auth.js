@@ -8,6 +8,7 @@ import { authLimiter } from '../middleware/rateLimit.js'
 import { blacklistToken, isTokenBlacklisted } from '../utils/redis.js'
 import { createPersonalWorkspace } from '../utils/workspace.js'
 import { requireAuth } from '../middleware/auth.js'
+import { track } from '../utils/track.js'
 
 const router = Router()
 
@@ -52,6 +53,7 @@ router.post('/register', authLimiter, async (req, res) => {
       console.warn('[register] verification email failed (non-fatal):', emailErr.message)
     }
 
+    await track('signup', { userId: fresh._id })
     res.status(201).json({ user: fresh.toSafeObject(), accessToken })
   } catch (err) {
     res.status(500).json({ error: err.message })
@@ -194,7 +196,7 @@ router.get('/verify-email', async (req, res) => {
     const alreadyVerified = !!user.emailVerifiedAt
     user.emailVerifiedAt = user.emailVerifiedAt || new Date()
     await user.save()
-    // Send welcome email on first verification — best-effort
+    // Send welcome email and emit funnel event on first verification — both best-effort
     if (!alreadyVerified) {
       try {
         await sendEmail({
@@ -205,6 +207,7 @@ router.get('/verify-email', async (req, res) => {
       } catch (emailErr) {
         console.warn('[auth] welcome email failed (non-fatal):', emailErr.message)
       }
+      await track('email_verified', { userId: user._id })
     }
     // In test/API mode return JSON; in browser redirect
     if (req.headers.accept?.includes('application/json')) {

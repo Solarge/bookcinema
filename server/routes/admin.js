@@ -5,6 +5,7 @@ import UsageLog from '../models/UsageLog.js'
 import Workspace from '../models/Workspace.js'
 import Job from '../models/Job.js'
 import AdminAuditLog from '../models/AdminAuditLog.js'
+import AnalyticsEvent from '../models/AnalyticsEvent.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 import { adminLimiter } from '../middleware/rateLimit.js'
 import { grantCredits } from '../utils/credits.js'
@@ -330,6 +331,55 @@ router.get('/stats', async (req, res) => {
       jobs: { total: totalJobs, byStatus: jobsByStatus },
       mrr,
       subscriptions,
+    })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// GET /api/admin/funnel?days=30 — commercial funnel: signup → verified → activated → upgraded
+router.get('/funnel', async (req, res) => {
+  try {
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 30))
+    const since = new Date(Date.now() - days * 86400000)
+
+    // Use aggregation to count distinct users per funnel stage within the window
+    const [signupAgg, verifiedAgg, activatedAgg, upgradedAgg] = await Promise.all([
+      AnalyticsEvent.aggregate([
+        { $match: { event: 'signup',        createdAt: { $gte: since } } },
+        { $group: { _id: '$userId' } },
+        { $count: 'n' },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { event: 'email_verified', createdAt: { $gte: since } } },
+        { $group: { _id: '$userId' } },
+        { $count: 'n' },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { event: 'generation',    createdAt: { $gte: since } } },
+        { $group: { _id: '$userId' } },
+        { $count: 'n' },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { event: 'plan_upgraded', createdAt: { $gte: since } } },
+        { $group: { _id: '$userId' } },
+        { $count: 'n' },
+      ]),
+    ])
+
+    const signups   = signupAgg[0]?.n   ?? 0
+    const verified  = verifiedAgg[0]?.n  ?? 0
+    const activated = activatedAgg[0]?.n ?? 0
+    const upgraded  = upgradedAgg[0]?.n  ?? 0
+
+    const pct = (num, den) => den > 0 ? Math.round((num / den) * 10000) / 100 : null
+
+    res.json({
+      window: { days, since },
+      funnel: [
+        { stage: 'signup',        count: signups,   rate: null },
+        { stage: 'email_verified', count: verified,  rate: pct(verified,  signups) },
+        { stage: 'activated',     count: activated, rate: pct(activated, verified) },
+        { stage: 'upgraded',      count: upgraded,  rate: pct(upgraded,  activated) },
+      ],
     })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })

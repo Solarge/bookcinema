@@ -173,6 +173,104 @@ function OverviewSection({ onMsg }) {
 }
 OverviewSection.propTypes = { onMsg: PropTypes.func.isRequired }
 
+// ── Section: Funnel ─────────────────────────────────────────────────────────
+const FUNNEL_COLORS = ['var(--cream)', '#a0c8f0', '#6dc87a', 'var(--gold)']
+
+function FunnelBar({ count, max, color }) {
+  const pct = max > 0 ? Math.max(4, Math.round((count / max) * 100)) : 4
+  return (
+    <div style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)', height: '8px', position: 'relative', overflow: 'hidden' }} aria-hidden="true">
+      <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: color, transition: 'width 0.4s ease' }} />
+    </div>
+  )
+}
+FunnelBar.propTypes = { count: PropTypes.number.isRequired, max: PropTypes.number.isRequired, color: PropTypes.string.isRequired }
+
+function FunnelSection({ onMsg }) {
+  const [data,    setData]    = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [days,    setDays]    = useState(30)
+
+  const load = useCallback(async (d) => {
+    setLoading(true)
+    try {
+      const res = await adminApi.funnel(d)
+      setData(res)
+    } catch (err) {
+      onMsg(`Funnel error: ${err.message}`, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [onMsg])
+
+  useEffect(() => { load(days) }, [load, days])
+
+  const funnel = data?.funnel ?? []
+  const max = funnel[0]?.count ?? 0
+
+  const STAGE_LABELS = {
+    signup:        'Signup',
+    email_verified: 'Email Verified',
+    activated:     'Activated (1st Gen)',
+    upgraded:      'Paid Upgrade',
+  }
+
+  return (
+    <div>
+      {/* Window selector */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center' }}>
+        <span style={mono('10px', 'var(--muted)')}>Window:</span>
+        {[7, 30, 90].map(d => (
+          <button
+            key={d}
+            onClick={() => setDays(d)}
+            style={btnStyle(days === d ? 'primary' : 'ghost', loading)}
+            disabled={loading}
+            aria-pressed={days === d}
+          >{d}d</button>
+        ))}
+        <button onClick={() => load(days)} disabled={loading} style={btnStyle('ghost', loading)} aria-label="Refresh funnel">
+          {loading ? '…' : '↻'}
+        </button>
+      </div>
+
+      {loading && !data && <div style={mono('10px', 'var(--muted)')}>Loading funnel…</div>}
+
+      {funnel.length > 0 && (
+        <div role="list" aria-label="Conversion funnel stages" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {funnel.map((stage, i) => (
+            <div key={stage.stage} role="listitem" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              {/* Stage label */}
+              <div style={{ width: '148px', flexShrink: 0 }}>
+                <div style={mono('11px', FUNNEL_COLORS[i])}>{STAGE_LABELS[stage.stage] ?? stage.stage}</div>
+              </div>
+              {/* Bar */}
+              <FunnelBar count={stage.count} max={max} color={FUNNEL_COLORS[i]} />
+              {/* Count */}
+              <div style={{ ...cinzel('18px', FUNNEL_COLORS[i]), width: '58px', textAlign: 'right', lineHeight: 1 }}
+                aria-label={`${stage.count} users`}>{stage.count}</div>
+              {/* Rate */}
+              <div style={{ width: '60px', textAlign: 'right', flexShrink: 0 }}>
+                {stage.rate != null
+                  ? <span style={mono('10px', stage.rate >= 50 ? '#6dc87a' : stage.rate >= 20 ? '#f0c040' : '#f08080')}>{stage.rate}%</span>
+                  : <span style={mono('9px', 'var(--muted)')}>—</span>
+                }
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {data && (
+        <div style={{ ...mono('8px', 'var(--muted)'), marginTop: '18px', letterSpacing: '1px' }}>
+          Rates: verified/signups → activated/verified → upgraded/activated · last {days} days
+        </div>
+      )}
+    </div>
+  )
+}
+FunnelSection.propTypes = { onMsg: PropTypes.func.isRequired }
+
 // ── Section: Users ──────────────────────────────────────────────────────────
 function UserRow({ user, onMsg, onRefresh }) {
   const [credits, setCredits] = useState('')
@@ -844,6 +942,7 @@ SystemSection.propTypes = { onMsg: PropTypes.func.isRequired }
 // ── Sidebar nav ─────────────────────────────────────────────────────────────
 const SECTIONS = [
   { key: 'overview',   label: 'Overview'   },
+  { key: 'funnel',     label: 'Funnel'     },
   { key: 'users',      label: 'Users'      },
   { key: 'workspaces', label: 'Workspaces' },
   { key: 'jobs',       label: 'Jobs'       },
@@ -979,6 +1078,7 @@ export default function AdminDashboard({ onBack }) {
 
           {/* Section content */}
           {section === 'overview'   && <OverviewSection   onMsg={onMsg} />}
+          {section === 'funnel'     && <FunnelSection     onMsg={onMsg} />}
           {section === 'users'      && <UsersSection      onMsg={onMsg} />}
           {section === 'workspaces' && <WorkspacesSection onMsg={onMsg} />}
           {section === 'jobs'       && <JobsSection       onMsg={onMsg} />}

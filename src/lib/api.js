@@ -184,4 +184,5 @@ export const admin = {
   workspaces:            (search)            => get(`/api/admin/workspaces${search ? `?search=${encodeURIComponent(search)}` : ''}`),
   jobs:                  (params = {})       => get(`/api/admin/jobs?${new URLSearchParams(params)}`),
   config:                ()                  => get('/api/admin/config'),
+  funnel:                (days = 30)         => get(`/api/admin/funnel?days=${days}`),
 }

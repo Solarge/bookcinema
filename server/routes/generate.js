@@ -12,6 +12,7 @@ import { planFeatures } from '../plans.js'
 import { validateVideoUrl } from '../utils/urlGuard.js'
 import { moderateText } from '../utils/moderation.js'
 import { config } from '../config.js'
+import { track } from '../utils/track.js'
 
 const router = Router()
 router.use(requireAuth, resolveWorkspace, generationLimiter)
@@ -49,6 +50,7 @@ async function enqueueGeneration(req, res, { type, tier, params, payload }) {
     if (debit.fromPurchased) await refundCredits(req.workspace._id, debit.fromPurchased, { jobId: job._id, type, tier, bucket: 'purchased' })
     return res.status(503).json({ error: 'Generation queue unavailable', jobId: String(job._id) })
   }
+  await track('generation', { userId: req.user._id, workspaceId: req.workspace._id, props: { type, tier } })
   return res.status(202).json({ jobId: String(job._id), creditsCharged: cost, creditsRemaining: debit.balance })
 }
 
