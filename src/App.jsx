@@ -282,13 +282,13 @@ function AppInner() {
     return () => { cancelled = true }
   }, [switchWorkspace])
 
-  const handleGenerate = useCallback(async (bookText, preset = 'cinematic') => {
+  const handleGenerate = useCallback(async (bookText, preset = 'cinematic', rightsConfirmed = false) => {
     setErrorMsg(null)
     setPage('loading')
     try {
       let series
       if (settings.mode === 'managed') {
-        const { jobId } = await managedApi.generateText({ bookText, genrePreset: preset, language: settings.language ?? 'en', tier: settings.managedTier || 'standard', episodeCount: settings.episodeCount ?? 7 })
+        const { jobId } = await managedApi.generateText({ bookText, genrePreset: preset, language: settings.language ?? 'en', tier: settings.managedTier || 'standard', episodeCount: settings.episodeCount ?? 'auto', rightsConfirmed })
         const job = await pollJob(jobId)
         if (job.status !== 'done') throw new Error(job.error || 'Managed generation failed')
         series = typeof job.result?.text === 'string' ? JSON.parse(job.result.text) : job.result?.text
