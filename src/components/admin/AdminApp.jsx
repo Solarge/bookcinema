@@ -65,18 +65,29 @@ function AdminLogin() {
   const { login } = useAuth()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
+  const [totp, setTotp]         = useState('')
+  const [step, setStep]         = useState('credentials') // 'credentials' | '2fa'
   const [error, setError]       = useState('')
   const [loading, setLoading]   = useState(false)
 
   async function handleSubmit() {
-    if (!email || !password) return setError('Email and password required')
+    if (step === 'credentials' && (!email || !password)) return setError('Email and password required')
+    if (step === '2fa' && !totp) return setError('Please enter your authenticator code')
     setLoading(true)
     setError('')
     try {
-      await login(email, password)
+      await login(email, password, step === '2fa' ? totp : undefined)
       // After login, AdminApp re-renders based on useAuth() — no redirect needed.
     } catch (err) {
-      setError(err.message || 'Sign-in failed')
+      if (err.code === '2fa_required') {
+        setStep('2fa')
+        setError('')
+      } else if (err.code === '2fa_invalid') {
+        setError('Invalid authenticator code. Please try again.')
+        setTotp('')
+      } else {
+        setError(err.message || 'Sign-in failed')
+      }
     } finally {
       setLoading(false)
     }
@@ -89,34 +100,65 @@ function AdminLogin() {
           BookFilm — Admin
         </div>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '32px', textTransform: 'uppercase' }}>
-          Company Console
+          {step === '2fa' ? 'Two-Factor Authentication' : 'Company Console'}
         </div>
 
         {error && <div role="alert" style={errorStyle}>{error}</div>}
 
-        <input
-          type="email"
-          placeholder="Admin email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-          autoFocus
-          aria-label="Admin email address"
-          style={inputStyle}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-          aria-label="Admin password"
-          style={inputStyle}
-        />
+        {step === 'credentials' ? (
+          <>
+            <input
+              type="email"
+              placeholder="Admin email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              autoFocus
+              aria-label="Admin email address"
+              style={inputStyle}
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              aria-label="Admin password"
+              style={inputStyle}
+            />
+          </>
+        ) : (
+          <>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '14px', lineHeight: '1.6' }}>
+              Enter the 6-digit code from your authenticator app.
+            </div>
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              value={totp}
+              onChange={e => setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+              autoFocus
+              aria-label="Two-factor authentication code"
+              style={{ ...inputStyle, letterSpacing: '6px', fontSize: '18px', textAlign: 'center' }}
+            />
+          </>
+        )}
 
         <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
-          {loading ? 'Signing in…' : 'Sign In'}
+          {loading ? (step === '2fa' ? 'Verifying…' : 'Signing in…') : (step === '2fa' ? 'Verify Code' : 'Sign In')}
         </button>
+
+        {step === '2fa' && (
+          <button
+            onClick={() => { setStep('credentials'); setTotp(''); setError('') }}
+            style={{ background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: 'pointer', marginTop: '12px', width: '100%', textAlign: 'center', letterSpacing: '1px' }}
+          >
+            ← Back to sign-in
+          </button>
+        )}
 
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textAlign: 'center', marginTop: '24px', letterSpacing: '1px' }}>
           Restricted to BookFilm administrators only.

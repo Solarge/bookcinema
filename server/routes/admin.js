@@ -5,6 +5,7 @@ import UsageLog from '../models/UsageLog.js'
 import Workspace from '../models/Workspace.js'
 import Job from '../models/Job.js'
 import AdminAuditLog from '../models/AdminAuditLog.js'
+import AnalyticsEvent from '../models/AnalyticsEvent.js'
 import { requireAuth, requireRole } from '../middleware/auth.js'
 import { adminLimiter } from '../middleware/rateLimit.js'
 import { grantCredits } from '../utils/credits.js'
@@ -12,6 +13,8 @@ import { config } from '../config.js'
 import { PLANS } from '../plans.js'
 import { MANAGED_PROVIDERS } from '../generation/registry.js'
 import { listConfigured as listSocialConfigured } from '../social/index.js'
+import { encryptToken, decryptToken } from '../utils/cryptoTokens.js'
+import { authenticator } from 'otplib'
 
 const router = Router()
 router.use(requireAuth, requireRole('admin'), adminLimiter)
@@ -331,6 +334,105 @@ router.get('/stats', async (req, res) => {
       mrr,
       subscriptions,
     })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// GET /api/admin/funnel?days=30 — commercial funnel: signup → verified → activated → upgraded
+router.get('/funnel', async (req, res) => {
+  try {
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 30))
+    const since = new Date(Date.now() - days * 86400000)
+
+    // Use aggregation to count distinct users per funnel stage within the window
+    const [signupAgg, verifiedAgg, activatedAgg, upgradedAgg] = await Promise.all([
+      AnalyticsEvent.aggregate([
+        { $match: { event: 'signup',        createdAt: { $gte: since } } },
+        { $group: { _id: '$userId' } },
+        { $count: 'n' },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { event: 'email_verified', createdAt: { $gte: since } } },
+        { $group: { _id: '$userId' } },
+        { $count: 'n' },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { event: 'generation',    createdAt: { $gte: since } } },
+        { $group: { _id: '$userId' } },
+        { $count: 'n' },
+      ]),
+      AnalyticsEvent.aggregate([
+        { $match: { event: 'plan_upgraded', createdAt: { $gte: since } } },
+        { $group: { _id: '$userId' } },
+        { $count: 'n' },
+      ]),
+    ])
+
+    const signups   = signupAgg[0]?.n   ?? 0
+    const verified  = verifiedAgg[0]?.n  ?? 0
+    const activated = activatedAgg[0]?.n ?? 0
+    const upgraded  = upgradedAgg[0]?.n  ?? 0
+
+    const pct = (num, den) => den > 0 ? Math.round((num / den) * 10000) / 100 : null
+
+    res.json({
+      window: { days, since },
+      funnel: [
+        { stage: 'signup',        count: signups,   rate: null },
+        { stage: 'email_verified', count: verified,  rate: pct(verified,  signups) },
+        { stage: 'activated',     count: activated, rate: pct(activated, verified) },
+        { stage: 'upgraded',      count: upgraded,  rate: pct(upgraded,  activated) },
+      ],
+    })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// ── 2FA management (admin accounts only) ─────────────────────────────────────
+
+// POST /api/admin/2fa/setup
+// Generate a TOTP secret, store it encrypted (pending), return otpauthUrl + secret.
+// totpEnabled stays false until the admin confirms a valid code via /enable.
+router.post('/2fa/setup', async (req, res) => {
+  try {
+    const secret = authenticator.generateSecret()
+    const otpauthUrl = authenticator.keyuri(req.user.email, 'BookFilm Admin', secret)
+    // Store encrypted; totpEnabled stays false until confirmed
+    await User.findByIdAndUpdate(req.user._id, {
+      totpSecretEnc: encryptToken(secret),
+      totpEnabled: false,
+    })
+    res.json({ otpauthUrl, secret })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// POST /api/admin/2fa/enable { token }
+// Verify the provided TOTP code against the pending secret, then activate 2FA.
+router.post('/2fa/enable', async (req, res) => {
+  try {
+    const { token } = req.body
+    if (!token) return res.status(400).json({ error: 'token is required' })
+    const user = await User.findById(req.user._id).select('+totpSecretEnc')
+    if (!user.totpSecretEnc) return res.status(400).json({ error: 'No pending 2FA setup. Call /setup first.' })
+    const secret = decryptToken(user.totpSecretEnc)
+    const valid = authenticator.verify({ token: String(token), secret })
+    if (!valid) return res.status(400).json({ error: 'Invalid two-factor code' })
+    await User.findByIdAndUpdate(req.user._id, { totpEnabled: true })
+    res.json({ totpEnabled: true })
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
+
+// POST /api/admin/2fa/disable { token }
+// Verify a current TOTP code then clear 2FA.
+router.post('/2fa/disable', async (req, res) => {
+  try {
+    const { token } = req.body
+    if (!token) return res.status(400).json({ error: 'token is required' })
+    const user = await User.findById(req.user._id).select('+totpSecretEnc')
+    if (!user.totpEnabled || !user.totpSecretEnc) return res.status(400).json({ error: '2FA is not enabled' })
+    const secret = decryptToken(user.totpSecretEnc)
+    const valid = authenticator.verify({ token: String(token), secret })
+    if (!valid) return res.status(400).json({ error: 'Invalid two-factor code' })
+    await User.findByIdAndUpdate(req.user._id, { totpEnabled: false, totpSecretEnc: null })
+    res.json({ totpEnabled: false })
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 

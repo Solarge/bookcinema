@@ -10,6 +10,7 @@ import { planCredits } from '../plans.js'
 import { config } from '../config.js'
 import { seatCount } from '../utils/seats.js'
 import { sendEmail, dunningEmail } from '../utils/email.js'
+import { track } from '../utils/track.js'
 
 export const billingRouter = Router()
 billingRouter.use(requireAuth, resolveWorkspace)
@@ -121,6 +122,11 @@ export async function webhookHandler(req, res) {
           update.creditPeriod = currentPeriod()
         }
         await Workspace.findByIdAndUpdate(targetId, update)
+        // Funnel: emit plan_upgraded when a paid plan becomes active
+        if (active && plan) {
+          const ws = await Workspace.findById(targetId).select('ownerId').lean()
+          await track('plan_upgraded', { userId: ws?.ownerId ?? null, workspaceId: targetId, props: { plan: resolvedPlan } })
+        }
       }
     } else if (event.type === 'customer.subscription.deleted') {
       // Stripe's retry window is the grace period — only hard-downgrade on subscription deletion.

@@ -39,6 +39,40 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Structured data for search engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "BookFilm Studio",
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Web",
+      "description": "Turn any book into a complete 7-episode cinematic AI video series — characters, scenes, dialogue, AI-generated images, voice and video, plus social scheduling.",
+      "offers": [
+        {
+          "@type": "Offer",
+          "name": "Free",
+          "price": "0",
+          "priceCurrency": "USD",
+          "description": "Text and image generation, 25 credits/month"
+        },
+        {
+          "@type": "Offer",
+          "name": "Pro",
+          "price": "19",
+          "priceCurrency": "USD",
+          "description": "Text, image, voice, video, social scheduling, 500 credits/month"
+        },
+        {
+          "@type": "Offer",
+          "name": "Studio",
+          "price": "79",
+          "priceCurrency": "USD",
+          "description": "Everything in Pro plus white-label branding, 2000 credits/month"
+        }
+      ]
+    }
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

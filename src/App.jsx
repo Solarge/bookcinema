@@ -9,6 +9,7 @@ import LibraryScreen from './components/LibraryScreen'
 import LoginPage from './components/auth/LoginPage'
 import RegisterPage from './components/auth/RegisterPage'
 import ForgotPasswordPage, { ResetPasswordPage } from './components/auth/ForgotPasswordPage'
+import LandingPage from './components/marketing/LandingPage'
 import ProfilePage from './components/dashboard/ProfilePage'
 import PublicSeriesView from './components/PublicSeriesView'
 import { generateSeries } from './utils/textProviders/index'
@@ -212,14 +213,15 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
 // ── Auth gate wrapper ─────────────────────────────────────────────────────────
 function AuthGate({ children }) {
   const { user, loading } = useAuth()
-  // 'login' | 'register' | 'forgot' | 'reset'
+  // 'landing' | 'login' | 'register' | 'forgot' | 'reset'
   const [authView, setAuthView] = useState(() => {
     // If URL is /reset-password?token=..., go straight to reset view
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       if (window.location.pathname === '/reset-password' && params.get('token')) return 'reset'
     }
-    return 'login'
+    // Default: show the public landing page to logged-out visitors
+    return 'landing'
   })
 
   // Derive reset token from URL once (reset view only)
@@ -238,6 +240,12 @@ function AuthGate({ children }) {
 
   // Not authenticated — show the appropriate auth view
   if (!user) {
+    if (authView === 'landing')  return (
+      <LandingPage
+        onGetStarted={() => setAuthView('register')}
+        onSignIn={() => setAuthView('login')}
+      />
+    )
     if (authView === 'register') return <RegisterPage onSwitchToLogin={() => setAuthView('login')} />
     if (authView === 'forgot')   return <ForgotPasswordPage onBackToLogin={() => setAuthView('login')} />
     if (authView === 'reset')    return <ResetPasswordPage token={resetToken} onBackToLogin={() => setAuthView('login')} />
@@ -245,6 +253,7 @@ function AuthGate({ children }) {
       <LoginPage
         onSwitchToRegister={() => setAuthView('register')}
         onForgotPassword={() => setAuthView('forgot')}
+        onBackToLanding={() => setAuthView('landing')}
       />
     )
   }
