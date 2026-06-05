@@ -14,6 +14,7 @@ import SocialCardModal from './SocialCardModal'
 import { useDivModalA11y } from '../hooks/useModalA11y'
 import { series as seriesApi, managed as managedApi, pollJob } from '../lib/api'
 import { planAllows, minPlanFor, planLabel, FEATURE_LABELS } from '../utils/plans'
+import '../styles/results.css'
 
 // Whether generation is possible for a media kind given current settings.
 // In managed mode: plan-gated (voice/video require pro+). Image+text always allowed.
@@ -63,27 +64,15 @@ function Editable({ value, onChange, multiline, style, displayStyle }) {
       onBlur: () => { onChange(local); setEditing(false) },
       onKeyDown: e => { if (!multiline && e.key === 'Enter') { onChange(local); setEditing(false) } if (e.key === 'Escape') setEditing(false) },
       autoFocus: true,
-      style: {
-        background: '#0a0806',
-        border: '1px solid var(--gold)',
-        color: 'var(--cream)',
-        fontFamily: 'inherit',
-        fontSize: 'inherit',
-        lineHeight: 'inherit',
-        fontStyle: 'inherit',
-        width: '100%',
-        padding: '4px 8px',
-        outline: 'none',
-        resize: multiline ? 'vertical' : 'none',
-        ...style,
-      },
+      className: `rs-editable-input${multiline ? ' rs-editable-textarea' : ''}`,
+      style,
     }
     return multiline ? <textarea rows={4} {...props} /> : <input {...props} />
   }
 
   return (
-    <span onClick={() => setEditing(true)} title="Click to edit" style={{ cursor: 'text', borderBottom: '1px dashed #2a3a4a', ...displayStyle }}>
-      {value || <span style={{ color: 'var(--muted)', fontStyle: 'italic' }}>Click to edit…</span>}
+    <span onClick={() => setEditing(true)} title="Click to edit" className="rs-editable-display" style={displayStyle}>
+      {value || <span className="rs-editable-placeholder">Click to edit…</span>}
     </span>
   )
 }
@@ -93,7 +82,8 @@ function CopyBtn({ text, label = 'Copy' }) {
   const [copied, setCopied] = useState(false)
   return (
     <button onClick={() => { navigator.clipboard.writeText(text).catch(() => {}); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-      style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '5px 12px', border: `1px solid ${copied ? '#3a7a4a' : 'var(--border)'}`, background: 'transparent', color: copied ? '#6dc87a' : 'var(--muted)', cursor: 'pointer', transition: 'all 0.15s', flexShrink: 0 }}>
+      className="rs-copy-btn"
+      style={{ border: `1px solid ${copied ? '#3a7a4a' : 'var(--border)'}`, color: copied ? '#6dc87a' : 'var(--muted)' }}>
       {copied ? '✓ Copied!' : label}
     </button>
   )
@@ -117,15 +107,15 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free', 
   const { characters: charMedia, generateCharacterImage, setCharApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
 
   return (
-    <section id="characters" style={{ marginBottom: '64px' }}>
+    <section id="characters" className="rs-chars-section">
       <SectionHead>Character Bible</SectionHead>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+      <div className="rs-chars-grid">
         {characters.map(char => {
           const asset = charMedia[char.id] ?? {}
           const genInfo = canGenerateInfo(settings, 'image', settings.imageProvider, plan)
           const storeKey = `char-img:${seriesSlug}:${char.id}:0`
           return (
-            <div key={char.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px' }}>
+            <div key={char.id} className="rs-char-card">
               <ImageAsset
                 asset={{ ...asset, saving: saving[storeKey] }}
                 onGenerate={() => generateCharacterImage(char, char.midjourney_prompt)}
@@ -140,26 +130,26 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free', 
                 onSaveToCloud={() => saveToCloud('image', char.id, storeKey, { provider: settings.imageProvider, prompt: char.midjourney_prompt, quality: settings.imageQuality, aspectRatio: settings.aspectRatio })}
                 onDeleteFromCloud={() => deleteFromCloud('image', char.id)}
               />
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                <span style={{ fontFamily: "'Cinzel', serif", fontSize: '18px', color: 'var(--cream)' }}>
+              <div className="rs-char-name-row">
+                <span className="rs-char-name">
                   <Editable value={char.name} onChange={v => onUpdateChar(char.id, 'name', v)} />
                 </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '2px 8px', border: `1px solid ${roleColor(char.role)}`, color: roleColor(char.role), letterSpacing: '1.5px', textTransform: 'uppercase' }}>{char.role}</span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>{char.age}</span>
+                <span className="rs-char-role-badge" style={{ border: `1px solid ${roleColor(char.role)}`, color: roleColor(char.role) }}>{char.role}</span>
+                <span className="rs-char-age">{char.age}</span>
               </div>
-              <p style={{ fontStyle: 'italic', color: '#c0b090', marginBottom: '14px', fontSize: '15px' }}>
+              <p className="rs-char-desc">
                 <Editable value={char.description} onChange={v => onUpdateChar(char.id, 'description', v)} multiline />
               </p>
               <Label>Midjourney Prompt</Label>
-              <pre style={{ background: '#0a0806', borderLeft: '3px solid var(--gold)', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#c8b090', whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginBottom: '8px' }}>
+              <pre className="rs-char-prompt-pre">
                 <Editable value={char.midjourney_prompt} onChange={v => onUpdateChar(char.id, 'midjourney_prompt', v)} multiline style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }} />
               </pre>
-              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+              <div className="rs-char-copy-row">
                 <CopyBtn text={char.midjourney_prompt} label="Copy MJ Prompt" />
                 <CopyBtn text={char.midjourney_prompt.replace(/,\s*--ar\s*\S+/g, '').replace(/--style\s*\S+/g, '').trim()} label="Copy FLUX" />
               </div>
               <Label>ElevenLabs Voice</Label>
-              <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#6a8090', lineHeight: '1.7' }}>
+              <p className="rs-char-voice">
                 <Editable value={char.elevenlabs_voice} onChange={v => onUpdateChar(char.id, 'elevenlabs_voice', v)} multiline style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }} />
               </p>
             </div>
@@ -180,14 +170,14 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBil
   const storeKey = `dialogue-audio:${seriesSlug}:ep${epNum}:s${sceneNum}:d${dIdx}`
 
   return (
-    <div style={{ marginBottom: '18px', paddingLeft: '16px', borderLeft: `2px solid ${charColor(line.character, characters)}44` }}>
-      <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', fontVariant: 'small-caps', letterSpacing: '2px', color: charColor(line.character, characters), marginBottom: '4px' }}>
+    <div className="rs-dialogue-line" style={{ borderLeft: `2px solid ${charColor(line.character, characters)}44` }}>
+      <div className="rs-dialogue-char-name" style={{ color: charColor(line.character, characters) }}>
         {charName(line.character, characters)}
       </div>
-      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '19px', color: 'var(--cream)', lineHeight: '1.6', marginBottom: '4px' }}>
+      <div className="rs-dialogue-text">
         "{line.line}"
       </div>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#4a5a6a', marginBottom: '6px' }}>{line.voice_direction}</div>
+      <div className="rs-dialogue-direction">{line.voice_direction}</div>
       <AudioAsset
         asset={{ ...asset, saving: saving[storeKey] }}
         onGenerate={() => generateDialogueVoice(epNum, sceneNum, dIdx, line.line, null)}
@@ -214,24 +204,24 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
   const storeKey = `scene-vid:${seriesSlug}:ep${epNum}:s${scene.scene_number}`
 
   return (
-    <div style={{ marginBottom: '36px' }}>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', letterSpacing: '3px', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '14px', paddingTop: '18px', borderTop: '1px dashed var(--border)' }}>
+    <div className="rs-scene-card">
+      <div className="rs-scene-slug">
         {scene.slug}
       </div>
 
       {/* Kling prompt */}
-      <div style={{ marginBottom: '12px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+      <div className="rs-scene-prompt-wrap">
+        <div className="rs-scene-prompt-header">
           <Label>Kling AI Prompt</Label>
           <CopyBtn text={scene.kling_prompt} label="Copy Kling Prompt" />
         </div>
-        <pre style={{ background: '#0a0806', borderLeft: '3px solid var(--gold)', padding: '14px 16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', lineHeight: '1.8', color: '#c8b090', whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
+        <pre className="rs-scene-prompt-pre">
           <Editable value={scene.kling_prompt} onChange={onUpdateKling} multiline style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }} />
         </pre>
       </div>
 
       {/* Stage direction */}
-      <p style={{ fontStyle: 'italic', color: 'var(--muted)', marginBottom: '18px', fontSize: '16px' }}>{scene.stage_direction}</p>
+      <p className="rs-scene-direction">{scene.stage_direction}</p>
 
       {/* Video asset */}
       <VideoAsset
@@ -249,7 +239,7 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
       />
 
       {/* Dialogue */}
-      <div style={{ paddingLeft: '8px' }}>
+      <div className="rs-scene-dialogue-wrap">
         {(scene.dialogue || []).map((d, i) => (
           <DialogueLine key={i} line={d} dIdx={i} epNum={epNum} sceneNum={scene.scene_number} characters={characters} plan={plan} onOpenBilling={onOpenBilling} />
         ))}
@@ -278,18 +268,18 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
   // Plan-locked: show upgrade CTA
   if (!videoPlanAllowed) {
     return (
-      <div style={{ margin: '20px 0', padding: '14px 18px', background: '#1a1018', border: '1px solid #4a2060', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
+      <div className="rs-compile-locked">
         <div>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '2px', color: '#a060c0', textTransform: 'uppercase' }}>
+          <span className="rs-compile-locked-label">
             Compile Episode Video
           </span>
-          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginTop: '4px', lineHeight: '1.6' }}>
+          <p className="rs-compile-locked-hint">
             Stitch all scene clips into a 2–3 min reel. Requires {planLabel(minPlanFor('video'))} plan or higher.
           </p>
         </div>
         <button
           onClick={onOpenBilling}
-          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '7px 14px', border: '1px solid #a060c0', background: 'transparent', color: '#a060c0', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase', flexShrink: 0 }}
+          className="rs-compile-locked-upgrade-btn"
         >
           Upgrade to {planLabel(minPlanFor('video'))}
         </button>
@@ -330,22 +320,22 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
   else if (isDisabledNoClips) hintText = `Generate at least 2 scene videos first (${readyClips.length} ready).`
 
   return (
-    <div style={{ margin: '20px 0 28px', padding: '16px 18px', background: '#0a1020', border: '1px solid #1a3050' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: compileState === 'done' || errorMsg ? '14px' : 0 }}>
+    <div className="rs-compile-panel">
+      <div className="rs-compile-panel-inner" style={{ marginBottom: compileState === 'done' || errorMsg ? '14px' : 0 }}>
         <div>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '2px', color: 'var(--gold)', textTransform: 'uppercase' }}>
+          <span className="rs-compile-label">
             Compile Episode Video
           </span>
           {hintText && (
-            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginTop: '4px', lineHeight: '1.5' }}>{hintText}</p>
+            <p className="rs-compile-hint">{hintText}</p>
           )}
           {!hintText && compileState === 'idle' && (
-            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginTop: '4px', lineHeight: '1.5' }}>
+            <p className="rs-compile-hint">
               {readyClips.length} scene clip{readyClips.length !== 1 ? 's' : ''} ready — stitch into a 2–3 min reel (5 credits)
             </p>
           )}
           {compileState === 'compiling' && (
-            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#60a0d0', marginTop: '4px', lineHeight: '1.5' }}>
+            <p className="rs-compile-compiling-hint">
               Compiling… this can take a few minutes
             </p>
           )}
@@ -354,15 +344,12 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
           onClick={handleCompile}
           disabled={isDisabled}
           aria-label={isDisabled ? (hintText || 'Compiling…') : `Compile episode ${episode.number} video`}
+          className="rs-compile-btn"
           style={{
-            fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '7px 16px',
             border: `1px solid ${isDisabled ? 'var(--border)' : 'var(--gold)'}`,
-            background: 'transparent',
             color: isDisabled ? 'var(--muted)' : 'var(--gold)',
             cursor: isDisabled ? 'not-allowed' : 'pointer',
-            letterSpacing: '1px', textTransform: 'uppercase', flexShrink: 0,
             opacity: isDisabled ? 0.55 : 1,
-            transition: 'all 0.15s',
           }}
         >
           {compileState === 'compiling' ? '⏳ Compiling…' : 'Compile Episode Video (2–3 min)'}
@@ -371,34 +358,34 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
 
       {/* Error state */}
       {compileState === 'error' && errorMsg && (
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#e06060', padding: '8px 0', lineHeight: '1.6' }}>
+        <div className="rs-compile-error">
           {errorMsg}{' '}
-          <button onClick={() => { setCompileState('idle'); setErrorMsg(null) }} style={{ background: 'none', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontFamily: 'inherit', fontSize: 'inherit', padding: 0, textDecoration: 'underline' }}>Retry</button>
+          <button onClick={() => { setCompileState('idle'); setErrorMsg(null) }} className="rs-compile-retry-btn">Retry</button>
         </div>
       )}
 
       {/* Done — compiled video player + download */}
       {compileState === 'done' && compiledUrl && (
-        <div style={{ marginTop: '4px' }}>
+        <div className="rs-compile-done">
           <video
             src={compiledUrl}
             controls
             playsInline
             aria-label={`Compiled episode ${episode.number} video`}
-            style={{ width: '100%', maxWidth: '640px', display: 'block', background: '#000', marginBottom: '10px', border: '1px solid var(--border)' }}
+            className="rs-compile-video"
           />
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="rs-compile-done-actions">
             <a
               href={compiledUrl}
               download={`episode-${episode.number}-compiled.mp4`}
               aria-label={`Download compiled episode ${episode.number} video`}
-              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 14px', border: '1px solid var(--gold)', color: 'var(--gold)', textDecoration: 'none', letterSpacing: '1px', textTransform: 'uppercase' }}
+              className="rs-compile-download-link"
             >
               Download MP4
             </a>
             <button
               onClick={() => { setCompileState('idle'); setCompiledUrl(null) }}
-              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 12px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--muted)', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase' }}
+              className="rs-compile-recompile-btn"
             >
               Re-compile
             </button>
@@ -414,32 +401,32 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
   const [showSocial, setShowSocial] = useState(false)
 
   return (
-    <section id={`episode-${episode.number}`} style={{ marginBottom: '72px' }}>
-      <div style={{ marginBottom: '24px', borderTop: '1px solid var(--border)', paddingTop: '36px' }}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(56px,8vw,80px)', color: 'var(--gold)', opacity: 0.22, lineHeight: 1, marginBottom: '-8px', userSelect: 'none' }}>
+    <section id={`episode-${episode.number}`} className="rs-episode-section">
+      <div className="rs-episode-header">
+        <div className="rs-episode-number">
           {String(episode.number).padStart(2, '0')}
         </div>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: 'clamp(22px,3vw,32px)', color: 'var(--cream)', marginBottom: '10px' }}>
+        <div className="rs-episode-title">
           <Editable value={episode.title} onChange={v => onUpdate('title', v)} />
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+        <div className="rs-episode-tags">
           {[episode.duration, episode.mood, ...(episode.locations || [])].filter(Boolean).map((t, i) => (
-            <span key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '3px 10px', border: '1px solid var(--border)', color: 'var(--muted)' }}>{t}</span>
+            <span key={i} className="rs-episode-tag">{t}</span>
           ))}
         </div>
       </div>
 
       {/* Social hook */}
-      <div style={{ background: '#2a0808', borderLeft: '3px solid var(--red)', padding: '14px 18px', marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1 }}>
+      <div className="rs-social-hook">
+        <div className="rs-social-hook-content">
           <Label style={{ color: '#804040' }}>Social Hook</Label>
-          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '18px', color: '#f0c8b8' }}>
+          <p className="rs-social-hook-text">
             <Editable value={episode.social_hook} onChange={v => onUpdate('social_hook', v)} multiline />
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        <div className="rs-social-hook-actions">
           <CopyBtn text={episode.social_hook} label="Copy" />
-          <button onClick={() => setShowSocial(true)} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '5px 10px', border: '1px solid #804040', background: 'transparent', color: '#a06060', cursor: 'pointer', letterSpacing: '1px', textTransform: 'uppercase' }}>
+          <button onClick={() => setShowSocial(true)} className="rs-social-cards-btn">
             📱 Social Cards
           </button>
         </div>
@@ -470,18 +457,18 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
       />
 
       {/* CTA */}
-      <div style={{ background: '#3a0808', padding: '12px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '10px', flexWrap: 'wrap' }}>
+      <div className="rs-cta-block">
         <div>
           <Label style={{ color: '#804040' }}>Call to Action</Label>
-          <p style={{ color: '#f0c8b8' }}><Editable value={episode.cta} onChange={v => onUpdate('cta', v)} /></p>
+          <p className="rs-cta-text"><Editable value={episode.cta} onChange={v => onUpdate('cta', v)} /></p>
         </div>
         <CopyBtn text={episode.cta} label="Copy" />
       </div>
 
       {/* Hashtags */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+      <div className="rs-hashtags">
         {(episode.hashtags || []).map((tag, i) => (
-          <span key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)' }}>{tag.startsWith('#') ? tag : `#${tag}`}</span>
+          <span key={i} className="rs-hashtag">{tag.startsWith('#') ? tag : `#${tag}`}</span>
         ))}
         <CopyBtn text={(episode.hashtags || []).map(t => t.startsWith('#') ? t : `#${t}`).join(' ')} label="Copy All" />
       </div>
@@ -503,16 +490,16 @@ function ProductionGuide({ guide }) {
   ].filter(Boolean)
 
   return (
-    <section id="production-guide" style={{ marginBottom: '64px' }}>
+    <section id="production-guide" className="rs-prod-section">
       <SectionHead>Production Guide</SectionHead>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '14px' }}>
+      <div className="rs-prod-grid">
         {cards.map((card, i) => (
-          <div key={i} style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '18px' }}>
-            <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', letterSpacing: '3px', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '10px' }}>{card.title}</div>
-            {card.content && <p style={{ fontStyle: 'italic', color: '#c0b090', fontSize: '15px' }}>{card.content}</p>}
-            {card.list && <ul style={{ listStyle: 'none', color: '#c0b090', fontSize: '14px' }}>{card.list.map((item, j) => (
-              <li key={j} style={{ marginBottom: '5px', paddingLeft: '12px', position: 'relative' }}>
-                <span style={{ position: 'absolute', left: 0, color: 'var(--gold)' }}>→</span>{item}
+          <div key={i} className="rs-prod-card">
+            <div className="rs-prod-card-title">{card.title}</div>
+            {card.content && <p className="rs-prod-card-content">{card.content}</p>}
+            {card.list && <ul className="rs-prod-card-list">{card.list.map((item, j) => (
+              <li key={j} className="rs-prod-card-list-item">
+                <span className="rs-prod-card-list-arrow">→</span>{item}
               </li>
             ))}</ul>}
           </div>
@@ -525,13 +512,13 @@ function ProductionGuide({ guide }) {
 // ── Small helpers ──────────────────────────────────────────────────────────
 function SectionHead({ children }) {
   return (
-    <div style={{ fontFamily: "'Cinzel', serif", fontSize: '12px', letterSpacing: '4px', color: 'var(--gold)', textTransform: 'uppercase', marginBottom: '24px', paddingBottom: '10px', borderBottom: '1px solid var(--border)' }}>
+    <div className="rs-section-head">
       {children}
     </div>
   )
 }
 function Label({ children, style }) {
-  return <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '3px', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: '5px', ...style }}>{children}</div>
+  return <div className="rs-label" style={style}>{children}</div>
 }
 
 // ── Batch cost modal ───────────────────────────────────────────────────────
@@ -540,29 +527,29 @@ function BatchCostModal({ series, settings, onConfirm, onCancel }) {
   const panelRef = useRef(null)
   useDivModalA11y(onCancel, panelRef)
   return (
-    <div role="presentation" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+    <div role="presentation" className="ds-modal-overlay">
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="batch-cost-modal-title"
-        style={{ background: 'var(--surface)', border: '1px solid var(--gold)', padding: '28px', maxWidth: '440px', width: '100%' }}
+        className="rs-batch-modal-card"
       >
-        <div id="batch-cost-modal-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', color: 'var(--gold)', marginBottom: '20px', letterSpacing: '2px' }}>Estimated Cost</div>
+        <div id="batch-cost-modal-title" className="rs-batch-modal-title">Estimated Cost</div>
         {[['Images', `${est.counts.chars} characters`, `$${est.images.toFixed(3)}`], ['Videos', `${est.counts.scenes} scenes`, `$${est.videos.toFixed(3)}`], ['Voice', `${est.counts.dialogueChars} chars`, `$${est.voice.toFixed(4)}`]].map(([type, detail, cost]) => (
-          <div key={type} style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', marginBottom: '8px', color: 'var(--cream)' }}>
-            <span>{type} <span style={{ color: 'var(--muted)' }}>({detail})</span></span>
+          <div key={type} className="rs-batch-cost-row">
+            <span>{type} <span className="rs-batch-cost-detail">({detail})</span></span>
             <span>{cost}</span>
           </div>
         ))}
-        <div style={{ borderTop: '1px solid var(--border)', marginTop: '12px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontFamily: "'Cinzel', serif", fontSize: '16px', color: 'var(--gold)' }}>
+        <div className="rs-batch-total-row">
           <span>Total estimate</span><span>${est.total.toFixed(3)}</span>
         </div>
-        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-          <button onClick={onConfirm} style={{ flex: 1, background: 'var(--gold)', color: '#080b10', border: 'none', padding: '12px', fontFamily: "'Cinzel', serif", fontSize: '12px', letterSpacing: '2px', cursor: 'pointer', fontWeight: '600' }}>
+        <div className="rs-batch-modal-actions">
+          <button onClick={onConfirm} className="rs-batch-confirm-btn">
             CONFIRM &amp; GENERATE
           </button>
-          <button onClick={onCancel} style={{ flex: 1, background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)', padding: '12px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: 'pointer' }}>
+          <button onClick={onCancel} className="rs-batch-cancel-btn">
             Cancel
           </button>
         </div>
@@ -607,28 +594,26 @@ function ShareDropdown({ seriesId, onClose }) {
   }
 
   return (
-    <div role="dialog" aria-label="Share series" style={{
-      position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200,
-      background: 'var(--surface)', border: '1px solid var(--border)',
-      padding: '16px', width: '320px', boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <span style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', letterSpacing: '2px', color: 'var(--gold)', textTransform: 'uppercase' }}>Share Series</span>
-        <button onClick={onClose} aria-label="Close share panel" style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0 }}>×</button>
+    <div role="dialog" aria-label="Share series" className="rs-share-dropdown">
+      <div className="rs-share-header">
+        <span className="rs-share-title">Share Series</span>
+        <button onClick={onClose} aria-label="Close share panel" className="rs-share-close-btn">×</button>
       </div>
 
       {!seriesId && (
-        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', lineHeight: '1.6' }}>
+        <p className="rs-share-hint">
           Save to your library first to get a shareable link.
         </p>
       )}
 
       {seriesId && !shareToken && (
         <>
-          <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', lineHeight: '1.6', marginBottom: '12px' }}>
+          <p className="rs-share-hint rs-share-hint--mb">
             Create a public read-only link anyone can view.
           </p>
-          <button onClick={handleShare} disabled={busy} aria-label="Create public share link" style={{ ...topBtn('var(--gold)', 'var(--gold)'), width: '100%', textAlign: 'center' }}>
+          <button onClick={handleShare} disabled={busy} aria-label="Create public share link"
+            className="rs-toolbar-btn"
+            style={{ border: `1px solid var(--gold)`, color: 'var(--gold)', width: '100%', textAlign: 'center' }}>
             {busy ? '…' : '+ Create Share Link'}
           </button>
         </>
@@ -636,20 +621,24 @@ function ShareDropdown({ seriesId, onClose }) {
 
       {seriesId && shareToken && (
         <>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '1.5px', marginBottom: '8px', textTransform: 'uppercase' }}>Link active</div>
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+          <div className="rs-share-link-label">Link active</div>
+          <div className="rs-share-url-row">
             <input
               readOnly
               value={shareUrl}
               aria-label="Public share URL"
-              style={{ flex: 1, background: '#060810', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '6px 8px', outline: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              className="rs-share-url-input"
               onFocus={e => e.target.select()}
             />
-            <button onClick={handleCopy} aria-label="Copy share URL" style={{ ...topBtn(copied ? '#3a7a4a' : 'var(--border)', copied ? '#6dc87a' : 'var(--muted)'), padding: '6px 10px' }}>
+            <button onClick={handleCopy} aria-label="Copy share URL"
+              className="rs-toolbar-btn"
+              style={{ border: `1px solid ${copied ? '#3a7a4a' : 'var(--border)'}`, color: copied ? '#6dc87a' : 'var(--muted)', padding: '6px 10px' }}>
               {copied ? '✓' : 'Copy'}
             </button>
           </div>
-          <button onClick={handleRevoke} disabled={busy} aria-label="Revoke public link" style={{ ...topBtn('#3a1818', '#804040'), width: '100%', textAlign: 'center' }}>
+          <button onClick={handleRevoke} disabled={busy} aria-label="Revoke public link"
+            className="rs-toolbar-btn"
+            style={{ border: '1px solid #3a1818', color: '#804040', width: '100%', textAlign: 'center' }}>
             {busy ? '…' : 'Revoke Link'}
           </button>
         </>
@@ -768,43 +757,43 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
   })()
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="rs-root">
 
       {/* Sticky top bar */}
-      <div style={{ position: 'sticky', top: 0, zIndex: 100, background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '10px 20px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="rs-toolbar">
         {/* Title */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'Cinzel', serif", fontSize: '15px', color: 'var(--cream)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</div>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--gold)', letterSpacing: '1px' }}>{author}</div>
+        <div className="rs-toolbar-title-wrap">
+          <div className="rs-toolbar-title">{title}</div>
+          <div className="rs-toolbar-author">{author}</div>
         </div>
 
         {/* Cost tracker */}
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="rs-cost-tracker">
           <span title="Images">🖼 ${sessionCost.images?.toFixed(3) ?? '0.000'}</span>
           <span title="Videos">🎬 ${sessionCost.videos?.toFixed(3) ?? '0.000'}</span>
           <span title="Voice">🎙 ${sessionCost.voice?.toFixed(4) ?? '0.0000'}</span>
-          <span style={{ color: 'var(--gold)', fontWeight: '700' }}>=${totalCost(sessionCost)}</span>
+          <span className="rs-cost-total">=  {totalCost(sessionCost)}</span>
         </div>
 
         {/* Batch button (batch or hybrid mode) */}
         {settings.generationMode !== 'on-demand' && (
-          <button onClick={() => setShowBatchModal(true)} style={{ background: '#3a0808', border: '1px solid var(--red)', color: '#f0c8b8', padding: '7px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer' }}>
+          <button onClick={() => setShowBatchModal(true)} className="rs-batch-btn">
             ⚡ {settings.generationMode === 'hybrid' ? 'Generate Images + Voice' : 'Generate All Media'}
           </button>
         )}
 
         {/* Actions */}
-        <button onClick={() => setShowStoryboard(true)} style={topBtn('var(--border)', 'var(--muted)')}>🎞 Storyboard</button>
-        <button onClick={() => exportHtml(series)} aria-label="Export as HTML" style={topBtn('var(--border)', 'var(--muted)')}>HTML</button>
-        <button onClick={handleBibleExport} aria-label="Export series bible" style={topBtn('var(--border)', 'var(--muted)')}>Bible</button>
-        <button onClick={handleZipExport} disabled={zipping} aria-label={zipping ? 'Exporting ZIP…' : 'Download ZIP export'} style={topBtn('var(--border)', 'var(--muted)')}>{zipping ? 'Zipping…' : '⬇ ZIP'}</button>
-        <div style={{ position: 'relative', flexShrink: 0 }}>
+        <button onClick={() => setShowStoryboard(true)} className="rs-toolbar-btn rs-toolbar-btn--default">🎞 Storyboard</button>
+        <button onClick={() => exportHtml(series)} aria-label="Export as HTML" className="rs-toolbar-btn rs-toolbar-btn--default">HTML</button>
+        <button onClick={handleBibleExport} aria-label="Export series bible" className="rs-toolbar-btn rs-toolbar-btn--default">Bible</button>
+        <button onClick={handleZipExport} disabled={zipping} aria-label={zipping ? 'Exporting ZIP…' : 'Download ZIP export'} className="rs-toolbar-btn rs-toolbar-btn--default">{zipping ? 'Zipping…' : '⬇ ZIP'}</button>
+        <div className="rs-share-wrap">
           <button
             onClick={() => setShowShare(v => !v)}
             aria-label="Share series"
             aria-expanded={showShare}
             aria-haspopup="dialog"
-            style={topBtn('var(--border)', 'var(--muted)')}
+            className="rs-toolbar-btn rs-toolbar-btn--default"
           >
             ⬡ Share
           </button>
@@ -817,32 +806,29 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
             disabled={savingAll || unsavedCount === 0}
             aria-label={savingAll ? 'Saving all assets to library…' : `Save all to library${unsavedCount > 0 ? ` (${unsavedCount} unsaved)` : ''}`}
             title={unsavedCount === 0 ? 'All generated assets are saved' : `Save ${unsavedCount} unsaved asset${unsavedCount !== 1 ? 's' : ''} to cloud library`}
-            style={topBtn(unsavedCount > 0 ? '#1e4a2a' : 'var(--border)', unsavedCount > 0 ? '#6dc87a' : 'var(--muted)')}
+            className="rs-toolbar-btn"
+            style={{ border: `1px solid ${unsavedCount > 0 ? '#1e4a2a' : 'var(--border)'}`, color: unsavedCount > 0 ? '#6dc87a' : 'var(--muted)' }}
           >
             {savingAll ? '☁ Saving…' : unsavedCount > 0 ? `☁ Save All (${unsavedCount})` : '☁ All Saved'}
           </button>
         )}
-        <button onClick={() => setShowSettings(true)} aria-label="Open settings" style={topBtn('var(--border)', 'var(--muted)')}>⚙</button>
-        <button onClick={onNewBook} style={topBtn('var(--border)', 'var(--muted)')}>+ New</button>
+        <button onClick={() => setShowSettings(true)} aria-label="Open settings" className="rs-toolbar-btn rs-toolbar-btn--default">⚙</button>
+        <button onClick={onNewBook} className="rs-toolbar-btn rs-toolbar-btn--default">+ New</button>
       </div>
 
-      <div style={{ display: 'flex' }}>
+      <div className="rs-body">
         {/* Sidebar */}
-        <nav className="sidebar-nav" style={{ width: '200px', flexShrink: 0, borderRight: '1px solid var(--border)', padding: '20px 0', position: 'sticky', top: '57px', height: 'calc(100vh - 57px)', overflowY: 'auto', display: 'none' }}>
-          <style>{`@media(min-width:768px){.sidebar-nav{display:block!important}.results-main{padding-left:32px!important}}`}</style>
+        <nav className="rs-sidebar">
           {sidebarLinks.map(link => (
-            <a key={link.id} href={`#${link.id}`} style={{ display: 'block', padding: '7px 18px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '1px', color: 'var(--muted)', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', transition: 'color 0.15s' }}
-              onMouseEnter={e => e.target.style.color = 'var(--gold)'}
-              onMouseLeave={e => e.target.style.color = 'var(--muted)'}
-            >{link.label}</a>
+            <a key={link.id} href={`#${link.id}`} className="rs-sidebar-link">{link.label}</a>
           ))}
         </nav>
 
         {/* Main content */}
-        <main className="results-main" style={{ flex: 1, padding: '44px 24px', maxWidth: '900px' }}>
-          <div style={{ marginBottom: '48px', paddingBottom: '36px', borderBottom: '1px solid var(--border)' }}>
-            <p style={{ fontStyle: 'italic', color: 'var(--muted)', marginBottom: '8px', fontSize: '15px' }}>{logline}</p>
-            <p style={{ color: '#c8b890', fontSize: '17px' }}>{series_hook}</p>
+        <main className="rs-main">
+          <div className="rs-intro">
+            <p className="rs-logline">{logline}</p>
+            <p className="rs-series-hook">{series_hook}</p>
           </div>
 
           <CharacterBible characters={characters} seriesTitle={title} onUpdateChar={updateChar} plan={activeWorkspacePlan} onOpenBilling={onOpenBilling} />
@@ -865,8 +851,8 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
           <ProductionGuide guide={production_guide} />
 
           {/* AI-generated content disclosure */}
-          <div style={{ marginTop: '48px', paddingTop: '20px', borderTop: '1px solid var(--border)', textAlign: 'center' }}>
-            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#3a4a5a', letterSpacing: '1.5px', lineHeight: '1.7' }}>
+          <div className="rs-disclosure">
+            <p className="rs-disclosure-text">
               Images, video, and voice on this page are AI-generated. Review before publishing and disclose AI origin per platform rules.
             </p>
           </div>
@@ -892,13 +878,4 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
       )}
     </div>
   )
-}
-
-function topBtn(border, color) {
-  return {
-    background: 'transparent', border: `1px solid ${border}`, color,
-    padding: '6px 12px', fontFamily: "'JetBrains Mono', monospace",
-    fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase',
-    cursor: 'pointer', flexShrink: 0,
-  }
 }
