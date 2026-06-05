@@ -5,6 +5,7 @@ import { users as usersApi, analytics as analyticsApi, workspaces as workspacesA
 import { planFeatures } from '../../utils/planFeatures'
 import DistributionPanel from '../social/DistributionPanel'
 import { useDivModalA11y } from '../../hooks/useModalA11y'
+import '../../styles/profile.css'
 
 const PLAN_SUMMARIES = {
   free:   'Standard tiers only · watermark on exports',
@@ -133,54 +134,42 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
   const TABS = ['profile', 'security', 'apikey', 'workspace', 'analytics', 'distribution']
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} role="presentation" onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()}>
+    <div className="ds-modal-overlay" role="presentation" onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()}>
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="profile-modal-title"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        className="pp-modal-card"
         onClick={e => e.stopPropagation()}
       >
 
-        <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span id="profile-modal-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>
+        <div className="pp-modal-header">
+          <span id="profile-modal-title" className="pp-modal-title">
             ACCOUNT — {user?.name?.toUpperCase()}
           </span>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button onClick={logout} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 12px', background: 'transparent', border: '1px solid #804040', color: '#f08080', cursor: 'pointer' }}>Sign Out</button>
-            <button onClick={onClose} aria-label="Close account dialog" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <div className="pp-header-actions">
+            <button onClick={logout} className="pp-signout-btn">Sign Out</button>
+            <button onClick={onClose} aria-label="Close account dialog" className="pp-close-btn">×</button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
+        <div className="pp-tabs">
           {TABS.map(t => (
             <button key={t} onClick={() => { setMsg(''); setTab(t); if (t === 'analytics') { loadAnalytics(); loadJobs() } if (t === 'workspace') loadWorkspace() }}
               aria-selected={t === tab}
-              style={{
-              flex: 1, background: 'transparent', border: 'none',
-              borderBottom: t === tab ? '2px solid var(--gold)' : '2px solid transparent',
-              color: t === tab ? 'var(--gold)' : 'var(--muted)',
-              padding: '10px 4px', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '1.5px', textTransform: 'uppercase', cursor: 'pointer',
-            }}>{t}</button>
+              className="pp-tab"
+            >{t}</button>
           ))}
         </div>
 
-        <div style={{ padding: '24px', overflowY: 'auto', flex: 1 }}>
+        <div className="pp-body">
           {msg && (
             <div
               role={msgKind === 'error' ? 'alert' : 'status'}
               aria-live="polite"
-              style={{
-                background: msgKind === 'error' ? '#200a0a' : '#0a2010',
-                border: `1px solid ${msgKind === 'error' ? '#7a3a3a' : '#3a7a4a'}`,
-                padding: '10px 14px',
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: '11px',
-                color: msgKind === 'error' ? '#f08080' : '#6dc87a',
-                marginBottom: '16px',
-              }}
+              className={`pp-msg pp-msg--${msgKind}`}
             >{msg}</div>
           )}
 
@@ -190,7 +179,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
               <Field label="Email" value={user?.email} disabled />
               <Field label="Plan" value={activeWorkspacePlan || 'free'} disabled />
               <Field label="Credits" value={String(activeCreditBalance ?? 0)} disabled />
-              <button onClick={saveProfile} disabled={saving} style={btn(saving)}>{saving ? 'Saving…' : 'Save Profile'}</button>
+              <button onClick={saveProfile} disabled={saving} className="pp-btn" style={saving ? { background: 'var(--border)', color: 'var(--muted)', cursor: 'not-allowed' } : undefined}>{saving ? 'Saving…' : 'Save Profile'}</button>
 
               {/* Plan comparison */}
               {(() => {
@@ -198,9 +187,9 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                 const currentPlan = activeWorkspacePlan || 'free'
                 const currentRank = PLAN_RANK[currentPlan] ?? 0
                 return (
-                  <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>Plan Comparison</div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '8px' }}>
+                  <div className="pp-plans-section">
+                    <div className="pp-section-eyebrow">Plan Comparison</div>
+                    <div className="pp-plans-grid">
                       {PRICING.plans.map(plan => {
                         const isCurrent = currentPlan === plan.key
                         const planRank = PLAN_RANK[plan.key] ?? 0
@@ -210,28 +199,23 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                         const cardStyle = {
                           background: isCurrent ? 'rgba(200,146,42,0.08)' : 'var(--surface2)',
                           border: `1px solid ${isCurrent ? 'var(--gold)' : 'var(--border)'}`,
-                          padding: '12px 10px',
                           cursor: isUpgrade ? 'pointer' : 'default',
                           transition: isUpgrade ? 'border-color 0.15s, background 0.15s' : undefined,
-                          display: 'block',
-                          width: '100%',
-                          textAlign: 'left',
-                          outline: 'none',
                         }
 
                         const inner = (
                           <>
-                            <div style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', color: isCurrent ? 'var(--gold)' : 'var(--cream)', letterSpacing: '1px', marginBottom: '2px', textTransform: 'uppercase' }}>{plan.label}</div>
-                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gold)', marginBottom: '6px' }}>{plan.price}</div>
-                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#6dc87a', marginBottom: '8px' }}>{plan.credits}</div>
+                            <div className="pp-plan-name" style={{ color: isCurrent ? 'var(--gold)' : 'var(--cream)' }}>{plan.label}</div>
+                            <div className="pp-plan-price">{plan.price}</div>
+                            <div className="pp-plan-credits">{plan.credits}</div>
                             {plan.features.map(f => (
-                              <div key={f} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', marginBottom: '3px', lineHeight: '1.4' }}>· {f}</div>
+                              <div key={f} className="pp-plan-feature">· {f}</div>
                             ))}
                             {isCurrent && (
-                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--gold)', letterSpacing: '1px', marginTop: '6px' }}>CURRENT</div>
+                              <div className="pp-plan-badge">CURRENT</div>
                             )}
                             {isUpgrade && (
-                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--gold)', letterSpacing: '1px', marginTop: '6px' }}>Upgrade →</div>
+                              <div className="pp-plan-badge">Upgrade →</div>
                             )}
                             {isDowngrade && (
                               <button
@@ -240,7 +224,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                                   try { const { url } = await billingApi.portal(); window.location.href = url }
                                   catch (err) { setError(err.message) }
                                 }}
-                                style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', background: 'transparent', border: '1px solid var(--border)', padding: '3px 7px', cursor: 'pointer', marginTop: '6px', letterSpacing: '1px' }}
+                                className="pp-plan-manage-btn"
                               >Manage Billing</button>
                             )}
                           </>
@@ -263,17 +247,18 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                                   }
                                 }
                               }}
+                              className="pp-plan-card"
                               style={cardStyle}
                             >{inner}</button>
                           )
                         }
 
                         return (
-                          <div key={plan.key} style={cardStyle}>{inner}</div>
+                          <div key={plan.key} className="pp-plan-card" style={cardStyle}>{inner}</div>
                         )
                       })}
                     </div>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: '#2a3a4a', marginTop: '4px' }}>
+                    <div className="pp-pricing-disclaimer">
                       Prices displayed are indicative. Actual charges are confirmed at checkout via Stripe.
                     </div>
                   </div>
@@ -281,19 +266,19 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
               })()}
 
               {/* Support */}
-              <div style={{ borderTop: '1px solid var(--border)', marginTop: '20px', paddingTop: '16px' }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Support</div>
+              <div className="pp-support-section">
+                <div className="pp-section-eyebrow pp-section-eyebrow--sm">Support</div>
                 <a
                   href={`mailto:${SUPPORT_EMAIL}`}
-                  style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--gold)', textDecoration: 'underline' }}
+                  className="pp-support-link"
                 >
                   Need help? Contact support →
                 </a>
               </div>
 
               {/* Data & Privacy */}
-              <div style={{ borderTop: '1px solid var(--border)', marginTop: '20px', paddingTop: '20px' }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '12px' }}>Data &amp; Privacy</div>
+              <div className="pp-privacy-section">
+                <div className="pp-section-eyebrow">Data &amp; Privacy</div>
 
                 <button
                   onClick={async () => {
@@ -312,7 +297,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                       setSuccess('Data export downloaded.')
                     } catch (err) { setError(err.message) }
                   }}
-                  style={{ ...btn(false), marginBottom: '10px', display: 'block', width: '100%' }}
+                  className="pp-btn pp-btn--block-mb"
                 >Export My Data</button>
 
                 <button
@@ -324,7 +309,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                       logout()
                     } catch (err) { setError(err.message) }
                   }}
-                  style={{ display: 'block', width: '100%', background: 'transparent', color: '#f08080', border: '1px solid #804040', padding: '10px 20px', fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer' }}
+                  className="pp-delete-btn"
                 >Delete Account</button>
               </div>
             </div>
@@ -332,30 +317,30 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
 
           {tab === 'security' && (
             <div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '16px' }}>Change your password below. You'll need your current password.</div>
+              <div className="pp-security-hint">Change your password below. You'll need your current password.</div>
               <PasswordChanger onSuccess={setSuccess} onError={setError} />
             </div>
           )}
 
           {tab === 'apikey' && (
             <div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '16px' }}>
+              <div className="pp-apikey-intro">
                 Use your API key to access BookFilm Studio programmatically.<br />
                 Keep it secret — it grants full account access.
               </div>
               {apiKeyData ? (
                 <div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#6dc87a', marginBottom: '8px' }}>⚠ Copy this now — it won't be shown again:</div>
-                  <div style={{ background: '#0a0806', border: '1px solid #3a7a4a', padding: '12px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: '#6dc87a', wordBreak: 'break-all', marginBottom: '12px' }}>{apiKeyData.apiKey}</div>
+                  <div className="pp-apikey-warn">⚠ Copy this now — it won't be shown again:</div>
+                  <div className="pp-apikey-value">{apiKeyData.apiKey}</div>
                 </div>
               ) : (
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', marginBottom: '16px' }}>
+                <div className="pp-apikey-prefix">
                   Prefix: {user?.apiKeyPrefix || 'No API key generated'}
                 </div>
               )}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={generateApiKey} style={btn(false)}>Generate New Key</button>
-                <button onClick={revokeApiKey} style={{ ...btn(false), background: 'transparent', color: '#f08080', border: '1px solid #804040' }}>Revoke</button>
+              <div className="pp-apikey-actions">
+                <button onClick={generateApiKey} className="pp-btn">Generate New Key</button>
+                <button onClick={revokeApiKey} className="pp-btn pp-apikey-revoke-btn">Revoke</button>
               </div>
             </div>
           )}
@@ -367,58 +352,58 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                 const ws = wsList.find(w => w._id === activeWorkspace)
                 const creditBalance = ws?.creditBalance ?? 0
                 return ws ? (
-                  <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '14px 16px', marginBottom: '20px' }}>
-                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '2px', marginBottom: '6px' }}>{ws.name}</div>
-                    <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Type: <span style={{ color: 'var(--cream)' }}>{ws.type}</span></span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '1.5px' }}>Plan: <span style={{ color: 'var(--cream)' }}>{ws.plan}</span></span>
+                  <div className="pp-ws-card">
+                    <div className="pp-ws-name">{ws.name}</div>
+                    <div className="pp-ws-meta-row">
+                      <span className="pp-ws-meta-item">Type: <span className="pp-ws-meta-value">{ws.type}</span></span>
+                      <span className="pp-ws-meta-item">Plan: <span className="pp-ws-meta-value">{ws.plan}</span></span>
                     </div>
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
-                        <span style={{ fontFamily: "'Cinzel', serif", fontSize: '26px', color: 'var(--gold)', lineHeight: 1 }}>{creditBalance}</span>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '2px' }}>Credits</span>
+                    <div className="pp-ws-divider">
+                      <div className="pp-ws-credit-row">
+                        <span className="pp-ws-credit-number">{creditBalance}</span>
+                        <span className="pp-ws-credit-label">Credits</span>
                       </div>
-                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', marginBottom: creditBalance === 0 ? '8px' : '0' }}>
+                      <div className="pp-ws-credit-hint" style={{ marginBottom: creditBalance === 0 ? '8px' : '0' }}>
                         Used by managed generation (text 1, voice 1–5, image 4–10 per generation).
                       </div>
                       {creditBalance === 0 && (
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f0a050', marginTop: '2px' }}>
+                        <div className="pp-ws-credits-empty">
                           Out of credits — managed generation is paused. Ask an admin to grant credits.
                         </div>
                       )}
                     </div>
                     {/* Plan summary */}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
-                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '2px' }}>Plan</span>
-                        <span style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: planFeatures(ws.plan).premium ? 'var(--gold)' : 'var(--cream)', letterSpacing: '1.5px', textTransform: 'capitalize' }}>{ws.plan || 'free'}</span>
+                    <div className="pp-ws-plan-row">
+                      <div className="pp-ws-plan-header">
+                        <span className="pp-ws-plan-eyebrow">Plan</span>
+                        <span className="pp-ws-plan-name" style={{ color: planFeatures(ws.plan).premium ? 'var(--gold)' : 'var(--cream)' }}>{ws.plan || 'free'}</span>
                       </div>
-                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', lineHeight: '1.6' }}>
+                      <div className="pp-ws-plan-summary">
                         {PLAN_SUMMARIES[ws.plan] || PLAN_SUMMARIES.free}
                       </div>
                     </div>
 
                     {/* Per-seat billing line (org + paid plan) */}
                     {ws.type === 'organization' && (ws.plan === 'pro' || ws.plan === 'studio') && (
-                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '1.5px' }}>
-                          Billed per seat — <span style={{ color: 'var(--cream)' }}>{(members ?? ws.members ?? []).length} × {ws.plan}</span>
+                      <div className="pp-ws-seat-billing">
+                        <div className="pp-ws-seat-text">
+                          Billed per seat — <span className="pp-ws-seat-value">{(members ?? ws.members ?? []).length} × {ws.plan}</span>
                         </div>
                       </div>
                     )}
 
                     {/* Credit breakdown */}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
-                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '6px' }}>Credit Breakdown</div>
-                      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div className="pp-credits-section">
+                      <div className="pp-credits-eyebrow">Credit Breakdown</div>
+                      <div className="pp-credits-grid">
                         {[
                           ['Monthly', ws.monthlyCredits ?? 0],
                           ['Purchased', ws.purchasedCredits ?? 0],
                           ['Total', ws.creditBalance ?? ((ws.monthlyCredits ?? 0) + (ws.purchasedCredits ?? 0))],
                         ].map(([label, val]) => (
-                          <div key={label} style={{ background: '#0a0806', border: '1px solid var(--border)', padding: '8px 12px', minWidth: '80px', textAlign: 'center' }}>
-                            <div style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', color: label === 'Total' ? 'var(--gold)' : 'var(--cream)', lineHeight: 1 }}>{val}</div>
-                            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginTop: '3px' }}>{label}</div>
+                          <div key={label} className="pp-credit-tile">
+                            <div className={`pp-credit-tile-value ${label === 'Total' ? 'pp-credit-tile-value--total' : 'pp-credit-tile-value--normal'}`}>{val}</div>
+                            <div className="pp-credit-tile-label">{label}</div>
                           </div>
                         ))}
                       </div>
@@ -426,16 +411,16 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
 
                     {/* Upgrade subscriptions */}
                     {ws.plan !== 'studio' && (
-                      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Upgrade Plan</div>
-                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <div className="pp-upgrade-section">
+                        <div className="pp-upgrade-eyebrow">Upgrade Plan</div>
+                        <div className="pp-upgrade-row">
                           {ws.plan !== 'pro' && (
                             <button
                               onClick={async () => {
                                 try { const { url } = await billingApi.checkout({ kind: 'subscription', key: 'pro' }); window.location.href = url }
                                 catch (err) { setError(err.message) }
                               }}
-                              style={btn(false)}
+                              className="pp-btn"
                             >Upgrade to Pro</button>
                           )}
                           <button
@@ -443,16 +428,16 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                               try { const { url } = await billingApi.checkout({ kind: 'subscription', key: 'studio' }); window.location.href = url }
                               catch (err) { setError(err.message) }
                             }}
-                            style={btn(false)}
+                            className="pp-btn"
                           >Upgrade to Studio</button>
                         </div>
                       </div>
                     )}
 
                     {/* Buy credit packs */}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
-                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Buy Credits</div>
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div className="pp-upgrade-section">
+                      <div className="pp-upgrade-eyebrow">Buy Credits</div>
+                      <div className="pp-upgrade-row">
                         {[
                           ['pack_small'],
                           ['pack_medium'],
@@ -466,7 +451,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                                 try { const { url } = await billingApi.checkout({ kind: 'pack', key }); window.location.href = url }
                                 catch (err) { setError(err.message) }
                               }}
-                              style={{ ...btn(false), background: 'var(--surface2)', color: 'var(--gold)', border: '1px solid var(--gold)' }}
+                              className="pp-btn pp-pack-btn"
                             >{pack.credits} credits — {pack.price}</button>
                           )
                         })}
@@ -474,13 +459,13 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                     </div>
 
                     {/* Manage billing */}
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', marginTop: '4px' }}>
+                    <div className="pp-billing-section">
                       <button
                         onClick={async () => {
                           try { const { url } = await billingApi.portal(); window.location.href = url }
                           catch (err) { setError(err.message) }
                         }}
-                        style={{ ...btn(false), background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }}
+                        className="pp-btn pp-manage-billing-btn"
                       >Manage Billing</button>
                     </div>
                   </div>
@@ -495,14 +480,14 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                 if (!isOwner) return null
                 const hasWhiteLabel = planFeatures(ws.plan).whiteLabel
                 return (
-                  <div style={{ borderTop: '1px solid var(--border)', marginTop: '16px', paddingTop: '16px', marginBottom: '20px' }}>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Workspace Settings</div>
+                  <div className="pp-ws-settings">
+                    <div className="pp-ws-settings-eyebrow">Workspace Settings</div>
 
                     {/* Rename */}
-                    <div style={{ marginBottom: '14px' }}>
-                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '5px' }}>Name</div>
+                    <div className="pp-ws-rename-field">
+                      <div className="pp-ws-rename-eyebrow">Name</div>
                       {wsRenaming ? (
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div className="pp-ws-rename-row">
                           <input
                             autoFocus
                             type="text"
@@ -510,7 +495,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                             onChange={e => setWsNewName(e.target.value)}
                             onKeyDown={e => { if (e.key === 'Escape') setWsRenaming(false) }}
                             aria-label="New workspace name"
-                            style={{ flex: 1, background: '#0a0806', border: '1px solid var(--gold)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '9px 12px', outline: 'none' }}
+                            className="pp-ws-rename-input"
                           />
                           <button
                             onClick={async () => {
@@ -525,17 +510,18 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                               finally { setWsSaving(false) }
                             }}
                             disabled={wsSaving}
-                            style={btn(wsSaving)}
+                            className="pp-btn"
+                            style={wsSaving ? { background: 'var(--border)', color: 'var(--muted)', cursor: 'not-allowed' } : undefined}
                           >{wsSaving ? '…' : 'Save'}</button>
-                          <button onClick={() => setWsRenaming(false)} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 14px', cursor: 'pointer' }}>Cancel</button>
+                          <button onClick={() => setWsRenaming(false)} className="pp-ws-cancel-btn">Cancel</button>
                         </div>
                       ) : (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--cream)' }}>{ws.name}</span>
+                        <div className="pp-ws-display-row">
+                          <span className="pp-ws-display-name">{ws.name}</span>
                           <button
                             onClick={() => { setWsNewName(ws.name); setWsRenaming(true) }}
                             aria-label="Rename workspace"
-                            style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '4px 10px', cursor: 'pointer', letterSpacing: '1px' }}
+                            className="pp-ws-rename-btn"
                           >✎ Rename</button>
                         </div>
                       )}
@@ -544,39 +530,39 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                     {/* White-label (studio plan only) */}
                     {hasWhiteLabel && (
                       <div>
-                        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '8px' }}>White-Label Branding</div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px', cursor: 'pointer' }}>
+                        <div className="pp-wl-eyebrow">White-Label Branding</div>
+                        <label className="pp-wl-toggle-label">
                           <input
                             type="checkbox"
                             checked={wlEnabled}
                             onChange={e => setWlEnabled(e.target.checked)}
                             aria-label="Enable white-label branding"
-                            style={{ accentColor: 'var(--gold)', width: '14px', height: '14px' }}
+                            className="pp-wl-checkbox"
                           />
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--cream)' }}>Enable white-label</span>
+                          <span className="pp-wl-toggle-text">Enable white-label</span>
                         </label>
                         {wlEnabled && (
-                          <div style={{ marginLeft: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <div className="pp-wl-fields">
                             <div>
-                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '4px' }}>Brand Name</div>
+                              <div className="pp-wl-field-eyebrow">Brand Name</div>
                               <input
                                 type="text"
                                 placeholder="e.g. Acme Studio"
                                 value={wlName}
                                 onChange={e => setWlName(e.target.value)}
                                 aria-label="White-label brand name"
-                                style={{ width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
+                                className="pp-wl-input"
                               />
                             </div>
                             <div>
-                              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '4px' }}>Brand Color (hex)</div>
+                              <div className="pp-wl-field-eyebrow">Brand Color (hex)</div>
                               <input
                                 type="text"
                                 placeholder="#c8921a"
                                 value={wlColor}
                                 onChange={e => setWlColor(e.target.value)}
                                 aria-label="White-label brand color hex value"
-                                style={{ width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '7px 10px', outline: 'none', boxSizing: 'border-box' }}
+                                className="pp-wl-input"
                               />
                             </div>
                           </div>
@@ -593,12 +579,13 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                             finally { setWsSaving(false) }
                           }}
                           disabled={wsSaving}
-                          style={{ ...btn(wsSaving), marginTop: '10px' }}
+                          className="pp-btn"
+                          style={{ marginTop: '10px', ...(wsSaving ? { background: 'var(--border)', color: 'var(--muted)', cursor: 'not-allowed' } : {}) }}
                         >{wsSaving ? 'Saving…' : 'Save Branding'}</button>
                       </div>
                     )}
                     {!hasWhiteLabel && (
-                      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', fontStyle: 'italic' }}>
+                      <div className="pp-wl-no-plan">
                         White-label branding requires the Studio plan.
                       </div>
                     )}
@@ -611,34 +598,34 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                 const ws = wsList.find(w => w._id === activeWorkspace)
                 const memberCount = members?.length ?? 0
                 return ws?.type === 'organization' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase' }}>Members</div>
-                    <div style={{ background: '#0a0806', border: '1px solid var(--border)', padding: '4px 10px', textAlign: 'center' }}>
-                      <span style={{ fontFamily: "'Cinzel', serif", fontSize: '14px', color: 'var(--gold)', lineHeight: 1 }}>{memberCount}</span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', marginLeft: '5px' }}>Seats</span>
+                  <div className="pp-members-header">
+                    <div className="pp-members-eyebrow">Members</div>
+                    <div className="pp-members-count-box">
+                      <span className="pp-members-count-num">{memberCount}</span>
+                      <span className="pp-members-count-label">Seats</span>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Members</div>
+                  <div className="pp-members-eyebrow pp-members-eyebrow--solo">Members</div>
                 )
               })()}
               {members === null ? (
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '16px' }}>Loading…</div>
+                <div className="pp-members-loading">Loading…</div>
               ) : (
-                <div style={{ marginBottom: '20px' }}>
+                <div className="pp-members-list">
                   {members.map((member, i) => {
                     const memberUserId = member.userId?._id ?? member.userId
                     const memberName   = member.userId?.name  ?? String(memberUserId)
                     const memberEmail  = member.userId?.email ?? ''
                     const isOwner      = member.role === 'owner'
                     return (
-                      <div key={memberUserId ?? i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--cream)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memberName}</div>
-                          {memberEmail && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)' }}>{memberEmail}</div>}
+                      <div key={memberUserId ?? i} className="pp-member-row">
+                        <div className="pp-member-info">
+                          <div className="pp-member-name">{memberName}</div>
+                          {memberEmail && <div className="pp-member-email">{memberEmail}</div>}
                         </div>
                         {isOwner ? (
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '1px', textTransform: 'uppercase' }}>owner</span>
+                          <span className="pp-member-owner-badge">owner</span>
                         ) : (
                           <>
                             <select
@@ -649,7 +636,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                                   await loadWorkspace()
                                 } catch (err) { setError(err.message) }
                               }}
-                              style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '4px 6px', cursor: 'pointer' }}
+                              className="pp-member-role-select"
                             >
                               <option value="admin">admin</option>
                               <option value="member">member</option>
@@ -661,7 +648,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                                   await loadWorkspace()
                                 } catch (err) { setError(err.message) }
                               }}
-                              style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '4px 10px', background: 'transparent', border: '1px solid #804040', color: '#f08080', cursor: 'pointer' }}
+                              className="pp-member-remove-btn"
                             >Remove</button>
                           </>
                         )}
@@ -672,15 +659,15 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
               )}
 
               {/* Invite row */}
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Invite Member</div>
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '24px' }}>
+              <div className="pp-invite-eyebrow">Invite Member</div>
+              <div className="pp-invite-row">
                 <input
                   type="email"
                   placeholder="email@example.com"
                   value={inviteEmail}
                   onChange={e => setInviteEmail(e.target.value)}
                   aria-label="Invite member by email"
-                  style={{ flex: 1, background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 12px', outline: 'none' }}
+                  className="pp-text-input"
                 />
                 <button
                   onClick={async () => {
@@ -696,20 +683,20 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                       }
                     }
                   }}
-                  style={btn(false)}
+                  className="pp-btn"
                 >Invite</button>
               </div>
 
               {/* Create organization workspace row */}
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '8px' }}>Create Organization</div>
-              <div style={{ display: 'flex', gap: '8px' }}>
+              <div className="pp-create-org-eyebrow">Create Organization</div>
+              <div className="pp-create-org-row">
                 <input
                   type="text"
                   placeholder="Workspace name"
                   value={newWsName}
                   onChange={e => setNewWsName(e.target.value)}
                   aria-label="New organization workspace name"
-                  style={{ flex: 1, background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '9px 12px', outline: 'none' }}
+                  className="pp-text-input"
                 />
                 <button
                   onClick={async () => {
@@ -720,7 +707,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                       await loadWorkspace()
                     } catch (err) { setError(err.message) }
                   }}
-                  style={btn(false)}
+                  className="pp-btn"
                 >Create</button>
               </div>
             </div>
@@ -729,7 +716,7 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
           {tab === 'analytics' && analyticsData && (
             <div>
               {/* ── Summary tiles ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+              <div className="pp-analytics-tiles">
                 {[
                   ['Series Generated', analyticsData.stats.totalSeries ?? 0],
                   ['Images', analyticsData.stats.totalImages ?? 0],
@@ -738,37 +725,37 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                   ['Total Spent', `$${(analyticsData.stats.totalCost ?? 0).toFixed(3)}`],
                   ['Total Series (all time)', analyticsData.seriesCount],
                 ].map(([label, value]) => (
-                  <div key={label} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '14px', textAlign: 'center' }}>
-                    <div style={{ fontFamily: "'Cinzel', serif", fontSize: '22px', color: 'var(--gold)' }}>{value}</div>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1px', textTransform: 'uppercase', marginTop: '4px' }}>{label}</div>
+                  <div key={label} className="pp-analytics-tile">
+                    <div className="pp-analytics-tile-value">{value}</div>
+                    <div className="pp-analytics-tile-label">{label}</div>
                   </div>
                 ))}
               </div>
-              <a href={analyticsApi.exportCSV()} download style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--gold)', textDecoration: 'underline' }}>
+              <a href={analyticsApi.exportCSV()} download className="pp-export-csv-link">
                 ⬇ Export CSV
               </a>
 
               {/* ── Daily history ── */}
               {historyData && historyData.length > 0 && (
-                <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Daily Breakdown (last 30 days)</div>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Daily usage breakdown">
+                <div className="pp-analytics-section">
+                  <div className="pp-analytics-section-eyebrow">Daily Breakdown (last 30 days)</div>
+                  <div className="pp-table-scroll">
+                    <table className="pp-table" aria-label="Daily usage breakdown">
                       <thead>
                         <tr>
                           {['Date', 'Images', 'Videos', 'Voice', 'Cost'].map(h => (
-                            <th key={h} scope="col" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '6px 8px', borderBottom: '1px solid var(--border)', textAlign: h === 'Date' ? 'left' : 'right', fontWeight: 400 }}>{h}</th>
+                            <th key={h} scope="col" className={h === 'Date' ? 'pp-th-left' : 'pp-th-right'}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {historyData.map(row => (
-                          <tr key={row._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--cream)', padding: '6px 8px' }}>{row._id}</td>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{row.images ?? 0}</td>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{row.videos ?? 0}</td>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{row.voice ?? 0}</td>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--gold)', padding: '6px 8px', textAlign: 'right' }}>${(row.cost ?? 0).toFixed(4)}</td>
+                          <tr key={row._id}>
+                            <td className="pp-td-date">{row._id}</td>
+                            <td className="pp-td-muted">{row.images ?? 0}</td>
+                            <td className="pp-td-muted">{row.videos ?? 0}</td>
+                            <td className="pp-td-muted">{row.voice ?? 0}</td>
+                            <td className="pp-td-gold">${(row.cost ?? 0).toFixed(4)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -777,30 +764,32 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                 </div>
               )}
               {historyData && historyData.length === 0 && (
-                <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '16px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>No daily history in the last 30 days.</div>
+                <div className="pp-analytics-section pp-analytics-section--compact">
+                  <div className="pp-jobs-empty">No daily history in the last 30 days.</div>
+                </div>
               )}
 
               {/* ── Provider breakdown ── */}
               {providersData && providersData.length > 0 && (
-                <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '10px' }}>Provider Usage</div>
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Provider usage breakdown">
+                <div className="pp-analytics-section">
+                  <div className="pp-analytics-section-eyebrow">Provider Usage</div>
+                  <div className="pp-table-scroll">
+                    <table className="pp-table" aria-label="Provider usage breakdown">
                       <thead>
                         <tr>
                           {['Action', 'Provider', 'Count', 'Total Cost', 'Success %'].map(h => (
-                            <th key={h} scope="col" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '6px 8px', borderBottom: '1px solid var(--border)', textAlign: h === 'Action' || h === 'Provider' ? 'left' : 'right', fontWeight: 400 }}>{h}</th>
+                            <th key={h} scope="col" className={h === 'Action' || h === 'Provider' ? 'pp-th-left' : 'pp-th-right'}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {providersData.map((row, i) => (
-                          <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--cream)', padding: '6px 8px' }}>{row._id?.action ?? '—'}</td>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px' }}>{row._id?.provider ?? '—'}</td>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{row.count}</td>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--gold)', padding: '6px 8px', textAlign: 'right' }}>${(row.totalCost ?? 0).toFixed(4)}</td>
-                            <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: row.successRate >= 0.9 ? '#6dc87a' : '#f0a050', padding: '6px 8px', textAlign: 'right' }}>{((row.successRate ?? 0) * 100).toFixed(0)}%</td>
+                          <tr key={i}>
+                            <td className="pp-td-left">{row._id?.action ?? '—'}</td>
+                            <td className="pp-td-muted-l">{row._id?.provider ?? '—'}</td>
+                            <td className="pp-td-muted">{row.count}</td>
+                            <td className="pp-td-gold">${(row.totalCost ?? 0).toFixed(4)}</td>
+                            <td className="pp-td-status" style={{ color: row.successRate >= 0.9 ? '#6dc87a' : '#f0a050' }}>{((row.successRate ?? 0) * 100).toFixed(0)}%</td>
                           </tr>
                         ))}
                       </tbody>
@@ -810,27 +799,27 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
               )}
 
               {/* ── Recent Jobs ── */}
-              <div style={{ borderTop: '1px solid var(--border)', marginTop: '24px', paddingTop: '20px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '10px' }}>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase' }}>Recent Jobs</div>
+              <div className="pp-analytics-section">
+                <div className="pp-jobs-header">
+                  <div className="pp-jobs-eyebrow">Recent Jobs</div>
                   <button
                     onClick={loadJobs}
                     disabled={jobsLoading}
                     aria-label="Refresh jobs list"
-                    style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '3px 8px', cursor: jobsLoading ? 'not-allowed' : 'pointer', letterSpacing: '1px' }}
+                    className="pp-jobs-refresh-btn"
                   >{jobsLoading ? '…' : '↻ Refresh'}</button>
                 </div>
                 {jobsData === null ? (
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>Loading…</div>
+                  <div className="pp-jobs-empty">Loading…</div>
                 ) : jobsData.length === 0 ? (
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>No managed jobs yet.</div>
+                  <div className="pp-jobs-empty">No managed jobs yet.</div>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Recent managed generation jobs">
+                  <div className="pp-table-scroll">
+                    <table className="pp-table" aria-label="Recent managed generation jobs">
                       <thead>
                         <tr>
                           {['Type', 'Tier', 'Status', 'Created', 'Cost'].map(h => (
-                            <th key={h} scope="col" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '8px', color: 'var(--muted)', letterSpacing: '1.5px', textTransform: 'uppercase', padding: '6px 8px', borderBottom: '1px solid var(--border)', textAlign: h === 'Type' || h === 'Tier' ? 'left' : 'right', fontWeight: 400 }}>{h}</th>
+                            <th key={h} scope="col" className={h === 'Type' || h === 'Tier' ? 'pp-th-left' : 'pp-th-right'}>{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -838,12 +827,12 @@ export default function ProfilePage({ onClose, initialTab = 'profile' }) {
                         {jobsData.map(job => {
                           const statusColor = job.status === 'done' ? '#6dc87a' : job.status === 'failed' ? '#f08080' : job.status === 'active' ? '#f0c040' : 'var(--muted)'
                           return (
-                            <tr key={job.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--cream)', padding: '6px 8px' }}>{job.type}</td>
-                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '6px 8px' }}>{job.tier}</td>
-                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: statusColor, padding: '6px 8px', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '1px' }}>{job.status}</td>
-                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', padding: '6px 8px', textAlign: 'right' }}>{job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
-                              <td style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--gold)', padding: '6px 8px', textAlign: 'right' }}>{job.costUsd != null ? `$${job.costUsd.toFixed(4)}` : '—'}</td>
+                            <tr key={job.id}>
+                              <td className="pp-td-left">{job.type}</td>
+                              <td className="pp-td-muted-l">{job.tier}</td>
+                              <td className="pp-td-status" style={{ color: statusColor }}>{job.status}</td>
+                              <td className="pp-td-date-small">{job.createdAt ? new Date(job.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                              <td className="pp-td-gold">{job.costUsd != null ? `$${job.costUsd.toFixed(4)}` : '—'}</td>
                             </tr>
                           )
                         })}
@@ -875,10 +864,10 @@ ProfilePage.propTypes = {
 
 function Field({ label, value, onChange, disabled }) {
   return (
-    <div style={{ marginBottom: '14px' }}>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase', marginBottom: '5px' }}>{label}</div>
+    <div className="pp-field">
+      <div className="pp-field-label">{label}</div>
       <input type="text" value={value || ''} onChange={onChange ? e => onChange(e.target.value) : undefined} disabled={disabled}
-        style={{ width: '100%', background: disabled ? 'var(--surface2)' : '#0a0806', border: `1px solid ${disabled ? 'var(--border)' : 'var(--border)'}`, color: disabled ? 'var(--muted)' : 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '9px 12px', outline: 'none', boxSizing: 'border-box', cursor: disabled ? 'default' : 'text' }} />
+        className={`pp-field-input ${disabled ? 'pp-field-input--disabled' : 'pp-field-input--active'}`} />
     </div>
   )
 }
@@ -900,12 +889,10 @@ function PasswordChanger({ onSuccess, onError }) {
 
   return (
     <div>
-      <input type="password" placeholder="Current password" value={current} onChange={e => setCurrent(e.target.value)} aria-label="Current password" style={{ display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '10px 12px', outline: 'none', marginBottom: '10px', boxSizing: 'border-box' }} />
-      <input type="password" placeholder="New password (min 8 chars)" value={next} onChange={e => setNext(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} aria-label="New password (minimum 8 characters)" style={{ display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', padding: '10px 12px', outline: 'none', marginBottom: '12px', boxSizing: 'border-box' }} />
-      <button onClick={save} disabled={loading} style={btn(loading)}>{loading ? 'Saving…' : 'Change Password'}</button>
+      <input type="password" placeholder="Current password" value={current} onChange={e => setCurrent(e.target.value)} aria-label="Current password" className="pp-pw-input" />
+      <input type="password" placeholder="New password (min 8 chars)" value={next} onChange={e => setNext(e.target.value)} onKeyDown={e => e.key === 'Enter' && save()} aria-label="New password (minimum 8 characters)" className="pp-pw-input pp-pw-input--last" />
+      <button onClick={save} disabled={loading} className="pp-btn" style={loading ? { background: 'var(--border)', color: 'var(--muted)', cursor: 'not-allowed' } : undefined}>{loading ? 'Saving…' : 'Change Password'}</button>
     </div>
   )
 }
 PasswordChanger.propTypes = { onSuccess: PropTypes.func.isRequired, onError: PropTypes.func.isRequired }
-
-const btn = (disabled) => ({ background: disabled ? 'var(--border)' : 'var(--gold)', color: disabled ? 'var(--muted)' : '#080b10', border: 'none', padding: '10px 20px', fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: disabled ? 'not-allowed' : 'pointer' })

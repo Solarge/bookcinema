@@ -1,0 +1,996 @@
+/* ── ProfilePage component styles (.pp-*) ─────────────────────────────────
+   All static inline styles extracted from ProfilePage.jsx.
+   Genuinely dynamic styles (plan colors, status colors, conditional borders)
+   remain as inline styles in the component.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* ── Modal shell ─────────────────────────────────────────────────────────── */
+.pp-modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Modal header ────────────────────────────────────────────────────────── */
+.pp-modal-header {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pp-modal-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 3px;
+}
+
+.pp-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pp-signout-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 6px 12px;
+  background: transparent;
+  border: 1px solid #804040;
+  color: #f08080;
+  cursor: pointer;
+}
+
+.pp-close-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+.pp-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+}
+
+.pp-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: 10px 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.pp-tab[aria-selected='true'] {
+  border-bottom-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ── Scrollable body ─────────────────────────────────────────────────────── */
+.pp-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* ── Alert banner ────────────────────────────────────────────────────────── */
+.pp-msg {
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  margin-bottom: 16px;
+}
+.pp-msg--error   { background: #200a0a; border: 1px solid #7a3a3a; color: #f08080; }
+.pp-msg--success { background: #0a2010; border: 1px solid #3a7a4a; color: #6dc87a; }
+
+/* ── Primary action button (gold CTA) ───────────────────────────────────── */
+.pp-btn {
+  background: var(--gold);
+  color: #080b10;
+  border: none;
+  padding: 10px 20px;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.pp-btn:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+/* ── Field (label + input wrapper) ──────────────────────────────────────── */
+.pp-field {
+  margin-bottom: 14px;
+}
+
+.pp-field-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.pp-field-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 9px 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.pp-field-input--active   { background: #0a0806; cursor: text; }
+.pp-field-input--disabled { background: var(--surface2); color: var(--muted); cursor: default; }
+
+/* ── Plan comparison section ─────────────────────────────────────────────── */
+.pp-plans-section {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+
+.pp-section-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.pp-section-eyebrow--sm { margin-bottom: 8px; }
+
+.pp-plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* Plan card — base */
+.pp-plan-card {
+  padding: 12px 10px;
+  display: block;
+  width: 100%;
+  text-align: left;
+  outline: none;
+}
+
+.pp-plan-name {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 1px;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.pp-plan-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+
+.pp-plan-credits {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: #6dc87a;
+  margin-bottom: 8px;
+}
+
+.pp-plan-feature {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  margin-bottom: 3px;
+  line-height: 1.4;
+}
+
+.pp-plan-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin-top: 6px;
+}
+
+.pp-plan-manage-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 3px 7px;
+  cursor: pointer;
+  margin-top: 6px;
+  letter-spacing: 1px;
+}
+
+.pp-pricing-disclaimer {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: #2a3a4a;
+  margin-top: 4px;
+}
+
+/* ── Support section ─────────────────────────────────────────────────────── */
+.pp-support-section {
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+  padding-top: 16px;
+}
+
+.pp-support-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+/* ── Data & Privacy section ──────────────────────────────────────────────── */
+.pp-privacy-section {
+  border-top: 1px solid var(--border);
+  margin-top: 20px;
+  padding-top: 20px;
+}
+
+.pp-btn--block-mb {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.pp-delete-btn {
+  display: block;
+  width: 100%;
+  background: transparent;
+  color: #f08080;
+  border: 1px solid #804040;
+  padding: 10px 20px;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* ── Security tab ────────────────────────────────────────────────────────── */
+.pp-security-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+/* ── API Key tab ─────────────────────────────────────────────────────────── */
+.pp-apikey-intro {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.pp-apikey-warn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #6dc87a;
+  margin-bottom: 8px;
+}
+
+.pp-apikey-value {
+  background: #0a0806;
+  border: 1px solid #3a7a4a;
+  padding: 12px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #6dc87a;
+  word-break: break-all;
+  margin-bottom: 12px;
+}
+
+.pp-apikey-prefix {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.pp-apikey-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pp-apikey-revoke-btn {
+  background: transparent;
+  color: #f08080;
+  border: 1px solid #804040;
+}
+
+/* ── Workspace tab ───────────────────────────────────────────────────────── */
+.pp-ws-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  margin-bottom: 20px;
+}
+
+.pp-ws-name {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+
+.pp-ws-meta-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.pp-ws-meta-item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+
+.pp-ws-meta-value {
+  color: var(--cream);
+}
+
+.pp-ws-divider {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.pp-ws-credit-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.pp-ws-credit-number {
+  font-family: 'Cinzel', serif;
+  font-size: 26px;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.pp-ws-credit-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.pp-ws-credit-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.pp-ws-credits-empty {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #f0a050;
+  margin-top: 2px;
+}
+
+.pp-ws-plan-row {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.pp-ws-plan-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.pp-ws-plan-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.pp-ws-plan-name {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  text-transform: capitalize;
+}
+
+.pp-ws-plan-summary {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.pp-ws-seat-billing {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.pp-ws-seat-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+}
+
+.pp-ws-seat-value {
+  color: var(--cream);
+}
+
+/* ── Credit breakdown ────────────────────────────────────────────────────── */
+.pp-credits-section {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.pp-credits-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.pp-credits-grid {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pp-credit-tile {
+  background: #0a0806;
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  min-width: 80px;
+  text-align: center;
+}
+
+.pp-credit-tile-value {
+  font-family: 'Cinzel', serif;
+  font-size: 16px;
+  line-height: 1;
+}
+.pp-credit-tile-value--total  { color: var(--gold); }
+.pp-credit-tile-value--normal { color: var(--cream); }
+
+.pp-credit-tile-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+/* ── Upgrade / buy credits ───────────────────────────────────────────────── */
+.pp-upgrade-section {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.pp-upgrade-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.pp-upgrade-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pp-pack-btn {
+  background: var(--surface2);
+  color: var(--gold);
+  border: 1px solid var(--gold);
+}
+
+.pp-billing-section {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.pp-manage-billing-btn {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+/* ── Workspace settings (owner only) ────────────────────────────────────── */
+.pp-ws-settings {
+  border-top: 1px solid var(--border);
+  margin-top: 16px;
+  padding-top: 16px;
+  margin-bottom: 20px;
+}
+
+.pp-ws-settings-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.pp-ws-rename-field {
+  margin-bottom: 14px;
+}
+
+.pp-ws-rename-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+
+.pp-ws-rename-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pp-ws-rename-input {
+  flex: 1;
+  background: #0a0806;
+  border: 1px solid var(--gold);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 9px 12px;
+  outline: none;
+}
+
+.pp-ws-cancel-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+.pp-ws-display-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pp-ws-display-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--cream);
+}
+
+.pp-ws-rename-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 4px 10px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+
+/* ── White-label ─────────────────────────────────────────────────────────── */
+.pp-wl-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.pp-wl-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.pp-wl-checkbox {
+  accent-color: var(--gold);
+  width: 14px;
+  height: 14px;
+}
+
+.pp-wl-toggle-text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--cream);
+}
+
+.pp-wl-fields {
+  margin-left: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pp-wl-field-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.pp-wl-input {
+  width: 100%;
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 7px 10px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.pp-wl-no-plan {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* ── Members ─────────────────────────────────────────────────────────────── */
+.pp-members-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.pp-members-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.pp-members-eyebrow--solo { margin-bottom: 10px; }
+
+.pp-members-count-box {
+  background: #0a0806;
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-align: center;
+}
+
+.pp-members-count-num {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.pp-members-count-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-left: 5px;
+}
+
+.pp-members-loading {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.pp-members-list {
+  margin-bottom: 20px;
+}
+
+.pp-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.pp-member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.pp-member-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--cream);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pp-member-email {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.pp-member-owner-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.pp-member-role-select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+.pp-member-remove-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #804040;
+  color: #f08080;
+  cursor: pointer;
+}
+
+/* ── Invite row ──────────────────────────────────────────────────────────── */
+.pp-invite-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.pp-invite-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.pp-text-input {
+  flex: 1;
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 9px 12px;
+  outline: none;
+}
+
+/* ── Create org row ──────────────────────────────────────────────────────── */
+.pp-create-org-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.pp-create-org-row {
+  display: flex;
+  gap: 8px;
+}
+
+/* ── Analytics tab ───────────────────────────────────────────────────────── */
+.pp-analytics-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.pp-analytics-tile {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 14px;
+  text-align: center;
+}
+
+.pp-analytics-tile-value {
+  font-family: 'Cinzel', serif;
+  font-size: 22px;
+  color: var(--gold);
+}
+
+.pp-analytics-tile-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.pp-export-csv-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--gold);
+  text-decoration: underline;
+}
+
+/* ── Analytics tables ────────────────────────────────────────────────────── */
+.pp-analytics-section {
+  border-top: 1px solid var(--border);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.pp-analytics-section--compact { padding-top: 16px; }
+
+.pp-analytics-section-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.pp-table-scroll { overflow-x: auto; }
+
+.pp-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pp-table th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+}
+
+.pp-table th.pp-th-left  { text-align: left; }
+.pp-table th.pp-th-right { text-align: right; }
+
+.pp-table td {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 6px 8px;
+}
+
+.pp-table tr { border-bottom: 1px solid rgba(255,255,255,0.04); }
+
+.pp-td-date    { color: var(--cream); }
+.pp-td-muted   { color: var(--muted); text-align: right; }
+.pp-td-gold    { color: var(--gold);  text-align: right; }
+.pp-td-left    { color: var(--cream); }
+.pp-td-muted-l { color: var(--muted); }
+
+/* ── Jobs section ────────────────────────────────────────────────────────── */
+.pp-jobs-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.pp-jobs-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.pp-jobs-refresh-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 3px 8px;
+  letter-spacing: 1px;
+}
+.pp-jobs-refresh-btn:not(:disabled) { cursor: pointer; }
+.pp-jobs-refresh-btn:disabled        { cursor: not-allowed; }
+
+.pp-jobs-empty {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.pp-td-status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 6px 8px;
+  text-align: right;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.pp-td-date-small {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  padding: 6px 8px;
+  text-align: right;
+}
+
+/* ── Password changer ────────────────────────────────────────────────────── */
+.pp-pw-input {
+  display: block;
+  width: 100%;
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 10px 12px;
+  outline: none;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+}
+
+.pp-pw-input--last {
+  margin-bottom: 12px;
+}
