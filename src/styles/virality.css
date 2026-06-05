@@ -1,0 +1,187 @@
+/* ── Virality / viral-potential panel (.rs-virality-*) ─────────────────────
+   Follows the BookFilm design system (results.css + design-system.css):
+   --gold / --bg / --surface / --border / --muted / --cream tokens, Cinzel
+   section heads, JetBrains Mono eyebrows. Only the dynamic score/rating color
+   is set inline in JSX; everything structural lives here.
+   ───────────────────────────────────────────────────────────────────────── */
+
+.rs-virality-section {
+  margin-bottom: 64px;
+}
+
+/* ── Score + rating header ────────────────────────────────────────────────── */
+.rs-virality-top {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+
+.rs-virality-score-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.rs-virality-score {
+  font-family: 'Cinzel', serif;
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.rs-virality-score-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.rs-virality-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rs-virality-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border: 1px solid;
+  border-radius: 2px;
+  align-self: flex-start;
+}
+
+.rs-virality-prob {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rs-virality-prob-pct {
+  font-family: 'Cinzel', serif;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.rs-virality-prob-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+/* ── Strongest hook callout ───────────────────────────────────────────────── */
+.rs-virality-hook {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--gold);
+  padding: 16px 20px;
+  margin-bottom: 18px;
+}
+
+.rs-virality-hook-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+
+.rs-virality-hook-text {
+  font-family: 'Cinzel', serif;
+  font-size: 19px;
+  font-style: italic;
+  color: var(--cream);
+  line-height: 1.4;
+}
+
+/* ── Reasons / risks / improvements lists ─────────────────────────────────── */
+.rs-virality-lists {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.rs-virality-list {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 18px;
+}
+
+.rs-virality-list-title {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 12px;
+}
+
+.rs-virality-list--risks .rs-virality-list-title { color: #c87a7a; }
+.rs-virality-list--improvements .rs-virality-list-title { color: #6dc87a; }
+
+.rs-virality-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.rs-virality-list-item {
+  position: relative;
+  color: #c0b090;
+  font-size: 14px;
+  line-height: 1.5;
+  padding-left: 16px;
+  margin-bottom: 8px;
+}
+
+.rs-virality-list-item::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: var(--gold);
+}
+
+.rs-virality-list--risks .rs-virality-list-item::before { content: '!'; color: #c87a7a; }
+
+/* ── Platform + format footer ─────────────────────────────────────────────── */
+.rs-virality-format {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.rs-virality-format-item {
+  flex: 1;
+  min-width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rs-virality-format-key {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.rs-virality-format-val {
+  color: var(--cream);
+  font-size: 15px;
+}

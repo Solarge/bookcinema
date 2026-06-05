@@ -12,6 +12,21 @@ test('buildSystemPrompt returns the JSON-schema instruction and respects genre +
   assert.notEqual(p, fr) // language instruction changes the prompt
 })
 
+test('prompt demands a full cast, motion-rich video, and a virality analysis', () => {
+  const p = buildSystemPrompt('cinematic', 'en')
+  // A. richer cast
+  assert.match(p, /full cast/i)
+  assert.match(p, /4–8/)
+  // B. motion-rich video prompts
+  assert.match(p, /camera movement/i)
+  assert.match(p, /motion/i)
+  // C. virality analysis object + closing instruction
+  assert.match(p, /"virality"/)
+  assert.match(p, /VIRALITY:/)
+  assert.match(p, /probability_pct/)
+  assert.match(p, /strongest_hook/)
+})
+
 test('buildSystemPrompt falls back to cinematic for an unknown preset', () => {
   const unknown = buildSystemPrompt('does-not-exist', 'en')
   assert.equal(typeof unknown, 'string')

@@ -15,6 +15,7 @@ import { useDivModalA11y } from '../hooks/useModalA11y'
 import { series as seriesApi, managed as managedApi, pollJob } from '../lib/api'
 import { planAllows, minPlanFor, planLabel, FEATURE_LABELS } from '../utils/plans'
 import '../styles/results.css'
+import '../styles/virality.css'
 
 // Whether generation is possible for a media kind given current settings.
 // In managed mode: plan-gated (voice/video require pro+). Image+text always allowed.
@@ -509,6 +510,86 @@ function ProductionGuide({ guide }) {
   )
 }
 
+// ── Virality / viral potential analysis ─────────────────────────────────────
+const VIRALITY_COLORS = { high: '#6dc87a', medium: 'var(--gold)', low: '#c87a7a' }
+
+function ViralityList({ title, items, variant }) {
+  if (!items?.length) return null
+  return (
+    <div className={`rs-virality-list rs-virality-list--${variant}`}>
+      <div className="rs-virality-list-title">{title}</div>
+      <ul className="rs-virality-list-items">
+        {items.map((item, i) => (
+          <li key={i} className="rs-virality-list-item">{item}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+function ViralitySection({ virality }) {
+  if (!virality) return null
+  const { score, rating, probability_pct, reasons, risks, improvements, strongest_hook, best_platform, recommended_format } = virality
+  const ratingKey = String(rating || '').toLowerCase()
+  const color = VIRALITY_COLORS[ratingKey] ?? 'var(--muted)'
+
+  return (
+    <section id="virality" className="rs-virality-section">
+      <SectionHead>Viral Potential</SectionHead>
+
+      <div className="rs-virality-top">
+        <div className="rs-virality-score-wrap">
+          <div className="rs-virality-score" style={{ color }}>{Number.isFinite(score) ? score : '—'}</div>
+          <div className="rs-virality-score-label">/ 100</div>
+        </div>
+        <div className="rs-virality-meta">
+          {rating && (
+            <span className="rs-virality-badge" style={{ color, borderColor: color }}>
+              {ratingKey} potential
+            </span>
+          )}
+          {Number.isFinite(probability_pct) && (
+            <div className="rs-virality-prob">
+              <span className="rs-virality-prob-pct" style={{ color }}>{probability_pct}%</span>
+              <span className="rs-virality-prob-label">estimated chance a well-executed cut goes viral</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {strongest_hook && (
+        <div className="rs-virality-hook">
+          <div className="rs-virality-hook-label">Strongest hook</div>
+          <p className="rs-virality-hook-text">“{strongest_hook}”</p>
+        </div>
+      )}
+
+      <div className="rs-virality-lists">
+        <ViralityList title="Why it could go viral" items={reasons} variant="reasons" />
+        <ViralityList title="Risks" items={risks} variant="risks" />
+        <ViralityList title="How to boost it" items={improvements} variant="improvements" />
+      </div>
+
+      {(best_platform || recommended_format) && (
+        <div className="rs-virality-format">
+          {best_platform && (
+            <div className="rs-virality-format-item">
+              <span className="rs-virality-format-key">Best platform</span>
+              <span className="rs-virality-format-val">{best_platform}</span>
+            </div>
+          )}
+          {recommended_format && (
+            <div className="rs-virality-format-item">
+              <span className="rs-virality-format-key">Recommended format</span>
+              <span className="rs-virality-format-val">{recommended_format}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ── Small helpers ──────────────────────────────────────────────────────────
 function SectionHead({ children }) {
   return (
@@ -660,7 +741,7 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
   const [zipping, setZipping] = useState(false)
   const [savingAll, setSavingAll] = useState(false)
 
-  const { title, author, logline, series_hook, characters = [], episodes = [], production_guide } = series
+  const { title, author, logline, series_hook, virality, characters = [], episodes = [], production_guide } = series
 
   // Inline edit helpers
   const updateChar = useCallback((charId, field, val) => {
@@ -688,6 +769,7 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
   const mediaState = { characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia }
 
   const sidebarLinks = [
+    ...(virality ? [{ id: 'virality', label: 'Viral Potential' }] : []),
     { id: 'characters', label: 'Characters' },
     ...episodes.map(ep => ({ id: `episode-${ep.number}`, label: `Ep ${ep.number} — ${ep.title}` })),
     { id: 'production-guide', label: 'Production Guide' },
@@ -830,6 +912,8 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
             <p className="rs-logline">{logline}</p>
             <p className="rs-series-hook">{series_hook}</p>
           </div>
+
+          <ViralitySection virality={virality} />
 
           <CharacterBible characters={characters} seriesTitle={title} onUpdateChar={updateChar} plan={activeWorkspacePlan} onOpenBilling={onOpenBilling} />
 
