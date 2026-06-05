@@ -198,11 +198,15 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBil
 // ── Scene card ─────────────────────────────────────────────────────────────
 function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generationMode, plan, onOpenBilling }) {
   const { settings } = useSettings()
-  const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
+  const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug, sceneMusic, generateSceneMusic } = useMedia()
   const key = `ep${epNum}-s${scene.scene_number}`
   const asset = scenes[key] ?? {}
   const genInfo = canGenerateInfo(settings, 'video', settings.videoProvider, plan)
   const storeKey = `scene-vid:${seriesSlug}:ep${epNum}:s${scene.scene_number}`
+  // Scene music bed
+  const musicAsset = sceneMusic[key] ?? {}
+  const musicStoreKey = `scene-music:${seriesSlug}:ep${epNum}:s${scene.scene_number}`
+  const hasMusicPrompt = !!scene.music_prompt
 
   return (
     <div className="rs-scene-card">
@@ -239,6 +243,22 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
         onDeleteFromCloud={() => deleteFromCloud('video', key)}
       />
 
+      {/* Scene music bed — only in managed mode (the music API is managed-only) */}
+      {settings.mode === 'managed' && (
+        <div className={`rs-scene-music${!hasMusicPrompt && !musicAsset.audioUrl ? ' rs-scene-music-deemph' : ''}`}>
+          <span className="rs-scene-music-label">🎵 Scene Music</span>
+          <AudioAsset
+            asset={{ ...musicAsset, saving: saving[musicStoreKey] }}
+            onGenerate={() => generateSceneMusic(epNum, scene)}
+            disabled={!hasMusicPrompt && !musicAsset.audioUrl}
+            label="Generate Music"
+            cloudEnabled={cloudEnabled && musicAsset.status === 'done'}
+            onSaveToCloud={() => saveToCloud('scene-music', key, musicStoreKey, { provider: 'managed', prompt: scene.music_prompt })}
+            onDeleteFromCloud={() => deleteFromCloud('scene-music', key)}
+          />
+        </div>
+      )}
+
       {/* Dialogue */}
       <div className="rs-scene-dialogue-wrap">
         {(scene.dialogue || []).map((d, i) => (
@@ -250,7 +270,7 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
 }
 
 // ── Compile Episode Video control ──────────────────────────────────────────
-function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBilling }) {
+function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBilling, soundtrackUrl }) {
   const [compileState, setCompileState] = useState('idle') // idle | compiling | done | error
   const [compiledUrl, setCompiledUrl] = useState(null)
   const [errorMsg, setErrorMsg] = useState(null)
@@ -295,7 +315,7 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
     setErrorMsg(null)
     setCompiledUrl(null)
     try {
-      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: episode.number, clips: readyClips })
+      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: episode.number, clips: readyClips, ...(soundtrackUrl ? { soundtrackUrl } : {}) })
       const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
       if (job.status === 'done' && job.resultUrl) {
         setCompiledUrl(job.resultUrl)
@@ -400,6 +420,14 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
 // ── Episode section ────────────────────────────────────────────────────────
 function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesRef, plan, onOpenBilling, seriesId, sceneMedia }) {
   const [showSocial, setShowSocial] = useState(false)
+  const { settings } = useSettings()
+  const { episodeScore, generateEpisodeSoundtrack, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
+  const epKey = `ep${episode.number}`
+  const scoreAsset = episodeScore[epKey] ?? {}
+  const scoreStoreKey = `episode-score:${seriesSlug}:ep${episode.number}`
+  const hasSoundtrackPrompt = !!episode.soundtrack?.music_prompt
+  // Prefer the cloud-persisted URL; fall back to the local/presigned audio URL.
+  const soundtrackUrl = scoreAsset.serverUrl || scoreAsset.audioUrl || null
 
   return (
     <section id={`episode-${episode.number}`} className="rs-episode-section">
@@ -448,6 +476,30 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
         />
       ))}
 
+      {/* Episode soundtrack score — muxed into the compiled reel */}
+      {settings.mode === 'managed' && (
+        <div className={`rs-soundtrack-panel${!hasSoundtrackPrompt && !scoreAsset.audioUrl ? ' rs-soundtrack-deemph' : ''}`}>
+          <div className="rs-soundtrack-head">
+            <span className="rs-soundtrack-label">🎬 Episode Soundtrack</span>
+            {hasSoundtrackPrompt && (
+              <p className="rs-soundtrack-hint">{episode.soundtrack.music_prompt}</p>
+            )}
+            {!hasSoundtrackPrompt && (
+              <p className="rs-soundtrack-hint">No soundtrack suggested for this episode — you can still generate one.</p>
+            )}
+          </div>
+          <AudioAsset
+            asset={{ ...scoreAsset, saving: saving[scoreStoreKey] }}
+            onGenerate={() => generateEpisodeSoundtrack(episode.number, episode)}
+            disabled={!hasSoundtrackPrompt && !scoreAsset.audioUrl}
+            label="Generate Soundtrack"
+            cloudEnabled={cloudEnabled && scoreAsset.status === 'done'}
+            onSaveToCloud={() => saveToCloud('episode-score', epKey, scoreStoreKey, { provider: 'managed', prompt: episode.soundtrack?.music_prompt })}
+            onDeleteFromCloud={() => deleteFromCloud('episode-score', epKey)}
+          />
+        </div>
+      )}
+
       {/* Compile Episode Video */}
       <CompileEpisodeControl
         episode={episode}
@@ -455,6 +507,7 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
         sceneMedia={sceneMedia}
         plan={plan}
         onOpenBilling={onOpenBilling}
+        soundtrackUrl={soundtrackUrl}
       />
 
       {/* CTA */}
