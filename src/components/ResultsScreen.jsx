@@ -472,7 +472,7 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
 function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesRef, plan, onOpenBilling, seriesId, sceneMedia }) {
   const [showSocial, setShowSocial] = useState(false)
   const { settings } = useSettings()
-  const { episodeScore, generateEpisodeSoundtrack, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
+  const { episodeScore, generateEpisodeSoundtrack, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug, makeEpisode, movieProgress } = useMedia()
   const epKey = `ep${episode.number}`
   const scoreAsset = episodeScore[epKey] ?? {}
   const scoreStoreKey = `episode-score:${seriesSlug}:ep${episode.number}`
@@ -494,6 +494,15 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
             <span key={i} className="rs-episode-tag">{t}</span>
           ))}
         </div>
+        <button
+          onClick={() => makeEpisode(seriesRef, episode)}
+          disabled={!!movieProgress?.running}
+          aria-label={`Make episode ${episode.number} — generate every scene then compile`}
+          title={movieProgress?.running ? 'A movie/episode run is already in progress' : 'Generate all scene videos, voices, music, and compile this episode'}
+          className="rs-makeepisode-btn"
+        >
+          🎬 Make Episode
+        </button>
       </div>
 
       {/* Social hook */}
@@ -832,11 +841,39 @@ function ShareDropdown({ seriesId, onClose }) {
   )
 }
 
+// ── Make My Movie live progress ────────────────────────────────────────────
+const PHASE_LABELS = {
+  characters: 'Characters',
+  scenes: 'Scenes',
+  soundtrack: 'Soundtrack',
+  compile: 'Compiling',
+  done: 'Done',
+}
+
+function MovieProgressBar({ progress, onCancel }) {
+  const { phase, total, done, label, note } = progress
+  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
+  return (
+    <div className="rs-makemovie-progress" role="status" aria-live="polite">
+      <div className="rs-makemovie-progress-head">
+        <span className="rs-makemovie-progress-phase">🎬 {PHASE_LABELS[phase] || phase}</span>
+        <span className="rs-makemovie-progress-label">{label}</span>
+        <span className="rs-makemovie-progress-count">{done}/{total}</span>
+        <button onClick={onCancel} className="rs-makemovie-cancel-btn" aria-label="Cancel Make My Movie">Cancel</button>
+      </div>
+      <div className="rs-makemovie-progress-track">
+        <div className="rs-makemovie-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+      {note && <div className="rs-makemovie-progress-note">{note}</div>}
+    </div>
+  )
+}
+
 // ── ResultsScreen root ─────────────────────────────────────────────────────
 export default function ResultsScreen({ series: initialSeries, seriesId, onNewBook, onOpenBilling }) {
   const { settings } = useSettings()
   const { activeWorkspacePlan } = useAuth()
-  const { sessionCost, generateBatch, characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia, generateSceneVideo, cloudEnabled, saveToCloud, seriesSlug } = useMedia()
+  const { sessionCost, generateBatch, characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia, generateSceneVideo, cloudEnabled, saveToCloud, seriesSlug, makeMovie, movieProgress, cancelMovie } = useMedia()
   const [series, setSeries] = useState(initialSeries)
   const [showSettings, setShowSettings] = useState(false)
   const [showStoryboard, setShowStoryboard] = useState(false)
@@ -960,6 +997,20 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
           <span title="Voice">🎙 ${sessionCost.voice?.toFixed(4) ?? '0.0000'}</span>
           <span className="rs-cost-total">=  {totalCost(sessionCost)}</span>
         </div>
+
+        {/* One-click Make My Movie / live progress */}
+        {movieProgress?.running ? (
+          <MovieProgressBar progress={movieProgress} onCancel={cancelMovie} />
+        ) : (
+          <div className="rs-makemovie-wrap">
+            <button onClick={() => makeMovie(series)} className="rs-makemovie-btn" aria-label="Make my movie — generate and compile every episode automatically">
+              🎬 Make My Movie
+            </button>
+            <span className="rs-makemovie-help">
+              Generates every scene&apos;s video, voices, and music, mixes the sound, and compiles each episode — sit back. Takes several minutes.
+            </span>
+          </div>
+        )}
 
         {/* Batch button (batch or hybrid mode) */}
         {settings.generationMode !== 'on-demand' && (

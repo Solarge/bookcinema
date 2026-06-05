@@ -70,15 +70,31 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
   const [saving, setSaving] = useState({})
   const portraitRefs = useRef({})
 
+  // ── One-click "Make My Movie" orchestration progress ──────────────────────
+  // null when idle; while running:
+  //   { running, phase:'characters'|'scenes'|'soundtrack'|'compile'|'done', epNum, total, done, label }
+  const [movieProgress, setMovieProgress] = useState(null)
+  // Set by cancelMovie(); checked between steps so in-flight work finishes but
+  // no new steps get scheduled.
+  const cancelRef = useRef(false)
+  // True while makeMovie owns the progress bar — keeps makeEpisode from resetting
+  // it per-episode. A ref (not state) so the running async loop reads it without
+  // being recreated by progress re-renders.
+  const movieRunningRef = useRef(false)
+
   // Latest-state refs — kept current on every render so async pipelines (assembleScene)
   // can read the freshest slot values for skip-checks without stale closures. The pipeline
   // itself threads fresh URLs via return values, so it never depends on post-setState timing.
-  const scenesRef     = useRef(scenes)
-  const dialogueRef   = useRef(dialogue)
-  const sceneMusicRef = useRef(sceneMusic)
-  scenesRef.current     = scenes
-  dialogueRef.current   = dialogue
-  sceneMusicRef.current = sceneMusic
+  const scenesRef       = useRef(scenes)
+  const dialogueRef     = useRef(dialogue)
+  const sceneMusicRef   = useRef(sceneMusic)
+  const charactersRef   = useRef(characters)
+  const episodeScoreRef = useRef(episodeScore)
+  scenesRef.current       = scenes
+  dialogueRef.current     = dialogue
+  sceneMusicRef.current   = sceneMusic
+  charactersRef.current   = characters
+  episodeScoreRef.current = episodeScore
 
   // Cloud sync is only active when authenticated AND a backend seriesId is available.
   const cloudEnabled = !!(user && seriesId)
@@ -493,6 +509,126 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     }
   }, [generateSceneVideo, generateDialogueVoice, generateSceneMusic, muxSceneWithUrls])
 
+  // ── One-click orchestration: Make Episode / Make Movie ──────────────────────
+  // Pure orchestration over the existing single-asset methods. Each runs the same
+  // pipeline a careful user would click through: portraits → assemble every scene
+  // (video + voices + music, muxed) → episode soundtrack → compile. Errors on one
+  // scene are recorded and skipped so a single failure never aborts the whole run.
+
+  // Count the work an episode represents (characters needing images + scenes).
+  const countEpisodeWork = useCallback((series, episode) => {
+    const charList = (episode.characters_in_episode ?? [])
+      .map(id => (series.characters ?? []).find(c => c.id === id))
+      .filter(Boolean)
+    const charsToDo = charList.filter(c => charactersRef.current[c.id]?.status !== 'done').length
+    return charsToDo + (episode.scenes?.length ?? 0)
+  }, [])
+
+  const makeEpisode = useCallback(async (series, episode) => {
+    const epNum = episode.number
+    const standalone = !movieRunningRef.current
+    if (standalone) {
+      cancelRef.current = false
+      const total = countEpisodeWork(series, episode)
+      setMovieProgress({ running: true, phase: 'characters', epNum, total, done: 0, label: `Episode ${epNum}` })
+    }
+
+    const bump = (patch) => setMovieProgress(prev => (prev ? { ...prev, epNum, ...patch } : prev))
+    const advance = () => setMovieProgress(prev => (prev ? { ...prev, done: (prev.done ?? 0) + 1 } : prev))
+
+    try {
+      // a) Character portraits (shared across episodes — skip ones already done).
+      const charList = (episode.characters_in_episode ?? [])
+        .map(id => (series.characters ?? []).find(c => c.id === id))
+        .filter(Boolean)
+      for (const char of charList) {
+        if (cancelRef.current) break
+        if (charactersRef.current[char.id]?.status === 'done') continue
+        bump({ phase: 'characters', label: `Episode ${epNum} · ${char.name || 'character'}` })
+        await generateCharacterImage(char, char.midjourney_prompt)
+        advance()
+      }
+
+      // b) Assemble every scene in order (generates missing video/voices/music + mux).
+      const scenes = episode.scenes ?? []
+      for (let i = 0; i < scenes.length; i++) {
+        if (cancelRef.current) break
+        const scene = scenes[i]
+        bump({ phase: 'scenes', label: `Episode ${epNum} · Scene ${i + 1} of ${scenes.length}` })
+        try {
+          await assembleScene(epNum, scene, episode.characters_in_episode ?? [])
+        } catch (err) {
+          // Record and continue — one bad scene shouldn't abort the movie.
+          console.warn(`[MediaContext] makeEpisode: scene ${scene.scene_number} failed:`, err)
+        }
+        advance()
+      }
+
+      // c) Episode soundtrack (optional — only when prompted and not already done).
+      if (!cancelRef.current && episode.soundtrack?.music_prompt && episodeScoreRef.current[`ep${epNum}`]?.status !== 'done') {
+        bump({ phase: 'soundtrack', label: `Episode ${epNum} · soundtrack` })
+        try {
+          await generateEpisodeSoundtrack(epNum, episode)
+        } catch (err) {
+          console.warn(`[MediaContext] makeEpisode: soundtrack failed:`, err)
+        }
+      }
+
+      // d) Compile — reuse the exact call CompileEpisodeControl makes. Needs a
+      // backend seriesId and >= 2 ready scene clips. Gather clip URLs in scene order.
+      if (!cancelRef.current) {
+        bump({ phase: 'compile', label: `Episode ${epNum} · compiling` })
+        const readyClips = scenes
+          .map(scene => {
+            const slot = scenesRef.current[`ep${epNum}-s${scene.scene_number}`] ?? {}
+            return slot.status === 'done' ? (slot.remoteUrl || slot.serverUrl || null) : null
+          })
+          .filter(Boolean)
+        const scoreSlot = episodeScoreRef.current[`ep${epNum}`] ?? {}
+        const soundtrackUrl = scoreSlot.serverUrl || scoreSlot.audioUrl || null
+        if (seriesId && readyClips.length >= 2) {
+          try {
+            const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: epNum, clips: readyClips, ...(soundtrackUrl ? { soundtrackUrl } : {}) })
+            await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
+          } catch (err) {
+            console.warn(`[MediaContext] makeEpisode: compile failed:`, err)
+            bump({ note: `Episode ${epNum}: compile failed (${err.message || 'error'})` })
+          }
+        } else {
+          bump({ note: `Episode ${epNum}: not enough scene clips to compile (need 2, have ${readyClips.length}).` })
+        }
+      }
+    } finally {
+      if (standalone) {
+        setMovieProgress(prev => (prev ? { ...prev, running: false, phase: 'done' } : prev))
+        setTimeout(() => setMovieProgress(null), 4000)
+      }
+    }
+  }, [countEpisodeWork, generateCharacterImage, assembleScene, generateEpisodeSoundtrack, seriesId])
+
+  const makeMovie = useCallback(async (series) => {
+    cancelRef.current = false
+    movieRunningRef.current = true
+    const episodes = series.episodes ?? []
+    const total = episodes.reduce((sum, ep) => sum + countEpisodeWork(series, ep), 0)
+    setMovieProgress({ running: true, phase: 'characters', epNum: episodes[0]?.number ?? null, total, done: 0, label: 'Starting…' })
+    try {
+      for (const episode of episodes) {
+        if (cancelRef.current) break
+        await makeEpisode(series, episode)
+      }
+    } finally {
+      movieRunningRef.current = false
+      setMovieProgress(prev => (prev ? { ...prev, running: false, phase: 'done', label: cancelRef.current ? 'Cancelled' : 'All episodes done' } : prev))
+      setTimeout(() => setMovieProgress(null), 5000)
+    }
+  }, [countEpisodeWork, makeEpisode])
+
+  const cancelMovie = useCallback(() => {
+    cancelRef.current = true
+    setMovieProgress(prev => (prev ? { ...prev, running: false, label: 'Cancelling…' } : prev))
+  }, [])
+
   // ── Approval (with optional cloud sync) ──────────────────────────────────
   const setCharApproval = useCallback((id, s) => {
     setCharacters(prev => {
@@ -634,6 +770,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       generateSceneMusic, generateEpisodeSoundtrack,
       addSceneSound,
       assembleScene,
+      makeEpisode, makeMovie, movieProgress, cancelMovie,
       setCharApproval, setSceneApproval,
       portraitRefs,
       // Cloud sync
