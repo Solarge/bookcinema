@@ -59,8 +59,10 @@ router.post('/text', managedAccess('text'), async (req, res) => {
     const { bookText, genrePreset = 'cinematic', language = 'en', tier = 'standard', rightsConfirmed, episodeCount: rawEpisodeCount } = req.body
     if (!bookText) return res.status(400).json({ error: 'bookText is required' })
     if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
-    // Clamp episodeCount to [3,12], default 7 if absent or invalid.
-    const episodeCount = Math.min(12, Math.max(3, Math.round(Number(rawEpisodeCount)) || 7))
+    // Episode count: 'auto' (default) lets the book decide; a positive number forces that count
+    // (the prompt builder sanity-caps it). Don't streamline to a fixed range.
+    const num = Math.round(Number(rawEpisodeCount))
+    const episodeCount = Number.isFinite(num) && num > 0 ? num : 'auto'
 
     // Copyright assertion — server-enforced. The client HomeScreen passes rightsConfirmed:true
     // after the user acknowledges the copyright notice. Must be checked BEFORE moderation/debit.

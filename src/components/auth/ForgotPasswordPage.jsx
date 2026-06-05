@@ -2,15 +2,6 @@ import { useState } from 'react'
 import PropTypes from 'prop-types'
 import { auth as authApi } from '../../lib/api'
 
-// ── Shared styles (mirror LoginPage aesthetic) ────────────────────────────────
-const containerStyle = { minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
-const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', padding: '40px', width: '100%', maxWidth: '420px' }
-const inputStyle = { display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', padding: '12px 14px', outline: 'none', marginBottom: '12px', boxSizing: 'border-box' }
-const btnStyle = (disabled) => ({ display: 'block', width: '100%', background: disabled ? 'var(--border)' : 'var(--gold)', color: disabled ? 'var(--muted)' : '#080b10', border: 'none', padding: '13px', fontFamily: "'Cinzel', serif", fontSize: '12px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: disabled ? 'not-allowed' : 'pointer', marginTop: '4px' })
-const errorStyle = { background: '#3a0808', border: '1px solid var(--red)', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#f08080', marginBottom: '16px' }
-const successStyle = { background: '#0a2010', border: '1px solid #4a8a5a', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#80d898', marginBottom: '16px' }
-const linkBtn = { background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }
-
 // ── Forgot-password (request reset) ──────────────────────────────────────────
 export default function ForgotPasswordPage({ onBackToLogin }) {
   const [email, setEmail]   = useState('')
@@ -34,17 +25,17 @@ export default function ForgotPasswordPage({ onBackToLogin }) {
   }
 
   return (
-    <div style={containerStyle}>
-      <div style={cardStyle}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '24px', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>BookFilm Studio</div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '28px' }}>RESET PASSWORD</div>
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="auth-title">BookFilm Studio</div>
+        <div className="auth-subtitle">RESET PASSWORD</div>
 
-        {error && <div role="alert" style={errorStyle}>{error}</div>}
-        {success && <div role="status" aria-live="polite" style={successStyle}>{success}</div>}
+        {error && <div role="alert" className="auth-error">{error}</div>}
+        {success && <div role="status" aria-live="polite" className="auth-success">{success}</div>}
 
         {!success && (
           <>
-            <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', marginBottom: '20px', lineHeight: '1.6' }}>
+            <p className="auth-hint">
               Enter your account email and we'll send you a link to reset your password.
             </p>
             <input
@@ -55,16 +46,16 @@ export default function ForgotPasswordPage({ onBackToLogin }) {
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
               autoFocus
               aria-label="Email address"
-              style={inputStyle}
+              className="auth-input"
             />
-            <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+            <button onClick={handleSubmit} disabled={loading} className="auth-submit">
               {loading ? 'Sending…' : 'Send Reset Link'}
             </button>
           </>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <button onClick={onBackToLogin} style={linkBtn}>← Back to Sign In</button>
+        <div className="auth-center">
+          <button onClick={onBackToLogin} className="auth-link">← Back to Sign In</button>
         </div>
       </div>
     </div>
@@ -83,7 +74,7 @@ export function ResetPasswordPage({ token, onBackToLogin }) {
 
   async function handleSubmit() {
     if (!password) return setError('New password required')
-    if (password.length < 8) return setError('Password must be at least 8 characters')
+    if (password.length < 12) return setError('Password must be at least 12 characters')
     if (password !== confirm) return setError('Passwords do not match')
     setLoading(true); setError(''); setSuccess('')
     try {
@@ -97,24 +88,24 @@ export function ResetPasswordPage({ token, onBackToLogin }) {
   }
 
   return (
-    <div style={containerStyle}>
-      <div style={cardStyle}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '24px', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>BookFilm Studio</div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '28px' }}>SET NEW PASSWORD</div>
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="auth-title">BookFilm Studio</div>
+        <div className="auth-subtitle">SET NEW PASSWORD</div>
 
-        {error && <div role="alert" style={errorStyle}>{error}</div>}
-        {success && <div role="status" aria-live="polite" style={successStyle}>{success}</div>}
+        {error && <div role="alert" className="auth-error">{error}</div>}
+        {success && <div role="status" aria-live="polite" className="auth-success">{success}</div>}
 
         {!success && (
           <>
             <input
               type="password"
-              placeholder="New password (min 8 chars)"
+              placeholder="New password (min 12 chars)"
               value={password}
               onChange={e => setPassword(e.target.value)}
               autoFocus
-              aria-label="New password (minimum 8 characters)"
-              style={inputStyle}
+              aria-label="New password (minimum 12 characters)"
+              className="auth-input"
             />
             <input
               type="password"
@@ -123,16 +114,16 @@ export function ResetPasswordPage({ token, onBackToLogin }) {
               onChange={e => setConfirm(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
               aria-label="Confirm new password"
-              style={inputStyle}
+              className="auth-input"
             />
-            <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+            <button onClick={handleSubmit} disabled={loading} className="auth-submit">
               {loading ? 'Resetting…' : 'Reset Password'}
             </button>
           </>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: '20px' }}>
-          <button onClick={onBackToLogin} style={linkBtn}>← Back to Sign In</button>
+        <div className="auth-center">
+          <button onClick={onBackToLogin} className="auth-link">← Back to Sign In</button>
         </div>
       </div>
     </div>

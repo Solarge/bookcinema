@@ -19,29 +19,29 @@ export default function LoginPage({ onSwitchToRegister, onForgotPassword }) {
   }
 
   return (
-    <div style={containerStyle}>
-      <div style={cardStyle}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '24px', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>BookFilm Studio</div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '28px' }}>SIGN IN</div>
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="auth-title">BookFilm Studio</div>
+        <div className="auth-subtitle">SIGN IN</div>
 
-        {error && <div role="alert" style={errorStyle}>{error}</div>}
+        {error && <div role="alert" className="auth-error">{error}</div>}
 
         <input type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()} autoFocus
           aria-label="Email address"
-          style={inputStyle} />
-        <input type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)}
+          className="auth-input" />
+        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleSubmit()}
           aria-label="Password"
-          style={inputStyle} />
+          className="auth-input" />
 
-        <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+        <button onClick={handleSubmit} disabled={loading} className="auth-submit">
           {loading ? 'Signing in…' : 'Sign In'}
         </button>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px' }}>
-          <button onClick={onSwitchToRegister} style={linkBtn}>Create account</button>
-          <button onClick={onForgotPassword}   style={linkBtn}>Forgot password?</button>
+        <div className="auth-links-row">
+          <button onClick={onSwitchToRegister} className="auth-link">Create account</button>
+          <button onClick={onForgotPassword}   className="auth-link">Forgot password?</button>
         </div>
 
         <LegalLinks />
@@ -51,10 +51,3 @@ export default function LoginPage({ onSwitchToRegister, onForgotPassword }) {
 }
 
 LoginPage.propTypes = { onSwitchToRegister: PropTypes.func.isRequired, onForgotPassword: PropTypes.func.isRequired }
-
-const containerStyle = { minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
-const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', padding: '40px', width: '100%', maxWidth: '420px' }
-const inputStyle = { display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', padding: '12px 14px', outline: 'none', marginBottom: '12px', boxSizing: 'border-box' }
-const btnStyle = (loading) => ({ display: 'block', width: '100%', background: loading ? 'var(--border)' : 'var(--gold)', color: loading ? 'var(--muted)' : '#080b10', border: 'none', padding: '13px', fontFamily: "'Cinzel', serif", fontSize: '12px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '4px' })
-const errorStyle = { background: '#3a0808', border: '1px solid var(--red)', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#f08080', marginBottom: '16px' }
-const linkBtn = { background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }

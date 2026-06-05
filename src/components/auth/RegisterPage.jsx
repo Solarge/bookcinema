@@ -17,7 +17,7 @@ export default function RegisterPage({ onSwitchToLogin }) {
 
   async function handleSubmit() {
     if (!name || !email || !password) return setError('All fields required')
-    if (password.length < 8) return setError('Password must be at least 8 characters')
+    if (password.length < 12) return setError('Password must be at least 12 characters')
     if (!consent) return setError('You must agree to the Terms of Service and Privacy Policy')
     if (!ageConfirmed) return setError('You must confirm you are 16 years or older')
     setLoading(true); setError('')
@@ -29,73 +29,50 @@ export default function RegisterPage({ onSwitchToLogin }) {
   const isDisabled = loading || !consent || !ageConfirmed
 
   return (
-    <div style={containerStyle}>
-      <div style={cardStyle}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '24px', color: 'var(--gold)', marginBottom: '8px', textAlign: 'center' }}>BookFilm Studio</div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '28px' }}>CREATE ACCOUNT</div>
+    <div className="auth-screen">
+      <div className="auth-card">
+        <div className="auth-title">BookFilm Studio</div>
+        <div className="auth-subtitle">CREATE ACCOUNT</div>
 
-        {error && <div role="alert" style={errorStyle}>{error}</div>}
+        {error && <div role="alert" className="auth-error">{error}</div>}
 
-        <input type="text"     placeholder="Full name"      value={name}     onChange={e => setName(e.target.value)}     aria-label="Full name"     style={inputStyle} autoFocus />
-        <input type="email"    placeholder="Email address"  value={email}    onChange={e => setEmail(e.target.value)}    aria-label="Email address" style={inputStyle} />
-        <input type="password" placeholder="Password (min 8 chars)" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} aria-label="Password (minimum 8 characters)" style={inputStyle} />
+        <input type="text"     placeholder="Full name"      value={name}     onChange={e => setName(e.target.value)}     aria-label="Full name"     className="auth-input" autoFocus />
+        <input type="email"    placeholder="Email address"  value={email}    onChange={e => setEmail(e.target.value)}    aria-label="Email address" className="auth-input" />
+        <input type="password" placeholder="Password (min 12 chars)" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()} aria-label="Password (minimum 12 characters)" className="auth-input" />
 
         {/* ToS + Privacy consent checkbox */}
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '12px', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={consent}
-            onChange={e => setConsent(e.target.checked)}
-            style={{ marginTop: '2px', accentColor: 'var(--gold)', flexShrink: 0, cursor: 'pointer' }}
-          />
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', lineHeight: '1.6' }}>
+        <label className="auth-consent">
+          <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />
+          <span className="auth-consent-text">
             I agree to the{' '}
-            <button
-              type="button"
-              onClick={e => { e.preventDefault(); setLegalOpen('terms') }}
-              style={inlineLinkBtn}
-            >Terms of Service</button>
+            <button type="button" onClick={e => { e.preventDefault(); setLegalOpen('terms') }} className="auth-inline-link">Terms of Service</button>
             {' '}and{' '}
-            <button
-              type="button"
-              onClick={e => { e.preventDefault(); setLegalOpen('privacy') }}
-              style={inlineLinkBtn}
-            >Privacy Policy</button>
+            <button type="button" onClick={e => { e.preventDefault(); setLegalOpen('privacy') }} className="auth-inline-link">Privacy Policy</button>
           </span>
         </label>
 
         {/* Age confirmation — REQUIRED */}
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '12px', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={ageConfirmed}
-            onChange={e => setAgeConfirmed(e.target.checked)}
-            style={{ marginTop: '2px', accentColor: 'var(--gold)', flexShrink: 0, cursor: 'pointer' }}
-          />
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', lineHeight: '1.6' }}>
-            I confirm I am <span style={{ color: 'var(--cream)' }}>16 years or older</span>
+        <label className="auth-consent">
+          <input type="checkbox" checked={ageConfirmed} onChange={e => setAgeConfirmed(e.target.checked)} />
+          <span className="auth-consent-text">
+            I confirm I am <span className="ds-cream">16 years or older</span>
           </span>
         </label>
 
         {/* Marketing consent — optional */}
-        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '16px', cursor: 'pointer' }}>
-          <input
-            type="checkbox"
-            checked={marketingConsent}
-            onChange={e => setMarketing(e.target.checked)}
-            style={{ marginTop: '2px', accentColor: 'var(--gold)', flexShrink: 0, cursor: 'pointer' }}
-          />
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', lineHeight: '1.6' }}>
+        <label className="auth-consent auth-consent-last">
+          <input type="checkbox" checked={marketingConsent} onChange={e => setMarketing(e.target.checked)} />
+          <span className="auth-consent-text">
             Send me product updates and tips <span style={{ color: '#4a5a6a' }}>(optional)</span>
           </span>
         </label>
 
-        <button onClick={handleSubmit} disabled={isDisabled} style={btnStyle(isDisabled)}>
+        <button onClick={handleSubmit} disabled={isDisabled} className="auth-submit">
           {loading ? 'Creating account…' : 'Create Account'}
         </button>
 
-        <div style={{ textAlign: 'center', marginTop: '16px' }}>
-          <button onClick={onSwitchToLogin} style={linkBtn}>Already have an account? Sign in</button>
+        <div className="auth-center" style={{ marginTop: '16px' }}>
+          <button onClick={onSwitchToLogin} className="auth-link">Already have an account? Sign in</button>
         </div>
       </div>
 
@@ -106,11 +83,3 @@ export default function RegisterPage({ onSwitchToLogin }) {
 }
 
 RegisterPage.propTypes = { onSwitchToLogin: PropTypes.func.isRequired }
-
-const containerStyle = { minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }
-const cardStyle = { background: 'var(--surface)', border: '1px solid var(--border)', padding: '40px', width: '100%', maxWidth: '420px' }
-const inputStyle = { display: 'block', width: '100%', background: '#0a0806', border: '1px solid var(--border)', color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', padding: '12px 14px', outline: 'none', marginBottom: '12px', boxSizing: 'border-box' }
-const btnStyle = (l) => ({ display: 'block', width: '100%', background: l ? 'var(--border)' : 'var(--gold)', color: l ? 'var(--muted)' : '#080b10', border: 'none', padding: '13px', fontFamily: "'Cinzel', serif", fontSize: '12px', fontWeight: '600', letterSpacing: '2px', textTransform: 'uppercase', cursor: l ? 'not-allowed' : 'pointer', marginTop: '4px' })
-const errorStyle = { background: '#3a0808', border: '1px solid var(--red)', padding: '10px 14px', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#f08080', marginBottom: '16px' }
-const linkBtn = { background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }
-const inlineLinkBtn = { background: 'none', border: 'none', color: 'var(--gold)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }

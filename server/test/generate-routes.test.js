@@ -138,7 +138,7 @@ test('POST /text passes episodeCount through to the job params', async () => {
   assert.equal(enq[0].payload.episodeCount, 5)
 })
 
-test('POST /text clamps out-of-range episodeCount (99 → 12)', async () => {
+test('POST /text passes a large episodeCount through (prompt builder caps it, route does not streamline)', async () => {
   const { token, workspace } = await betaUser()
   const enq = []
   const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bull3' } } }
@@ -146,10 +146,10 @@ test('POST /text clamps out-of-range episodeCount (99 → 12)', async () => {
     .send({ bookText: 'a fable', tier: 'standard', rightsConfirmed: true, episodeCount: 99 })
   assert.equal(res.status, 202)
   const job = await Job.findById(res.body.jobId)
-  assert.equal(job.params.episodeCount, 12)
+  assert.equal(job.params.episodeCount, 99)
 })
 
-test('POST /text defaults episodeCount to 7 when omitted', async () => {
+test("POST /text defaults episodeCount to 'auto' when omitted (the book decides)", async () => {
   const { token, workspace } = await betaUser()
   const enq = []
   const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bull4' } } }
@@ -157,7 +157,7 @@ test('POST /text defaults episodeCount to 7 when omitted', async () => {
     .send({ bookText: 'a fable', tier: 'standard', rightsConfirmed: true })
   assert.equal(res.status, 202)
   const job = await Job.findById(res.body.jobId)
-  assert.equal(job.params.episodeCount, 7)
+  assert.equal(job.params.episodeCount, 'auto')
 })
 
 test('POST /image debits cost-weighted credits (image standard = 4)', async () => {
