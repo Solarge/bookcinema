@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import PropTypes from 'prop-types'
 import { useSettings } from '../contexts/SettingsContext'
 import { useAuth } from '../contexts/AuthContext'
@@ -63,6 +63,17 @@ export default function SettingsPanel({ onClose }) {
   const panelRef = useRef(null)
   useDivModalA11y(onClose, panelRef)
 
+  // Simple (default) vs Advanced view. Persisted in localStorage.
+  const [view, setView] = useState(() => {
+    try { return localStorage.getItem('bookfilm_settings_view') === 'advanced' ? 'advanced' : 'simple' }
+    catch { return 'simple' }
+  })
+  const setViewPersist = (v) => {
+    setView(v)
+    try { localStorage.setItem('bookfilm_settings_view', v) } catch { /* ignore */ }
+  }
+  const isAdvanced = view === 'advanced'
+
   const isAuto = settings.episodeCount === 'auto' || settings.episodeCount == null
 
   return (
@@ -83,10 +94,26 @@ export default function SettingsPanel({ onClose }) {
           <button onClick={onClose} aria-label="Close settings" className="set-close-btn">×</button>
         </div>
 
+        {/* Simple / Advanced view toggle */}
+        <div className="set-view-toggle" role="tablist" aria-label="Settings detail level">
+          {[['simple', 'Simple'], ['advanced', 'Advanced']].map(([val, label]) => (
+            <button
+              key={val}
+              role="tab"
+              aria-selected={view === val}
+              onClick={() => setViewPersist(val)}
+              className={`set-tab-btn${view === val ? ' is-active' : ''}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className="set-body">
 
-          {/* ── GENERATION TIER ─────────────────────────────────────── */}
-          <Section title="Generation Tier">
+          {/* ── QUALITY (Generation Tier) ─────────────────────────────── */}
+          {isAdvanced && (
+          <Section title="Quality">
             <div className="set-tab-row">
               {[['standard', 'Standard'], ['premium', 'Premium']].map(([val, label]) => {
                 const isLocked = val === 'premium' && !hasPremium
@@ -113,8 +140,9 @@ export default function SettingsPanel({ onClose }) {
                 : 'Upgrade to Pro or Studio to unlock Premium tier generation.'}
             </div>
           </Section>
+          )}
 
-          {/* ── EPISODES ────────────────────────────────────────────── */}
+          {/* ── EPISODES (simple) ───────────────────────────────────── */}
           <Section title="Episodes">
             <div className="set-hint">
               The book decides how many episodes (and how long each runs) it needs — or set a specific count.
@@ -165,26 +193,31 @@ export default function SettingsPanel({ onClose }) {
             </div>
           </Section>
 
-          {/* ── IMAGE QUALITY ────────────────────────────────────────── */}
+          {/* ── IMAGE QUALITY (advanced) ─────────────────────────────── */}
+          {isAdvanced && (
           <Section title="Image Quality">
             {IMAGE_QUALITY_OPTIONS.map(({ value, label, sub }) => (
               <OptionRow key={value} id={value} label={label} sublabel={sub}
                 checked={settings.imageQuality === value} onChange={() => updateSettings({ imageQuality: value })} />
             ))}
           </Section>
+          )}
 
-          {/* ── VIDEO QUALITY ────────────────────────────────────────── */}
-          <Section title="Video Quality">
+          {/* ── VIDEO QUALITY — resolution (advanced) ─────────────────── */}
+          {isAdvanced && (
+          <Section title="Video Resolution">
             {VIDEO_QUALITY_OPTIONS.map(({ value, label, sub }) => (
               <OptionRow key={value} id={value} label={label} sublabel={sub}
                 checked={settings.videoQuality === value} onChange={() => updateSettings({ videoQuality: value })} />
             ))}
           </Section>
+          )}
 
-          {/* ── VIDEO TIER ───────────────────────────────────────────── */}
-          <Section title="Video Tier">
+          {/* ── VIDEO QUALITY — tier (advanced) ──────────────────────── */}
+          {isAdvanced && (
+          <Section title="Video Quality">
             <div className="set-tab-row">
-              {[['standard', 'Standard · 40 cr'], ['premium', 'Premium (Kling Pro) · 80 cr']].map(([val, label]) => {
+              {[['standard', 'Standard · 40 cr', null], ['premium', 'Higher · 80 cr', 'Kling Pro']].map(([val, label, sub]) => {
                 const isLocked = val === 'premium' && !hasPremium
                 const isActive = (settings.managedVideoTier || 'premium') === val
                 return (
@@ -196,6 +229,7 @@ export default function SettingsPanel({ onClose }) {
                     className={`set-tab-btn${isActive && !isLocked ? ' is-active' : ''}`}
                   >
                     {label}
+                    {sub && <span className="set-tab-sublabel"> ({sub})</span>}
                     {isLocked && (
                       <span className="set-lock-badge">🔒 Pro</span>
                     )}
@@ -204,33 +238,38 @@ export default function SettingsPanel({ onClose }) {
               })}
             </div>
           </Section>
+          )}
 
-          {/* ── VIDEO DURATION ───────────────────────────────────────── */}
+          {/* ── VIDEO DURATION (advanced) ────────────────────────────── */}
+          {isAdvanced && (
           <Section title="Video Duration">
             {DURATION_OPTIONS.map(({ value, label, sub }) => (
               <OptionRow key={value} id={value} label={label} sublabel={sub}
                 checked={settings.videoDuration === value} onChange={() => updateSettings({ videoDuration: value })} />
             ))}
           </Section>
+          )}
 
-          {/* ── ASPECT RATIO ─────────────────────────────────────────── */}
-          <Section title="Aspect Ratio">
+          {/* ── FORMAT / ASPECT RATIO (simple) ───────────────────────── */}
+          <Section title="Format / Aspect Ratio">
             {[['9:16','Portrait 9:16 (TikTok / Reels)'],['16:9','Landscape 16:9 (YouTube)'],['1:1','Square 1:1 (Instagram)']].map(([val, label]) => (
               <OptionRow key={val} id={val} label={label}
                 checked={settings.aspectRatio === val} onChange={() => updateSettings({ aspectRatio: val })} />
             ))}
           </Section>
 
-          {/* ── GENERATION SCHEDULE ──────────────────────────────────── */}
+          {/* ── GENERATION SCHEDULE (advanced) ───────────────────────── */}
+          {isAdvanced && (
           <Section title="Generation Schedule">
             {Object.entries(GENERATION_MODES).map(([key, { label, sub }]) => (
               <OptionRow key={key} id={key} label={label} sublabel={sub}
                 checked={settings.generationMode === key} onChange={() => updateSettings({ generationMode: key })} />
             ))}
           </Section>
+          )}
 
-          {/* ── GENRE PRESET ─────────────────────────────────────────── */}
-          <Section title="Genre / Style Preset">
+          {/* ── GENRE PRESET (simple) ────────────────────────────────── */}
+          <Section title="Genre / Style">
             <div className="set-grid-2">
               {Object.entries(GENRE_PRESETS).map(([key, preset]) => (
                 <button
@@ -244,7 +283,8 @@ export default function SettingsPanel({ onClose }) {
             </div>
           </Section>
 
-          {/* ── WHITE LABEL ──────────────────────────────────────────── */}
+          {/* ── WHITE LABEL (advanced) ───────────────────────────────── */}
+          {isAdvanced && (
           <Section title="White Label / Agency">
             <label className="set-wl-toggle-label">
               <input
@@ -284,6 +324,7 @@ export default function SettingsPanel({ onClose }) {
               </>
             )}
           </Section>
+          )}
 
         </div>
       </div>

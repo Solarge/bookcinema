@@ -7,6 +7,7 @@ import { exportZip } from '../utils/zipExport'
 import { generateSeriesBibleHtml } from '../utils/seriesBible'
 import { saveAs } from 'file-saver'
 import { estimateBatchCost, totalCost } from '../utils/costTracker'
+import { estimateSeriesCredits, estimateEpisodeCredits } from '../utils/creditEstimate'
 import { ImageAsset, VideoAsset, AudioAsset } from './MediaAsset'
 import SettingsPanel from './SettingsPanel'
 import StoryboardView from './StoryboardView'
@@ -50,7 +51,7 @@ function genHint(kind, provider, plan, reason) {
     return `Upgrade to ${planLabel(req)} to use ${FEATURE_LABELS[kind] || kind}.`
   }
   const managed = kind === 'image' || kind === 'voice'
-  return `No ${provider} API key set — add one in Settings ⚙${managed ? ', or switch to Managed mode' : ''}.`
+  return `Generation isn't set up yet — check Settings ⚙${managed ? ', or switch to Managed mode' : ''}.`
 }
 
 // ── Editable field ─────────────────────────────────────────────────────────
@@ -142,15 +143,15 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free', 
               <p className="rs-char-desc">
                 <Editable value={char.description} onChange={v => onUpdateChar(char.id, 'description', v)} multiline />
               </p>
-              <Label>Midjourney Prompt</Label>
+              <Label>Image Description</Label>
               <pre className="rs-char-prompt-pre">
                 <Editable value={char.midjourney_prompt} onChange={v => onUpdateChar(char.id, 'midjourney_prompt', v)} multiline style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }} />
               </pre>
               <div className="rs-char-copy-row">
-                <CopyBtn text={char.midjourney_prompt} label="Copy MJ Prompt" />
-                <CopyBtn text={char.midjourney_prompt.replace(/,\s*--ar\s*\S+/g, '').replace(/--style\s*\S+/g, '').trim()} label="Copy FLUX" />
+                <CopyBtn text={char.midjourney_prompt} label="Copy Description" />
+                <CopyBtn text={char.midjourney_prompt.replace(/,\s*--ar\s*\S+/g, '').replace(/--style\s*\S+/g, '').trim()} label="Copy (plain)" />
               </div>
-              <Label>ElevenLabs Voice</Label>
+              <Label>Voice Style</Label>
               <p className="rs-char-voice">
                 <Editable value={char.elevenlabs_voice} onChange={v => onUpdateChar(char.id, 'elevenlabs_voice', v)} multiline style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace" }} />
               </p>
@@ -184,7 +185,7 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBil
         asset={{ ...asset, saving: saving[storeKey] }}
         onGenerate={() => generateDialogueVoice(epNum, sceneNum, dIdx, line.line, null)}
         disabled={!genInfo.allowed}
-        label={genInfo.allowed ? 'Generate Voice' : (genInfo.reason === 'plan' ? `Upgrade to ${planLabel(minPlanFor('voice'))}` : 'Set ElevenLabs key')}
+        label={genInfo.allowed ? 'Generate Voice' : (genInfo.reason === 'plan' ? `Upgrade to ${planLabel(minPlanFor('voice'))}` : 'Set up in Settings')}
         locked={genInfo.reason === 'plan'}
         lockedHint={genInfo.reason === 'plan' ? genHint('voice', settings.voiceProvider, plan, 'plan') : null}
         onUpgrade={onOpenBilling}
@@ -232,11 +233,11 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
         {scene.slug}
       </div>
 
-      {/* Kling prompt */}
+      {/* Video description */}
       <div className="rs-scene-prompt-wrap">
         <div className="rs-scene-prompt-header">
-          <Label>Kling AI Prompt</Label>
-          <CopyBtn text={scene.kling_prompt} label="Copy Kling Prompt" />
+          <Label>Video Description</Label>
+          <CopyBtn text={scene.kling_prompt} label="Copy Description" />
         </div>
         <pre className="rs-scene-prompt-pre">
           <Editable value={scene.kling_prompt} onChange={onUpdateKling} multiline style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace" }} />
@@ -252,7 +253,7 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
         onGenerate={() => generateSceneVideo(epNum, scene, charIds)}
         onApprovalChange={s => setSceneApproval(key, s)}
         disabled={!genInfo.allowed || generationMode === 'batch'}
-        label={genInfo.allowed ? 'Generate Video' : (genInfo.reason === 'plan' ? `Upgrade to ${planLabel(minPlanFor('video'))}` : 'Set video API key')}
+        label={genInfo.allowed ? 'Generate Video' : (genInfo.reason === 'plan' ? `Upgrade to ${planLabel(minPlanFor('video'))}` : 'Set up in Settings')}
         locked={genInfo.reason === 'plan'}
         lockedHint={genInfo.reason === 'plan' ? genHint('video', settings.videoProvider, plan, 'plan') : null}
         onUpgrade={onOpenBilling}
@@ -499,7 +500,7 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
           onClick={() => makeEpisode(seriesRef, episode)}
           disabled={!!movieProgress?.running}
           aria-label={`Make episode ${episode.number} — generate every scene then compile`}
-          title={movieProgress?.running ? 'A movie/episode run is already in progress' : 'Generate all scene videos, voices, music, and compile this episode'}
+          title={movieProgress?.running ? 'A movie/episode run is already in progress' : `Generate all scene videos, voices, music, and compile this episode — uses about ≈${estimateEpisodeCredits(episode).total} credits`}
           className="rs-makeepisode-btn"
         >
           🎬 Make Episode
@@ -788,6 +789,54 @@ function BatchCostModal({ series, settings, onConfirm, onCancel }) {
   )
 }
 
+// ── Make My Movie cost-preview confirm ─────────────────────────────────────
+// Shows an estimated credit cost before the (expensive) full-series run starts.
+// Estimates only — the server is the source of truth (see creditEstimate.js).
+function MovieCostConfirmModal({ series, creditBalance, onConfirm, onCancel }) {
+  const panelRef = useRef(null)
+  useDivModalA11y(onCancel, panelRef)
+  // Graceful: if the series is malformed, total comes back 0 — still safe to show.
+  const est = estimateSeriesCredits(series)
+  const hasBalance = typeof creditBalance === 'number' && Number.isFinite(creditBalance)
+  const notEnough = hasBalance && creditBalance < est.total
+
+  return (
+    <div role="presentation" className="ds-modal-overlay">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="movie-cost-modal-title"
+        className="rs-batch-modal-card"
+      >
+        <div id="movie-cost-modal-title" className="rs-batch-modal-title">Make My Movie</div>
+        <p className="rs-batch-cost-detail" style={{ marginBottom: '12px' }}>
+          This generates every scene&apos;s video, voices, and music, mixes the sound, and compiles each episode.
+        </p>
+        <div className="rs-batch-total-row">
+          <span>This will use about</span><span>≈{est.total} credits</span>
+        </div>
+        {hasBalance && (
+          <div className="rs-batch-cost-row">
+            <span>Your balance</span>
+            <span style={notEnough ? { color: '#c87a7a' } : undefined}>
+              {creditBalance} credits{notEnough ? ' — may not be enough' : ''}
+            </span>
+          </div>
+        )}
+        <div className="rs-batch-modal-actions">
+          <button onClick={onConfirm} className="rs-batch-confirm-btn">
+            🎬 Make My Movie
+          </button>
+          <button onClick={onCancel} className="rs-batch-cancel-btn">
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Share dropdown for the toolbar ────────────────────────────────────────
 function ShareDropdown({ seriesId, onClose }) {
   const [shareToken, setShareToken] = useState(null)
@@ -908,12 +957,13 @@ function MovieProgressBar({ progress, onCancel }) {
 // ── ResultsScreen root ─────────────────────────────────────────────────────
 export default function ResultsScreen({ series: initialSeries, seriesId, onNewBook, onOpenBilling }) {
   const { settings } = useSettings()
-  const { activeWorkspacePlan } = useAuth()
+  const { activeWorkspacePlan, activeCreditBalance } = useAuth()
   const { sessionCost, generateBatch, characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia, generateSceneVideo, cloudEnabled, saveToCloud, seriesSlug, makeMovie, movieProgress, cancelMovie } = useMedia()
   const [series, setSeries] = useState(initialSeries)
   const [showSettings, setShowSettings] = useState(false)
   const [showStoryboard, setShowStoryboard] = useState(false)
   const [showBatchModal, setShowBatchModal] = useState(false)
+  const [showMovieConfirm, setShowMovieConfirm] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [zipping, setZipping] = useState(false)
   const [savingAll, setSavingAll] = useState(false)
@@ -1043,7 +1093,7 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
           <MovieProgressBar progress={movieProgress} onCancel={cancelMovie} />
         ) : (
           <div className="rs-makemovie-wrap">
-            <button onClick={() => makeMovie(series)} className="rs-makemovie-btn" aria-label="Make my movie — generate and compile every episode automatically">
+            <button onClick={() => setShowMovieConfirm(true)} className="rs-makemovie-btn" aria-label="Make my movie — generate and compile every episode automatically">
               🎬 Make My Movie
             </button>
             <span className="rs-makemovie-help">
@@ -1155,6 +1205,14 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
           settings={settings}
           onConfirm={() => { setShowBatchModal(false); generateBatch(series, settings.generationMode) }}
           onCancel={() => setShowBatchModal(false)}
+        />
+      )}
+      {showMovieConfirm && (
+        <MovieCostConfirmModal
+          series={series}
+          creditBalance={activeCreditBalance}
+          onConfirm={() => { setShowMovieConfirm(false); makeMovie(series) }}
+          onCancel={() => setShowMovieConfirm(false)}
         />
       )}
     </div>
