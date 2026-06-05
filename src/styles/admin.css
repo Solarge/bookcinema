@@ -1,0 +1,863 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Admin portal — AdminApp (login / access-denied) + AdminDashboard.
+   Prefix: .adm-*
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── Shared layout ─────────────────────────────────────────────────────────── */
+.adm-center {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.adm-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 48px 40px;
+  width: 100%;
+  max-width: 440px;
+}
+.adm-card--center {
+  text-align: center;
+}
+
+/* ── Login form ─────────────────────────────────────────────────────────────── */
+.adm-title {
+  font-family: 'Cinzel', serif;
+  font-size: 22px;
+  color: var(--gold);
+  margin-bottom: 6px;
+  text-align: center;
+  letter-spacing: 2px;
+}
+.adm-subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 3px;
+  text-align: center;
+  margin-bottom: 32px;
+  text-transform: uppercase;
+}
+.adm-error {
+  background: #3a0808;
+  border: 1px solid #804040;
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #f08080;
+  margin-bottom: 16px;
+}
+.adm-input {
+  display: block;
+  width: 100%;
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 12px 14px;
+  outline: none;
+  margin-bottom: 12px;
+  box-sizing: border-box;
+}
+.adm-input:focus { border-color: var(--gold); }
+.adm-input--totp {
+  letter-spacing: 6px;
+  font-size: 18px;
+  text-align: center;
+}
+.adm-totp-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 14px;
+  line-height: 1.6;
+}
+.adm-submit {
+  display: block;
+  width: 100%;
+  background: var(--gold);
+  color: #080b10;
+  border: none;
+  padding: 13px;
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.adm-submit:disabled {
+  background: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.adm-back-link {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  margin-top: 12px;
+  width: 100%;
+  text-align: center;
+  letter-spacing: 1px;
+}
+.adm-back-link:hover { color: var(--gold); }
+.adm-footer-note {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  text-align: center;
+  margin-top: 24px;
+  letter-spacing: 1px;
+}
+
+/* ── Access Denied ─────────────────────────────────────────────────────────── */
+.adm-denied-title {
+  font-family: 'Cinzel', serif;
+  font-size: 16px;
+  color: #f08080;
+  letter-spacing: 2px;
+  margin-bottom: 16px;
+}
+.adm-denied-body {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 28px;
+}
+.adm-denied-btn {
+  background: transparent;
+  border: 1px solid #804040;
+  color: #f08080;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 10px 24px;
+  cursor: pointer;
+}
+.adm-denied-btn:hover {
+  background: rgba(139, 26, 26, 0.15);
+}
+
+/* ── Loading spinner (AdminApp) ─────────────────────────────────────────────── */
+.adm-loading {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.adm-loading__text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 2px;
+}
+
+/* ── Dashboard layout ───────────────────────────────────────────────────────── */
+.adm-dashboard {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+.adm-header {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 52px;
+  flex-shrink: 0;
+}
+.adm-header__back {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 5px 12px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+.adm-header__back:hover { border-color: var(--gold); color: var(--gold); }
+.adm-header__title {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  color: var(--gold);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  flex: 1;
+}
+.adm-header__badge {
+  background: rgba(120,20,20,0.3);
+  border: 1px solid #804040;
+  padding: 4px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: #f08080;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+.adm-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar nav ─────────────────────────────────────────────────────────────── */
+.adm-nav {
+  width: 180px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding-top: 8px;
+}
+.adm-nav__item {
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 12px 16px;
+  cursor: pointer;
+  text-align: left;
+  transition: color 0.12s, background 0.12s;
+}
+.adm-nav__item:hover:not(.adm-nav__item--active) {
+  color: var(--cream);
+}
+.adm-nav__item--active {
+  background: rgba(200,146,42,0.1);
+  border-left-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ── Main content area ──────────────────────────────────────────────────────── */
+.adm-main {
+  flex: 1;
+  overflow-y: auto;
+  padding: 28px 32px;
+}
+.adm-section-heading {
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.adm-section-heading h1 {
+  font-family: 'Cinzel', serif;
+  font-size: 16px;
+  color: var(--gold);
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+
+/* ── Message banner ─────────────────────────────────────────────────────────── */
+.adm-msg {
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.adm-msg--error {
+  background: #200a0a;
+  border: 1px solid #7a3a3a;
+  color: #f08080;
+}
+.adm-msg--success {
+  background: #0a2010;
+  border: 1px solid #3a7a4a;
+  color: #6dc87a;
+}
+.adm-msg__close {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  opacity: 0.7;
+}
+.adm-msg__close:hover { opacity: 1; }
+
+/* ── Overview section ───────────────────────────────────────────────────────── */
+.adm-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.adm-stat-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 16px;
+  text-align: center;
+}
+.adm-stat-card__value {
+  font-family: 'Cinzel', serif;
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.adm-stat-card__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.adm-jobs-summary {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+.adm-jobs-summary__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.adm-jobs-chips {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.adm-jobs-chip {
+  background: #0a0806;
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  text-align: center;
+  min-width: 80px;
+}
+.adm-jobs-chip__value {
+  font-family: 'Cinzel', serif;
+  font-size: 20px;
+  line-height: 1;
+}
+.adm-jobs-chip__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.adm-refresh-row {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* ── Funnel section ─────────────────────────────────────────────────────────── */
+.adm-funnel-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  align-items: center;
+}
+.adm-funnel-window-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+.adm-funnel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.adm-funnel-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.adm-funnel-stage-label {
+  width: 148px;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.adm-funnel-bar-wrap {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  height: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.adm-funnel-bar-fill {
+  position: absolute;
+  inset: 0;
+  transition: width 0.4s ease;
+}
+.adm-funnel-count {
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  width: 58px;
+  text-align: right;
+  line-height: 1;
+}
+.adm-funnel-rate {
+  width: 60px;
+  text-align: right;
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+.adm-funnel-rate--muted {
+  font-size: 9px;
+  color: var(--muted);
+}
+.adm-funnel-footnote {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  margin-top: 18px;
+  letter-spacing: 1px;
+}
+
+/* ── Shared table / input / button helpers ───────────────────────────────────── */
+.adm-search-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.adm-input {
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 9px 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.adm-input:focus { border-color: var(--gold); }
+.adm-input--flex { flex: 1; }
+.adm-input--select { cursor: pointer; }
+.adm-result-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.adm-empty {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+.adm-table-wrap { overflow-x: auto; }
+.adm-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.adm-th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 400;
+  white-space: nowrap;
+  text-align: left;
+}
+.adm-th--right { text-align: right; }
+.adm-td {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--cream);
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  vertical-align: top;
+}
+
+/* ── Jobs section ───────────────────────────────────────────────────────────── */
+.adm-jobs-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+  align-items: center;
+}
+.adm-jobs-badges {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.adm-jobs-badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.adm-jobs-badge__count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+.adm-jobs-badge__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+}
+.adm-jobs-total {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  align-self: center;
+  margin-left: 4px;
+}
+
+/* ── System / Config section ────────────────────────────────────────────────── */
+.adm-config-warn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #f08080;
+  letter-spacing: 1.5px;
+  background: rgba(120,20,20,0.15);
+  border: 1px solid #804040;
+  padding: 8px 12px;
+  margin-bottom: 18px;
+}
+.adm-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+.adm-config-panel {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+.adm-config-panel__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.adm-config-row {
+  display: flex;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.adm-status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.adm-status-dot--ok { background: #6dc87a; }
+.adm-status-dot--off { background: #555; }
+.adm-config-row__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+}
+.adm-config-row__status {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  margin-left: auto;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.adm-config-row__status--ok { color: #6dc87a; }
+.adm-config-row__status--off { color: var(--muted); }
+.adm-stripe-sub-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
+.adm-managed-status-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.adm-managed-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.adm-managed-detail-item {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+}
+.adm-managed-detail-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--cream);
+}
+.adm-caps-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--muted);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-top: 10px;
+  margin-bottom: 6px;
+}
+.adm-cap-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.adm-cap-key { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); }
+.adm-cap-val { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--cream); }
+.adm-plan-matrix {
+  margin-top: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 16px;
+}
+
+/* ── Security / 2FA section ─────────────────────────────────────────────────── */
+.adm-2fa-status-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.adm-2fa-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.adm-2fa-indicator--on  { background: #6dc87a; }
+.adm-2fa-indicator--off { background: var(--muted); }
+.adm-2fa-status-label {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 1.5px;
+  margin-bottom: 4px;
+}
+.adm-2fa-status-label--on  { color: #6dc87a; }
+.adm-2fa-status-label--off { color: var(--muted); }
+.adm-2fa-status-body {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+.adm-2fa-setup-panel {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 20px;
+  max-width: 500px;
+}
+.adm-2fa-setup-heading {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.adm-2fa-secret-block {
+  background: #0a0806;
+  border: 1px solid var(--border);
+  padding: 10px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 2px;
+  word-break: break-all;
+  margin-top: 6px;
+  user-select: all;
+}
+.adm-2fa-otpurl-block {
+  background: #0a0806;
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  word-break: break-all;
+  margin-top: 6px;
+  user-select: all;
+}
+.adm-2fa-otpurl-block a {
+  color: var(--muted);
+  text-decoration: none;
+}
+.adm-2fa-confirm-prompt {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--cream);
+  margin-bottom: 12px;
+}
+.adm-2fa-code-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.adm-2fa-code-input {
+  width: 130px;
+  letter-spacing: 4px;
+  font-size: 14px;
+  text-align: center;
+  padding: 9px 8px;
+}
+.adm-2fa-disable-panel {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 20px;
+  max-width: 400px;
+}
+.adm-2fa-disable-heading {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* ── Buttons (reused by all dashboard sections) ─────────────────────────────── */
+.adm-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 8px 16px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.adm-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+.adm-btn--primary { background: var(--gold); color: #080b10; }
+.adm-btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
+.adm-btn--ghost   { background: transparent; color: var(--muted);  border: 1px solid var(--border); }
+.adm-btn--ghost:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+.adm-btn--danger  { background: transparent; color: #f08080; border: 1px solid #804040; }
+.adm-btn--danger:hover:not(:disabled) { background: rgba(139,26,26,0.15); }
+.adm-btn--warning { background: transparent; color: #f0a050; border: 1px solid #805030; }
+.adm-btn--gold    { background: transparent; color: var(--gold); border: 1px solid var(--gold); }
+
+/* ── WorkspaceRow expanded panel ────────────────────────────────────────────── */
+.adm-ws-expanded {
+  background: #0a0806;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.adm-ws-expanded-inner {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.adm-ws-subsection-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.adm-ws-action-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.adm-ws-info {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+/* ── Inline utility helpers (used by table rows / dynamic content) ────────── */
+/* User row */
+.adm-user-name { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.adm-user-name--active { color: var(--cream); }
+.adm-user-name--inactive { color: var(--muted); }
+.adm-user-email { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); }
+.adm-user-role { font-family: 'JetBrains Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 1px; }
+.adm-user-role--admin { color: var(--gold); }
+.adm-user-role--user  { color: var(--muted); }
+.adm-user-plan { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #6dc87a; text-transform: uppercase; letter-spacing: 1px; }
+.adm-user-inactive-badge { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: #f08080; margin-left: 6px; text-transform: uppercase; letter-spacing: 1px; }
+.adm-td--actions { min-width: 260px; }
+.adm-td--nowrap { white-space: nowrap; }
+.adm-td--text-right { text-align: right; }
+.adm-row-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.adm-managed-toggle-row { display: flex; gap: 8px; }
+/* Workspace row */
+.adm-ws-name { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--cream); }
+.adm-ws-slug { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--muted); }
+.adm-ws-type { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+.adm-ws-plan { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #6dc87a; text-transform: uppercase; letter-spacing: 1px; }
+.adm-ws-credit-bal { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--gold); }
+.adm-ws-credit-unit { font-family: 'JetBrains Mono', monospace; font-size: 8px; color: var(--muted); margin-left: 4px; }
+.adm-ws-member-count { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); }
+.adm-ws-managed-yes { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: #6dc87a; text-transform: uppercase; letter-spacing: 1px; }
+.adm-ws-managed-no  { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+/* Jobs table cells */
+.adm-job-tier   { color: var(--muted); }
+.adm-job-cost   { color: var(--gold); }
+.adm-job-ws     { color: var(--muted); font-size: 9px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-job-time   { color: var(--muted); white-space: nowrap; }
+.adm-job-error  { color: #f08080; font-size: 9px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adm-tr-row     { border-bottom: 1px solid rgba(255,255,255,0.04); }
+.adm-tr-border  { border-bottom: 1px solid var(--border); }
+/* Config / system */
+.adm-config-note { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); }
+.adm-managed-enabled   { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #6dc87a; }
+.adm-managed-disabled  { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #f08080; }
+.adm-mt-10 { margin-top: 10px; }
+.adm-plan-name { color: var(--gold); text-transform: uppercase; letter-spacing: 1px; }
+.adm-plan-feats { color: var(--muted); font-size: 9px; }
+/* 2FA setup */
+.adm-2fa-field-hint { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--muted); }
+.adm-2fa-mb-14 { margin-bottom: 14px; }
+.adm-2fa-mb-18 { margin-bottom: 18px; }
+/* Input size helpers (override base padding for compact table inputs) */
+.adm-input--sm { padding: 5px 8px; }
+.adm-input--sm-wide { padding: 6px 8px; width: 160px; }
+.adm-input--sm-note { padding: 6px 8px; width: 150px; }
+.adm-input--filter { padding: 6px 10px; }

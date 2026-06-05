@@ -1,64 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import AdminDashboard from './AdminDashboard'
-
-// ── Minimal styles shared across admin portal screens ──────────────────────
-const wrapStyle = {
-  minHeight: '100vh',
-  background: 'var(--bg)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '24px',
-}
-
-const cardStyle = {
-  background: 'var(--surface)',
-  border: '1px solid var(--border)',
-  padding: '48px 40px',
-  width: '100%',
-  maxWidth: '440px',
-}
-
-const inputStyle = {
-  display: 'block',
-  width: '100%',
-  background: '#0a0806',
-  border: '1px solid var(--border)',
-  color: 'var(--cream)',
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: '13px',
-  padding: '12px 14px',
-  outline: 'none',
-  marginBottom: '12px',
-  boxSizing: 'border-box',
-}
-
-const btnStyle = (disabled) => ({
-  display: 'block',
-  width: '100%',
-  background: disabled ? 'var(--border)' : 'var(--gold)',
-  color: disabled ? 'var(--muted)' : '#080b10',
-  border: 'none',
-  padding: '13px',
-  fontFamily: "'Cinzel', serif",
-  fontSize: '12px',
-  fontWeight: '600',
-  letterSpacing: '2px',
-  textTransform: 'uppercase',
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  marginTop: '4px',
-})
-
-const errorStyle = {
-  background: '#3a0808',
-  border: '1px solid #804040',
-  padding: '10px 14px',
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: '11px',
-  color: '#f08080',
-  marginBottom: '16px',
-}
+import '../../styles/admin.css'
 
 // ── AdminLogin ──────────────────────────────────────────────────────────────
 function AdminLogin() {
@@ -94,16 +37,14 @@ function AdminLogin() {
   }
 
   return (
-    <div style={wrapStyle}>
-      <div style={cardStyle}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '22px', color: 'var(--gold)', marginBottom: '6px', textAlign: 'center', letterSpacing: '2px' }}>
-          BookFilm — Admin
-        </div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '3px', textAlign: 'center', marginBottom: '32px', textTransform: 'uppercase' }}>
+    <div className="adm-center">
+      <div className="adm-card">
+        <div className="adm-title">BookFilm — Admin</div>
+        <div className="adm-subtitle">
           {step === '2fa' ? 'Two-Factor Authentication' : 'Company Console'}
         </div>
 
-        {error && <div role="alert" style={errorStyle}>{error}</div>}
+        {error && <div role="alert" className="adm-error">{error}</div>}
 
         {step === 'credentials' ? (
           <>
@@ -115,7 +56,7 @@ function AdminLogin() {
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
               autoFocus
               aria-label="Admin email address"
-              style={inputStyle}
+              className="adm-input"
             />
             <input
               type="password"
@@ -124,12 +65,12 @@ function AdminLogin() {
               onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
               aria-label="Admin password"
-              style={inputStyle}
+              className="adm-input"
             />
           </>
         ) : (
           <>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', marginBottom: '14px', lineHeight: '1.6' }}>
+            <div className="adm-totp-hint">
               Enter the 6-digit code from your authenticator app.
             </div>
             <input
@@ -142,25 +83,25 @@ function AdminLogin() {
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
               autoFocus
               aria-label="Two-factor authentication code"
-              style={{ ...inputStyle, letterSpacing: '6px', fontSize: '18px', textAlign: 'center' }}
+              className="adm-input adm-input--totp"
             />
           </>
         )}
 
-        <button onClick={handleSubmit} disabled={loading} style={btnStyle(loading)}>
+        <button onClick={handleSubmit} disabled={loading} className="adm-submit">
           {loading ? (step === '2fa' ? 'Verifying…' : 'Signing in…') : (step === '2fa' ? 'Verify Code' : 'Sign In')}
         </button>
 
         {step === '2fa' && (
           <button
             onClick={() => { setStep('credentials'); setTotp(''); setError('') }}
-            style={{ background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: 'pointer', marginTop: '12px', width: '100%', textAlign: 'center', letterSpacing: '1px' }}
+            className="adm-back-link"
           >
             ← Back to sign-in
           </button>
         )}
 
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', textAlign: 'center', marginTop: '24px', letterSpacing: '1px' }}>
+        <div className="adm-footer-note">
           Restricted to BookFilm administrators only.
         </div>
       </div>
@@ -172,30 +113,14 @@ function AdminLogin() {
 function AccessDenied() {
   const { logout } = useAuth()
   return (
-    <div style={wrapStyle}>
-      <div style={{ ...cardStyle, textAlign: 'center' }}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '16px', color: '#f08080', letterSpacing: '2px', marginBottom: '16px' }}>
-          Access Denied
-        </div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', lineHeight: '1.7', marginBottom: '28px' }}>
+    <div className="adm-center">
+      <div className="adm-card adm-card--center">
+        <div className="adm-denied-title">Access Denied</div>
+        <div className="adm-denied-body">
           This area is restricted to administrators.<br />
           Your account does not have admin privileges.
         </div>
-        <button
-          onClick={logout}
-          style={{
-            background: 'transparent',
-            border: '1px solid #804040',
-            color: '#f08080',
-            fontFamily: "'Cinzel', serif",
-            fontSize: '11px',
-            fontWeight: '600',
-            letterSpacing: '2px',
-            textTransform: 'uppercase',
-            padding: '10px 24px',
-            cursor: 'pointer',
-          }}
-        >
+        <button onClick={logout} className="adm-denied-btn">
           Sign Out
         </button>
       </div>
@@ -209,10 +134,8 @@ export default function AdminApp() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--muted)', letterSpacing: '2px' }}>
-          Loading…
-        </div>
+      <div className="adm-loading">
+        <div className="adm-loading__text">Loading…</div>
       </div>
     )
   }

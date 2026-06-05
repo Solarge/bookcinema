@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types'
+import '../styles/misc-components.css'
 
 const STATUS_CONFIG = {
   pending:  { label: 'Pending',  color: '#4a5a6a', bg: '#141b24' },
@@ -12,28 +13,19 @@ export default function ApprovalBadge({ status = 'pending', onChange }) {
   const options = Object.keys(STATUS_CONFIG).filter(s => s !== status)
 
   return (
-    <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-      <span style={{
-        fontFamily: "'JetBrains Mono', monospace",
-        fontSize: '9px',
-        padding: '3px 8px',
-        letterSpacing: '1px',
-        textTransform: 'uppercase',
-        color: cfg.color,
-        background: cfg.bg,
-        border: `1px solid ${cfg.color}44`,
-      }}>{cfg.label}</span>
+    <div className="ab-row">
+      <span
+        className="ab-badge"
+        style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.color}44` }}
+      >{cfg.label}</span>
       {onChange && options.map(s => (
-        <button key={s} onClick={() => onChange(s)} aria-label={`Mark as ${s}`} style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '9px',
-          padding: '2px 6px',
-          border: `1px solid ${STATUS_CONFIG[s].color}44`,
-          background: 'transparent',
-          color: STATUS_CONFIG[s].color,
-          cursor: 'pointer',
-          letterSpacing: '1px',
-        }}>
+        <button
+          key={s}
+          onClick={() => onChange(s)}
+          aria-label={`Mark as ${s}`}
+          className="ab-action-btn"
+          style={{ border: `1px solid ${STATUS_CONFIG[s].color}44`, color: STATUS_CONFIG[s].color }}
+        >
           {s === 'approved' ? '✓' : s === 'flagged' ? '!' : '✗'}
         </button>
       ))}

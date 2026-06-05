@@ -2,75 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import PropTypes from 'prop-types'
 import { admin as adminApi } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
-
-// ── Style helpers (matches AdminPanel + app aesthetic) ──────────────────────
-const mono = (size = '11px', color = 'var(--cream)') => ({
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: size,
-  color,
-})
-const cinzel = (size = '13px', color = 'var(--gold)') => ({
-  fontFamily: "'Cinzel', serif",
-  fontSize: size,
-  color,
-  letterSpacing: '1.5px',
-})
-const sectionLabel = {
-  ...mono('9px', 'var(--muted)'),
-  letterSpacing: '2px',
-  textTransform: 'uppercase',
-  marginBottom: '10px',
-}
-const cardStyle = {
-  background: 'var(--surface2)',
-  border: '1px solid var(--border)',
-  padding: '16px',
-  textAlign: 'center',
-}
-const inputStyle = {
-  background: '#0a0806',
-  border: '1px solid var(--border)',
-  color: 'var(--cream)',
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: '11px',
-  padding: '9px 12px',
-  outline: 'none',
-  boxSizing: 'border-box',
-}
-const btnStyle = (variant = 'primary', disabled = false) => {
-  const base = {
-    fontFamily: "'Cinzel', serif",
-    fontSize: '11px',
-    fontWeight: '600',
-    letterSpacing: '2px',
-    textTransform: 'uppercase',
-    padding: '8px 16px',
-    border: 'none',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    whiteSpace: 'nowrap',
-  }
-  if (disabled) return { ...base, background: 'var(--border)', color: 'var(--muted)' }
-  if (variant === 'danger')  return { ...base, background: 'transparent', color: '#f08080', border: '1px solid #804040' }
-  if (variant === 'ghost')   return { ...base, background: 'transparent', color: 'var(--muted)', border: '1px solid var(--border)' }
-  if (variant === 'warning') return { ...base, background: 'transparent', color: '#f0a050', border: '1px solid #805030' }
-  if (variant === 'gold')    return { ...base, background: 'transparent', color: 'var(--gold)', border: '1px solid var(--gold)' }
-  return { ...base, background: 'var(--gold)', color: '#080b10' }
-}
-const thStyle = {
-  ...mono('8px', 'var(--muted)'),
-  letterSpacing: '1.5px',
-  textTransform: 'uppercase',
-  padding: '8px 10px',
-  borderBottom: '1px solid var(--border)',
-  fontWeight: 400,
-  whiteSpace: 'nowrap',
-}
-const tdStyle = {
-  ...mono('10px', 'var(--cream)'),
-  padding: '8px 10px',
-  borderBottom: '1px solid rgba(255,255,255,0.04)',
-  verticalAlign: 'top',
-}
+import '../../styles/admin.css'
 
 // ── Shared message banner ───────────────────────────────────────────────────
 function MsgBanner({ msg, kind, onClear }) {
@@ -80,23 +12,13 @@ function MsgBanner({ msg, kind, onClear }) {
     <div
       role={isErr ? 'alert' : 'status'}
       aria-live="polite"
-      style={{
-        background: isErr ? '#200a0a' : '#0a2010',
-        border: `1px solid ${isErr ? '#7a3a3a' : '#3a7a4a'}`,
-        padding: '10px 14px',
-        ...mono('11px', isErr ? '#f08080' : '#6dc87a'),
-        marginBottom: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '12px',
-      }}
+      className={`adm-msg ${isErr ? 'adm-msg--error' : 'adm-msg--success'}`}
     >
       <span>{msg}</span>
       <button
         onClick={onClear}
         aria-label="Dismiss message"
-        style={{ background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', fontSize: '16px', lineHeight: 1, padding: 0, opacity: 0.7 }}
+        className="adm-msg__close"
       >×</button>
     </div>
   )
@@ -122,7 +44,7 @@ function OverviewSection({ onMsg }) {
 
   useEffect(() => { load() }, [load])
 
-  if (loading) return <div style={mono('11px', 'var(--muted)')}>Loading stats…</div>
+  if (loading) return <div className="adm-empty">Loading stats…</div>
   if (!stats) return null
 
   const jobs = stats.jobs || {}
@@ -137,35 +59,35 @@ function OverviewSection({ onMsg }) {
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+      <div className="adm-cards-grid">
         {mainCards.map(([label, value, color]) => (
-          <div key={label} style={cardStyle}>
-            <div style={{ ...cinzel('26px', color), lineHeight: 1, marginBottom: '6px' }}>{value}</div>
-            <div style={sectionLabel}>{label}</div>
+          <div key={label} className="adm-stat-card">
+            <div className="adm-stat-card__value" style={{ color }}>{value}</div>
+            <div className="adm-stat-card__label">{label}</div>
           </div>
         ))}
       </div>
 
       {/* Jobs summary */}
-      <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '16px' }}>
-        <div style={{ ...sectionLabel, marginBottom: '12px' }}>Jobs — Total: {jobs.total ?? 0}</div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="adm-jobs-summary">
+        <div className="adm-jobs-summary__label">Jobs — Total: {jobs.total ?? 0}</div>
+        <div className="adm-jobs-chips">
           {[
             ['Queued',  byStatus.queued  ?? 0, 'var(--muted)'],
             ['Active',  byStatus.active  ?? 0, '#f0c040'],
             ['Done',    byStatus.done    ?? 0, '#6dc87a'],
             ['Failed',  byStatus.failed  ?? 0, '#f08080'],
           ].map(([label, count, color]) => (
-            <div key={label} style={{ background: '#0a0806', border: '1px solid var(--border)', padding: '10px 16px', textAlign: 'center', minWidth: '80px' }}>
-              <div style={{ ...cinzel('20px', color), lineHeight: 1 }}>{count}</div>
-              <div style={{ ...mono('8px', 'var(--muted)'), letterSpacing: '1.5px', textTransform: 'uppercase', marginTop: '4px' }}>{label}</div>
+            <div key={label} className="adm-jobs-chip">
+              <div className="adm-jobs-chip__value" style={{ color }}>{count}</div>
+              <div className="adm-jobs-chip__label">{label}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={load} disabled={loading} style={btnStyle('ghost', loading)} aria-label="Refresh overview stats">
+      <div className="adm-refresh-row">
+        <button onClick={load} disabled={loading} className={`adm-btn adm-btn--ghost${loading ? ' adm-btn--disabled' : ''}`} aria-label="Refresh overview stats">
           {loading ? '…' : '↻ Refresh'}
         </button>
       </div>
@@ -180,8 +102,8 @@ const FUNNEL_COLORS = ['var(--cream)', '#a0c8f0', '#6dc87a', 'var(--gold)']
 function FunnelBar({ count, max, color }) {
   const pct = max > 0 ? Math.max(4, Math.round((count / max) * 100)) : 4
   return (
-    <div style={{ flex: 1, background: 'var(--surface2)', border: '1px solid var(--border)', height: '8px', position: 'relative', overflow: 'hidden' }} aria-hidden="true">
-      <div style={{ position: 'absolute', inset: 0, width: `${pct}%`, background: color, transition: 'width 0.4s ease' }} />
+    <div className="adm-funnel-bar-wrap" aria-hidden="true">
+      <div className="adm-funnel-bar-fill" style={{ width: `${pct}%`, background: color }} />
     </div>
   )
 }
@@ -219,42 +141,45 @@ function FunnelSection({ onMsg }) {
   return (
     <div>
       {/* Window selector */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', alignItems: 'center' }}>
-        <span style={mono('10px', 'var(--muted)')}>Window:</span>
+      <div className="adm-funnel-filters">
+        <span className="adm-funnel-window-label">Window:</span>
         {[7, 30, 90].map(d => (
           <button
             key={d}
             onClick={() => setDays(d)}
-            style={btnStyle(days === d ? 'primary' : 'ghost', loading)}
+            className={`adm-btn ${days === d ? 'adm-btn--primary' : 'adm-btn--ghost'}`}
             disabled={loading}
             aria-pressed={days === d}
           >{d}d</button>
         ))}
-        <button onClick={() => load(days)} disabled={loading} style={btnStyle('ghost', loading)} aria-label="Refresh funnel">
+        <button onClick={() => load(days)} disabled={loading} className="adm-btn adm-btn--ghost" aria-label="Refresh funnel">
           {loading ? '…' : '↻'}
         </button>
       </div>
 
-      {loading && !data && <div style={mono('10px', 'var(--muted)')}>Loading funnel…</div>}
+      {loading && !data && <div className="adm-empty">Loading funnel…</div>}
 
       {funnel.length > 0 && (
-        <div role="list" aria-label="Conversion funnel stages" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div role="list" aria-label="Conversion funnel stages" className="adm-funnel-list">
           {funnel.map((stage, i) => (
-            <div key={stage.stage} role="listitem" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div key={stage.stage} role="listitem" className="adm-funnel-row">
               {/* Stage label */}
-              <div style={{ width: '148px', flexShrink: 0 }}>
-                <div style={mono('11px', FUNNEL_COLORS[i])}>{STAGE_LABELS[stage.stage] ?? stage.stage}</div>
+              <div className="adm-funnel-stage-label" style={{ color: FUNNEL_COLORS[i] }}>
+                {STAGE_LABELS[stage.stage] ?? stage.stage}
               </div>
               {/* Bar */}
               <FunnelBar count={stage.count} max={max} color={FUNNEL_COLORS[i]} />
               {/* Count */}
-              <div style={{ ...cinzel('18px', FUNNEL_COLORS[i]), width: '58px', textAlign: 'right', lineHeight: 1 }}
-                aria-label={`${stage.count} users`}>{stage.count}</div>
+              <div
+                className="adm-funnel-count"
+                style={{ color: FUNNEL_COLORS[i] }}
+                aria-label={`${stage.count} users`}
+              >{stage.count}</div>
               {/* Rate */}
-              <div style={{ width: '60px', textAlign: 'right', flexShrink: 0 }}>
+              <div className="adm-funnel-rate">
                 {stage.rate != null
-                  ? <span style={mono('10px', stage.rate >= 50 ? '#6dc87a' : stage.rate >= 20 ? '#f0c040' : '#f08080')}>{stage.rate}%</span>
-                  : <span style={mono('9px', 'var(--muted)')}>—</span>
+                  ? <span style={{ color: stage.rate >= 50 ? '#6dc87a' : stage.rate >= 20 ? '#f0c040' : '#f08080' }}>{stage.rate}%</span>
+                  : <span className="adm-funnel-rate--muted">—</span>
                 }
               </div>
             </div>
@@ -263,7 +188,7 @@ function FunnelSection({ onMsg }) {
       )}
 
       {data && (
-        <div style={{ ...mono('8px', 'var(--muted)'), marginTop: '18px', letterSpacing: '1px' }}>
+        <div className="adm-funnel-footnote">
           Rates: verified/signups → activated/verified → upgraded/activated · last {days} days
         </div>
       )}
@@ -316,35 +241,36 @@ function UserRow({ user, onMsg, onRefresh }) {
   const inactive = user.isActive === false
 
   return (
-    <tr style={{ borderBottom: '1px solid var(--border)', opacity: inactive ? 0.6 : 1 }}>
-      <td style={tdStyle}>
-        <div style={mono('11px', inactive ? 'var(--muted)' : 'var(--cream)')}>{user.name || '(no name)'}</div>
-        <div style={mono('9px', 'var(--muted)')}>{user.email}</div>
+    <tr className="adm-tr-border" style={{ opacity: inactive ? 0.6 : 1 }}>
+      <td className="adm-td">
+        <div className={`adm-user-name ${inactive ? 'adm-user-name--inactive' : 'adm-user-name--active'}`}>{user.name || '(no name)'}</div>
+        <div className="adm-user-email">{user.email}</div>
       </td>
-      <td style={tdStyle}>
-        <span style={{ ...mono('9px', user.role === 'admin' ? 'var(--gold)' : 'var(--muted)'), textTransform: 'uppercase', letterSpacing: '1px' }}>{user.role}</span>
+      <td className="adm-td">
+        <span className={`adm-user-role ${user.role === 'admin' ? 'adm-user-role--admin' : 'adm-user-role--user'}`}>{user.role}</span>
       </td>
-      <td style={tdStyle}>
-        <span style={{ ...mono('9px', '#6dc87a'), textTransform: 'uppercase', letterSpacing: '1px' }}>{user.plan || 'free'}</span>
-        {inactive && <span style={{ ...mono('8px', '#f08080'), marginLeft: '6px', textTransform: 'uppercase', letterSpacing: '1px' }}>INACTIVE</span>}
+      <td className="adm-td">
+        <span className="adm-user-plan">{user.plan || 'free'}</span>
+        {inactive && <span className="adm-user-inactive-badge">INACTIVE</span>}
       </td>
-      <td style={{ ...tdStyle, minWidth: '260px' }}>
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+      <td className="adm-td adm-td--actions">
+        <div className="adm-row-actions">
           <input
             type="number"
             placeholder="Credits"
             value={credits}
             onChange={e => setCredits(e.target.value)}
             aria-label={`Grant credits to ${user.email}`}
-            style={{ ...inputStyle, width: '72px', padding: '5px 8px' }}
+            className="adm-input adm-input--sm"
+            style={{ width: '72px' }}
           />
-          <button onClick={handleSetCredits} disabled={busy || credits === ''} style={btnStyle('primary', busy || credits === '')} aria-label={`Apply credit change to ${user.email}`}>Grant</button>
+          <button onClick={handleSetCredits} disabled={busy || credits === ''} className="adm-btn adm-btn--primary" aria-label={`Apply credit change to ${user.email}`}>Grant</button>
 
           <select
             value={plan}
             onChange={e => setPlan(e.target.value)}
             aria-label={`Set plan for ${user.email}`}
-            style={{ ...inputStyle, padding: '5px 8px', cursor: 'pointer' }}
+            className="adm-input adm-input--select adm-input--sm"
           >
             <option value="free">free</option>
             <option value="pro">pro</option>
@@ -354,15 +280,15 @@ function UserRow({ user, onMsg, onRefresh }) {
             value={role}
             onChange={e => setRole(e.target.value)}
             aria-label={`Set role for ${user.email}`}
-            style={{ ...inputStyle, padding: '5px 8px', cursor: 'pointer' }}
+            className="adm-input adm-input--select adm-input--sm"
           >
             <option value="user">user</option>
             <option value="admin">admin</option>
           </select>
-          <button onClick={handleSetPlan} disabled={busy} style={btnStyle('ghost', busy)} aria-label={`Apply plan/role to ${user.email}`}>Apply</button>
+          <button onClick={handleSetPlan} disabled={busy} className="adm-btn adm-btn--ghost" aria-label={`Apply plan/role to ${user.email}`}>Apply</button>
 
           {user.isActive !== false && (
-            <button onClick={handleDeactivate} disabled={busy} style={btnStyle('danger', busy)} aria-label={`Deactivate ${user.email}`}>Deactivate</button>
+            <button onClick={handleDeactivate} disabled={busy} className="adm-btn adm-btn--danger" aria-label={`Deactivate ${user.email}`}>Deactivate</button>
           )}
         </div>
       </td>
@@ -400,36 +326,36 @@ function UsersSection({ onMsg }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+      <div className="adm-search-row">
         <input
           type="text"
           placeholder="Search by name or email…"
           value={query}
           onChange={handleQueryChange}
           aria-label="Search users by name or email"
-          style={{ ...inputStyle, flex: 1 }}
+          className="adm-input adm-input--flex"
         />
-        <button onClick={() => search(query)} disabled={loading} style={btnStyle('ghost', loading)} aria-label="Run user search">
+        <button onClick={() => search(query)} disabled={loading} className="adm-btn adm-btn--ghost" aria-label="Run user search">
           {loading ? 'Searching…' : 'Search'}
         </button>
       </div>
 
       {users !== null && (
-        <div style={{ ...mono('9px', 'var(--muted)'), letterSpacing: '1px', marginBottom: '10px' }}>
+        <div className="adm-result-count">
           {total} user{total !== 1 ? 's' : ''}{total > (users?.length ?? 0) ? ` (showing ${users.length})` : ''}
         </div>
       )}
 
-      {loading && users === null && <div style={mono('10px', 'var(--muted)')}>Loading…</div>}
-      {users !== null && users.length === 0 && <div style={mono('10px', 'var(--muted)')}>No users found.</div>}
+      {loading && users === null && <div className="adm-empty">Loading…</div>}
+      {users !== null && users.length === 0 && <div className="adm-empty">No users found.</div>}
 
       {users !== null && users.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="User management table">
+        <div className="adm-table-wrap">
+          <table className="adm-table" aria-label="User management table">
             <thead>
               <tr>
                 {['User', 'Role', 'Plan / Status', 'Actions'].map(h => (
-                  <th key={h} scope="col" style={{ ...thStyle, textAlign: 'left' }}>{h}</th>
+                  <th key={h} scope="col" className="adm-th">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -478,55 +404,55 @@ function WorkspaceRow({ ws, onMsg, onRefresh }) {
 
   return (
     <>
-      <tr style={{ borderBottom: '1px solid var(--border)' }}>
-        <td style={tdStyle}>
-          <div style={mono('11px', 'var(--cream)')}>{ws.name}</div>
-          <div style={mono('8px', 'var(--muted)')}>{ws.slug}</div>
+      <tr className="adm-tr-border">
+        <td className="adm-td">
+          <div className="adm-ws-name">{ws.name}</div>
+          <div className="adm-ws-slug">{ws.slug}</div>
         </td>
-        <td style={tdStyle}>
-          <span style={{ ...mono('9px', 'var(--muted)'), textTransform: 'uppercase', letterSpacing: '1px' }}>{ws.type}</span>
+        <td className="adm-td">
+          <span className="adm-ws-type">{ws.type}</span>
         </td>
-        <td style={tdStyle}>
-          <span style={{ ...mono('9px', '#6dc87a'), textTransform: 'uppercase', letterSpacing: '1px' }}>{ws.plan || 'free'}</span>
+        <td className="adm-td">
+          <span className="adm-ws-plan">{ws.plan || 'free'}</span>
         </td>
-        <td style={{ ...tdStyle, textAlign: 'right' }}>
-          <span style={mono('12px', 'var(--gold)')}>{ws.creditBalance ?? 0}</span>
-          <span style={{ ...mono('8px', 'var(--muted)'), marginLeft: '4px' }}>cr</span>
+        <td className="adm-td adm-th--right">
+          <span className="adm-ws-credit-bal">{ws.creditBalance ?? 0}</span>
+          <span className="adm-ws-credit-unit">cr</span>
         </td>
-        <td style={{ ...tdStyle, textAlign: 'right' }}>
-          <span style={mono('10px', 'var(--muted)')}>{ws.memberCount ?? '—'}</span>
+        <td className="adm-td adm-th--right">
+          <span className="adm-ws-member-count">{ws.memberCount ?? '—'}</span>
         </td>
-        <td style={tdStyle}>
-          <span style={{ ...mono('9px', ws.managedBeta ? '#6dc87a' : 'var(--muted)'), textTransform: 'uppercase', letterSpacing: '1px' }}>
+        <td className="adm-td">
+          <span className={ws.managedBeta ? 'adm-ws-managed-yes' : 'adm-ws-managed-no'}>
             {ws.managedBeta ? 'Yes' : 'No'}
           </span>
         </td>
-        <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+        <td className="adm-td adm-td--nowrap">
           <button
             onClick={() => setExpanded(x => !x)}
             aria-expanded={expanded}
             aria-label={`${expanded ? 'Collapse' : 'Expand'} actions for ${ws.name}`}
-            style={btnStyle('ghost')}
+            className="adm-btn adm-btn--ghost"
           >{expanded ? '▲ Less' : '▼ Actions'}</button>
         </td>
       </tr>
 
       {expanded && (
         <tr>
-          <td colSpan={7} style={{ background: '#0a0806', padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+          <td colSpan={7} className="adm-ws-expanded">
+            <div className="adm-ws-expanded-inner">
 
               {/* Credit adjustment */}
               <div>
-                <div style={{ ...sectionLabel, marginBottom: '6px' }}>Grant / Deduct Credits</div>
-                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                <div className="adm-ws-subsection-label">Grant / Deduct Credits</div>
+                <div className="adm-ws-action-row">
                   <input
                     type="number"
                     placeholder="Amount (neg = deduct)"
                     value={credits}
                     onChange={e => setCredits(e.target.value)}
                     aria-label={`Credit amount for ${ws.name}`}
-                    style={{ ...inputStyle, width: '160px', padding: '6px 8px' }}
+                    className="adm-input adm-input--sm-wide"
                   />
                   <input
                     type="text"
@@ -534,23 +460,23 @@ function WorkspaceRow({ ws, onMsg, onRefresh }) {
                     value={creditsNote}
                     onChange={e => setCreditsNote(e.target.value)}
                     aria-label={`Credit note for ${ws.name}`}
-                    style={{ ...inputStyle, width: '150px', padding: '6px 8px' }}
+                    className="adm-input adm-input--sm-note"
                   />
-                  <button onClick={handleCredits} disabled={busy || credits === ''} style={btnStyle('primary', busy || credits === '')} aria-label={`Apply credit change to ${ws.name}`}>Apply</button>
+                  <button onClick={handleCredits} disabled={busy || credits === ''} className="adm-btn adm-btn--primary" aria-label={`Apply credit change to ${ws.name}`}>Apply</button>
                 </div>
               </div>
 
               {/* Managed beta toggle */}
               <div>
-                <div style={{ ...sectionLabel, marginBottom: '6px' }}>Managed Generation</div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => handleManaged(true)}  disabled={busy} style={btnStyle('primary', busy)} aria-label={`Enable managed generation for ${ws.name}`}>Enable</button>
-                  <button onClick={() => handleManaged(false)} disabled={busy} style={btnStyle('danger',  busy)} aria-label={`Disable managed generation for ${ws.name}`}>Disable</button>
+                <div className="adm-ws-subsection-label">Managed Generation</div>
+                <div className="adm-managed-toggle-row">
+                  <button onClick={() => handleManaged(true)}  disabled={busy} className="adm-btn adm-btn--primary" aria-label={`Enable managed generation for ${ws.name}`}>Enable</button>
+                  <button onClick={() => handleManaged(false)} disabled={busy} className="adm-btn adm-btn--danger"  aria-label={`Disable managed generation for ${ws.name}`}>Disable</button>
                 </div>
               </div>
 
               {/* Info */}
-              <div style={{ ...mono('9px', 'var(--muted)'), lineHeight: '1.8' }}>
+              <div className="adm-ws-info">
                 <div>Owner ID: {ws.ownerId || '—'}</div>
                 {ws.stripeSubscriptionId && <div>Stripe: {ws.stripeSubscriptionId}</div>}
                 {ws.createdAt && <div>Created: {new Date(ws.createdAt).toLocaleDateString()}</div>}
@@ -590,36 +516,36 @@ function WorkspacesSection({ onMsg }) {
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+      <div className="adm-search-row">
         <input
           type="text"
           placeholder="Search workspaces…"
           value={query}
           onChange={handleQueryChange}
           aria-label="Search workspaces by name or slug"
-          style={{ ...inputStyle, flex: 1 }}
+          className="adm-input adm-input--flex"
         />
-        <button onClick={() => search(query)} disabled={loading} style={btnStyle('ghost', loading)} aria-label="Search workspaces">
+        <button onClick={() => search(query)} disabled={loading} className="adm-btn adm-btn--ghost" aria-label="Search workspaces">
           {loading ? 'Searching…' : 'Search'}
         </button>
       </div>
 
       {wsItems !== null && (
-        <div style={{ ...mono('9px', 'var(--muted)'), letterSpacing: '1px', marginBottom: '10px' }}>
+        <div className="adm-result-count">
           {wsItems.length} workspace{wsItems.length !== 1 ? 's' : ''}
         </div>
       )}
 
-      {loading && wsItems === null && <div style={mono('10px', 'var(--muted)')}>Loading…</div>}
-      {wsItems !== null && wsItems.length === 0 && <div style={mono('10px', 'var(--muted)')}>No workspaces found.</div>}
+      {loading && wsItems === null && <div className="adm-empty">Loading…</div>}
+      {wsItems !== null && wsItems.length === 0 && <div className="adm-empty">No workspaces found.</div>}
 
       {wsItems !== null && wsItems.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Workspace management table">
+        <div className="adm-table-wrap">
+          <table className="adm-table" aria-label="Workspace management table">
             <thead>
               <tr>
                 {['Name / Slug', 'Type', 'Plan', 'Credits', 'Members', 'Managed?', 'Actions'].map(h => (
-                  <th key={h} scope="col" style={{ ...thStyle, textAlign: h === 'Credits' || h === 'Members' ? 'right' : 'left' }}>{h}</th>
+                  <th key={h} scope="col" className={`adm-th${h === 'Credits' || h === 'Members' ? ' adm-th--right' : ''}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -673,12 +599,12 @@ function JobsSection({ onMsg }) {
   return (
     <div>
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px', alignItems: 'center' }}>
+      <div className="adm-jobs-filters">
         <select
           value={statusF}
           onChange={e => setStatusF(e.target.value)}
           aria-label="Filter by job status"
-          style={{ ...inputStyle, padding: '6px 10px', cursor: 'pointer' }}
+          className="adm-input adm-input--select adm-input--filter"
         >
           <option value="">All statuses</option>
           <option value="queued">queued</option>
@@ -691,7 +617,7 @@ function JobsSection({ onMsg }) {
           value={typeF}
           onChange={e => setTypeF(e.target.value)}
           aria-label="Filter by job type"
-          style={{ ...inputStyle, padding: '6px 10px', cursor: 'pointer' }}
+          className="adm-input adm-input--select adm-input--filter"
         >
           <option value="">All types</option>
           <option value="text">text</option>
@@ -705,7 +631,7 @@ function JobsSection({ onMsg }) {
           value={limitF}
           onChange={e => setLimitF(e.target.value)}
           aria-label="Limit number of results"
-          style={{ ...inputStyle, padding: '6px 10px', cursor: 'pointer' }}
+          className="adm-input adm-input--select adm-input--filter"
         >
           <option value="25">25</option>
           <option value="50">50</option>
@@ -713,36 +639,36 @@ function JobsSection({ onMsg }) {
           <option value="200">200</option>
         </select>
 
-        <button onClick={load} disabled={loading} style={btnStyle('ghost', loading)} aria-label="Refresh jobs list">
+        <button onClick={load} disabled={loading} className="adm-btn adm-btn--ghost" aria-label="Refresh jobs list">
           {loading ? '…' : '↻ Refresh'}
         </button>
       </div>
 
       {/* Summary badges */}
       {summary && (
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '14px' }}>
+        <div className="adm-jobs-badges">
           {[['Queued', summary.queued, 'var(--muted)'], ['Active', summary.active, '#f0c040'], ['Done', summary.done, '#6dc87a'], ['Failed', summary.failed, '#f08080']].map(([label, count, color]) => (
-            <div key={label} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '6px 12px', display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <span style={mono('11px', color)}>{count ?? 0}</span>
-              <span style={{ ...mono('8px', 'var(--muted)'), textTransform: 'uppercase', letterSpacing: '1.5px' }}>{label}</span>
+            <div key={label} className="adm-jobs-badge">
+              <span className="adm-jobs-badge__count" style={{ color }}>{count ?? 0}</span>
+              <span className="adm-jobs-badge__label">{label}</span>
             </div>
           ))}
-          <div style={{ ...mono('9px', 'var(--muted)'), alignSelf: 'center', marginLeft: '4px' }}>
+          <div className="adm-jobs-total">
             Total: {total}
           </div>
         </div>
       )}
 
-      {loading && jobs === null && <div style={mono('10px', 'var(--muted)')}>Loading jobs…</div>}
-      {jobs !== null && jobs.length === 0 && <div style={mono('10px', 'var(--muted)')}>No jobs found with current filters.</div>}
+      {loading && jobs === null && <div className="adm-empty">Loading jobs…</div>}
+      {jobs !== null && jobs.length === 0 && <div className="adm-empty">No jobs found with current filters.</div>}
 
       {jobs !== null && jobs.length > 0 && (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Admin jobs table">
+        <div className="adm-table-wrap">
+          <table className="adm-table" aria-label="Admin jobs table">
             <thead>
               <tr>
                 {['Type', 'Tier', 'Status', 'Cost', 'Workspace', 'Created', 'Error'].map(h => (
-                  <th key={h} scope="col" style={{ ...thStyle, textAlign: h === 'Cost' ? 'right' : 'left' }}>{h}</th>
+                  <th key={h} scope="col" className={`adm-th${h === 'Cost' ? ' adm-th--right' : ''}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -750,16 +676,16 @@ function JobsSection({ onMsg }) {
               {jobs.map(job => {
                 const statusColor = JOB_STATUS_COLOR[job.status] ?? 'var(--muted)'
                 return (
-                  <tr key={job._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <td style={tdStyle}>{job.type}</td>
-                    <td style={{ ...tdStyle, color: 'var(--muted)' }}>{job.tier || '—'}</td>
-                    <td style={{ ...tdStyle, color: statusColor, textTransform: 'uppercase', letterSpacing: '1px', whiteSpace: 'nowrap' }}>{job.status}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--gold)' }}>{job.costUsd != null ? `$${job.costUsd.toFixed(4)}` : '—'}</td>
-                    <td style={{ ...tdStyle, color: 'var(--muted)', fontSize: '9px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.workspaceId}>{job.workspaceId ? String(job.workspaceId).slice(-8) : '—'}</td>
-                    <td style={{ ...tdStyle, color: 'var(--muted)', whiteSpace: 'nowrap' }}>
+                  <tr key={job._id} className="adm-tr-row">
+                    <td className="adm-td">{job.type}</td>
+                    <td className="adm-td adm-job-tier">{job.tier || '—'}</td>
+                    <td className="adm-td adm-td--nowrap" style={{ color: statusColor, textTransform: 'uppercase', letterSpacing: '1px' }}>{job.status}</td>
+                    <td className="adm-td adm-th--right adm-job-cost">{job.costUsd != null ? `$${job.costUsd.toFixed(4)}` : '—'}</td>
+                    <td className="adm-td adm-job-ws" title={job.workspaceId}>{job.workspaceId ? String(job.workspaceId).slice(-8) : '—'}</td>
+                    <td className="adm-td adm-job-time">
                       {job.createdAt ? new Date(job.createdAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'}
                     </td>
-                    <td style={{ ...tdStyle, color: '#f08080', fontSize: '9px', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.errorMessage}>
+                    <td className="adm-td adm-job-error" title={job.errorMessage}>
                       {job.errorMessage || ''}
                     </td>
                   </tr>
@@ -779,15 +705,7 @@ function StatusDot({ ok }) {
   return (
     <span
       aria-hidden="true"
-      style={{
-        display: 'inline-block',
-        width: '8px', height: '8px',
-        borderRadius: '50%',
-        background: ok ? '#6dc87a' : '#555',
-        marginRight: '6px',
-        flexShrink: 0,
-        verticalAlign: 'middle',
-      }}
+      className={`adm-status-dot ${ok ? 'adm-status-dot--ok' : 'adm-status-dot--off'}`}
     />
   )
 }
@@ -795,10 +713,10 @@ StatusDot.propTypes = { ok: PropTypes.bool }
 
 function ConfigRow({ label, ok }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '5px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+    <div className="adm-config-row">
       <StatusDot ok={ok} />
-      <span style={mono('10px', ok ? 'var(--cream)' : 'var(--muted)')}>{label}</span>
-      <span style={{ ...mono('8px', ok ? '#6dc87a' : 'var(--muted)'), marginLeft: 'auto', textTransform: 'uppercase', letterSpacing: '1px' }}>
+      <span className={`adm-config-row__label ${ok ? 'adm-user-name--active' : 'adm-user-name--inactive'}`}>{label}</span>
+      <span className={`adm-config-row__status ${ok ? 'adm-config-row__status--ok' : 'adm-config-row__status--off'}`}>
         {ok ? 'Configured' : 'Not set'}
       </span>
     </div>
@@ -821,7 +739,7 @@ function SystemSection({ onMsg }) {
 
   useEffect(() => { load() }, [load])
 
-  if (loading) return <div style={mono('10px', 'var(--muted)')}>Loading config…</div>
+  if (loading) return <div className="adm-empty">Loading config…</div>
   if (!cfg) return null
 
   const managed   = cfg.managed   || {}
@@ -832,16 +750,16 @@ function SystemSection({ onMsg }) {
 
   return (
     <div>
-      <div style={{ ...mono('9px', '#f08080'), letterSpacing: '1.5px', background: 'rgba(120,20,20,0.15)', border: '1px solid #804040', padding: '8px 12px', marginBottom: '18px' }}>
+      <div className="adm-config-warn">
         Read-only status view — set API keys and configuration in .env.server
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+      <div className="adm-config-grid">
 
         {/* AI Providers */}
-        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '16px' }}>
-          <div style={sectionLabel}>AI Providers</div>
-          {providers.length === 0 && <div style={mono('10px', 'var(--muted)')}>None listed.</div>}
+        <div className="adm-config-panel">
+          <div className="adm-config-panel__label">AI Providers</div>
+          {providers.length === 0 && <div className="adm-empty">None listed.</div>}
           {providers.map(p => (
             <ConfigRow key={p.provider} label={p.provider} ok={p.configured} />
           ))}
@@ -849,8 +767,8 @@ function SystemSection({ onMsg }) {
 
         {/* Social */}
         {social.length > 0 && (
-          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '16px' }}>
-            <div style={sectionLabel}>Social Providers</div>
+          <div className="adm-config-panel">
+            <div className="adm-config-panel__label">Social Providers</div>
             {social.map(s => (
               <ConfigRow key={s.key} label={s.label || s.key} ok={s.configured} />
             ))}
@@ -858,13 +776,13 @@ function SystemSection({ onMsg }) {
         )}
 
         {/* Infrastructure */}
-        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '16px' }}>
-          <div style={sectionLabel}>Infrastructure</div>
+        <div className="adm-config-panel">
+          <div className="adm-config-panel__label">Infrastructure</div>
           <ConfigRow label="Stripe" ok={stripe.configured} />
           <ConfigRow label="Redis" ok={cfg.redis?.configured} />
           {stripe.configured && (
-            <div style={{ marginTop: '10px' }}>
-              <div style={{ ...mono('8px', 'var(--muted)'), letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '6px' }}>Stripe Prices</div>
+            <div className="adm-mt-10">
+              <div className="adm-stripe-sub-label">Stripe Prices</div>
               {Object.entries(stripe.pricesConfigured || {}).map(([key, ok]) => (
                 <ConfigRow key={key} label={key} ok={ok} />
               ))}
@@ -873,23 +791,23 @@ function SystemSection({ onMsg }) {
         </div>
 
         {/* Managed Generation */}
-        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '16px' }}>
-          <div style={sectionLabel}>Managed Generation</div>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+        <div className="adm-config-panel">
+          <div className="adm-config-panel__label">Managed Generation</div>
+          <div className="adm-managed-status-row">
             <StatusDot ok={managed.enabled} />
-            <span style={mono('10px', managed.enabled ? '#6dc87a' : '#f08080')}>{managed.enabled ? 'Enabled' : 'Disabled (kill-switch)'}</span>
+            <span className={managed.enabled ? 'adm-managed-enabled' : 'adm-managed-disabled'}>{managed.enabled ? 'Enabled' : 'Disabled (kill-switch)'}</span>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={mono('9px', 'var(--muted)')}>Max Concurrent: <span style={mono('10px', 'var(--cream)')}>{managed.maxConcurrent ?? '—'}</span></div>
-            <div style={mono('9px', 'var(--muted)')}>Starter Credits: <span style={mono('10px', 'var(--cream)')}>{managed.starterCredits ?? '—'}</span></div>
+          <div className="adm-managed-detail">
+            <div className="adm-managed-detail-item">Max Concurrent: <span className="adm-managed-detail-value">{managed.maxConcurrent ?? '—'}</span></div>
+            <div className="adm-managed-detail-item">Starter Credits: <span className="adm-managed-detail-value">{managed.starterCredits ?? '—'}</span></div>
           </div>
           {managed.caps && (
-            <div style={{ marginTop: '10px' }}>
-              <div style={{ ...mono('8px', 'var(--muted)'), letterSpacing: '1.5px', textTransform: 'uppercase', marginBottom: '6px' }}>Credit Caps</div>
+            <div className="adm-mt-10">
+              <div className="adm-caps-label">Credit Caps</div>
               {Object.entries(managed.caps).map(([type, cap]) => (
-                <div key={type} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                  <span style={mono('9px', 'var(--muted)')}>{type}</span>
-                  <span style={mono('9px', 'var(--cream)')}>{cap}</span>
+                <div key={type} className="adm-cap-row">
+                  <span className="adm-cap-key">{type}</span>
+                  <span className="adm-cap-val">{cap}</span>
                 </div>
               ))}
             </div>
@@ -899,23 +817,23 @@ function SystemSection({ onMsg }) {
 
       {/* Plan matrix */}
       {Object.keys(plans).length > 0 && (
-        <div style={{ marginTop: '20px', background: 'var(--surface2)', border: '1px solid var(--border)', padding: '16px' }}>
-          <div style={sectionLabel}>Plan Matrix</div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }} aria-label="Plan configuration matrix">
+        <div className="adm-plan-matrix">
+          <div className="adm-config-panel__label">Plan Matrix</div>
+          <div className="adm-table-wrap">
+            <table className="adm-table" aria-label="Plan configuration matrix">
               <thead>
                 <tr>
-                  <th scope="col" style={{ ...thStyle, textAlign: 'left' }}>Plan</th>
-                  <th scope="col" style={thStyle}>Credits</th>
-                  <th scope="col" style={{ ...thStyle, textAlign: 'left' }}>Features</th>
+                  <th scope="col" className="adm-th">Plan</th>
+                  <th scope="col" className="adm-th adm-th--right">Credits</th>
+                  <th scope="col" className="adm-th">Features</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(plans).map(([planKey, planData]) => (
-                  <tr key={planKey} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <td style={{ ...tdStyle, color: 'var(--gold)', textTransform: 'uppercase', letterSpacing: '1px' }}>{planKey}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>{planData.credits ?? '—'}</td>
-                    <td style={{ ...tdStyle, color: 'var(--muted)', fontSize: '9px' }}>
+                  <tr key={planKey} className="adm-tr-row">
+                    <td className="adm-td adm-plan-name">{planKey}</td>
+                    <td className="adm-td adm-th--right">{planData.credits ?? '—'}</td>
+                    <td className="adm-td adm-plan-feats">
                       {Array.isArray(planData.features)
                         ? planData.features.join(' · ')
                         : typeof planData.features === 'object'
@@ -930,8 +848,8 @@ function SystemSection({ onMsg }) {
         </div>
       )}
 
-      <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'flex-end' }}>
-        <button onClick={load} disabled={loading} style={btnStyle('ghost', loading)} aria-label="Refresh system config">
+      <div className="adm-refresh-row">
+        <button onClick={load} disabled={loading} className="adm-btn adm-btn--ghost" aria-label="Refresh system config">
           {loading ? '…' : '↻ Refresh'}
         </button>
       </div>
@@ -998,23 +916,23 @@ function SecuritySection({ onMsg }) {
       value={code}
       onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
       aria-label="Authenticator code"
-      style={{ ...inputStyle, width: '130px', letterSpacing: '4px', fontSize: '14px', textAlign: 'center', padding: '9px 8px' }}
+      className="adm-input adm-2fa-code-input"
     />
   )
 
   return (
     <div>
       {/* Status card */}
-      <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '20px', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <div style={{
-          width: '12px', height: '12px', borderRadius: '50%', flexShrink: 0,
-          background: totpEnabled ? '#6dc87a' : 'var(--muted)',
-        }} aria-hidden="true" />
+      <div className="adm-2fa-status-card">
+        <div
+          className={`adm-2fa-indicator ${totpEnabled ? 'adm-2fa-indicator--on' : 'adm-2fa-indicator--off'}`}
+          aria-hidden="true"
+        />
         <div>
-          <div style={{ ...cinzel('13px', totpEnabled ? '#6dc87a' : 'var(--muted)'), marginBottom: '4px' }}>
+          <div className={`adm-2fa-status-label ${totpEnabled ? 'adm-2fa-status-label--on' : 'adm-2fa-status-label--off'}`}>
             {totpEnabled ? '2FA Enabled' : '2FA Disabled'}
           </div>
-          <div style={mono('10px', 'var(--muted)')}>
+          <div className="adm-2fa-status-body">
             {totpEnabled
               ? 'Your admin account is protected by TOTP two-factor authentication.'
               : 'Enable TOTP 2FA to require a time-based code at every sign-in.'}
@@ -1024,44 +942,36 @@ function SecuritySection({ onMsg }) {
 
       {/* Setup / enable flow */}
       {!totpEnabled && step === 'idle' && (
-        <button onClick={handleSetup} disabled={busy} style={btnStyle('primary', busy)} aria-label="Begin 2FA setup">
+        <button onClick={handleSetup} disabled={busy} className="adm-btn adm-btn--primary" aria-label="Begin 2FA setup">
           {busy ? 'Generating…' : 'Enable 2FA'}
         </button>
       )}
 
       {step === 'enable' && (
-        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '20px', maxWidth: '500px' }}>
-          <div style={{ ...sectionLabel, marginBottom: '14px' }}>Scan or enter the secret in your authenticator app</div>
+        <div className="adm-2fa-setup-panel">
+          <div className="adm-2fa-setup-heading">Scan or enter the secret in your authenticator app</div>
 
-          <div style={{ marginBottom: '14px' }}>
-            <div style={mono('9px', 'var(--muted)')}>Secret (Base32 — for manual entry)</div>
-            <div style={{
-              background: '#0a0806', border: '1px solid var(--border)', padding: '10px 14px',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: '13px', color: 'var(--gold)',
-              letterSpacing: '2px', wordBreak: 'break-all', marginTop: '6px', userSelect: 'all',
-            }} aria-label="TOTP secret key">{secret}</div>
+          <div className="adm-2fa-mb-14">
+            <div className="adm-2fa-field-hint">Secret (Base32 — for manual entry)</div>
+            <div className="adm-2fa-secret-block" aria-label="TOTP secret key">{secret}</div>
           </div>
 
-          <div style={{ marginBottom: '18px' }}>
-            <div style={mono('9px', 'var(--muted)')}>OTPAuth URL (for QR generators)</div>
-            <div style={{
-              background: '#0a0806', border: '1px solid var(--border)', padding: '8px 12px',
-              fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)',
-              wordBreak: 'break-all', marginTop: '6px', userSelect: 'all',
-            }}>
-              <a href={otpUrl} style={{ color: 'var(--muted)', textDecoration: 'none' }} aria-label="OTPAuth URL">{otpUrl}</a>
+          <div className="adm-2fa-mb-18">
+            <div className="adm-2fa-field-hint">OTPAuth URL (for QR generators)</div>
+            <div className="adm-2fa-otpurl-block">
+              <a href={otpUrl} aria-label="OTPAuth URL">{otpUrl}</a>
             </div>
           </div>
 
-          <div style={{ ...mono('10px', 'var(--cream)'), marginBottom: '12px' }}>
+          <div className="adm-2fa-confirm-prompt">
             Enter the 6-digit code from your app to confirm:
           </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="adm-2fa-code-row">
             {codeInput}
-            <button onClick={handleEnable} disabled={busy || code.length < 6} style={btnStyle('primary', busy || code.length < 6)} aria-label="Confirm and activate 2FA">
+            <button onClick={handleEnable} disabled={busy || code.length < 6} className="adm-btn adm-btn--primary" aria-label="Confirm and activate 2FA">
               {busy ? 'Verifying…' : 'Confirm & Activate'}
             </button>
-            <button onClick={() => { setStep('idle'); setSecret(''); setOtpUrl(''); setCode('') }} style={btnStyle('ghost')} aria-label="Cancel 2FA setup">
+            <button onClick={() => { setStep('idle'); setSecret(''); setOtpUrl(''); setCode('') }} className="adm-btn adm-btn--ghost" aria-label="Cancel 2FA setup">
               Cancel
             </button>
           </div>
@@ -1070,20 +980,20 @@ function SecuritySection({ onMsg }) {
 
       {/* Disable flow */}
       {totpEnabled && step === 'idle' && (
-        <button onClick={() => { setStep('disable'); setCode('') }} style={btnStyle('danger')} aria-label="Begin 2FA disable">
+        <button onClick={() => { setStep('disable'); setCode('') }} className="adm-btn adm-btn--danger" aria-label="Begin 2FA disable">
           Disable 2FA
         </button>
       )}
 
       {step === 'disable' && (
-        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '20px', maxWidth: '400px' }}>
-          <div style={{ ...sectionLabel, marginBottom: '12px' }}>Confirm with your current authenticator code</div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <div className="adm-2fa-disable-panel">
+          <div className="adm-2fa-disable-heading">Confirm with your current authenticator code</div>
+          <div className="adm-2fa-code-row">
             {codeInput}
-            <button onClick={handleDisable} disabled={busy || code.length < 6} style={btnStyle('danger', busy || code.length < 6)} aria-label="Confirm disable 2FA">
+            <button onClick={handleDisable} disabled={busy || code.length < 6} className="adm-btn adm-btn--danger" aria-label="Confirm disable 2FA">
               {busy ? 'Verifying…' : 'Disable 2FA'}
             </button>
-            <button onClick={() => { setStep('idle'); setCode('') }} style={btnStyle('ghost')} aria-label="Cancel disable 2FA">
+            <button onClick={() => { setStep('idle'); setCode('') }} className="adm-btn adm-btn--ghost" aria-label="Cancel disable 2FA">
               Cancel
             </button>
           </div>
@@ -1123,92 +1033,36 @@ export default function AdminDashboard({ onBack }) {
   const activeSection = SECTIONS.find(s => s.key === section)
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+    <div className="adm-dashboard">
 
       {/* Header */}
-      <div style={{
-        background: 'var(--surface2)',
-        borderBottom: '1px solid var(--border)',
-        padding: '0 24px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '16px',
-        minHeight: '52px',
-        flexShrink: 0,
-      }}>
+      <div className="adm-header">
         <button
           onClick={onBack}
           aria-label="Back to home"
-          style={{
-            background: 'none',
-            border: '1px solid var(--border)',
-            color: 'var(--muted)',
-            fontFamily: "'JetBrains Mono', monospace",
-            fontSize: '10px',
-            padding: '5px 12px',
-            cursor: 'pointer',
-            letterSpacing: '1px',
-            flexShrink: 0,
-          }}
+          className="adm-header__back"
         >← Back</button>
 
-        <div style={{
-          ...cinzel('14px', 'var(--gold)'),
-          letterSpacing: '3px',
-          textTransform: 'uppercase',
-          flex: 1,
-        }}>
+        <div className="adm-header__title">
           Admin — Manage App
         </div>
 
         {/* Admin warning badge */}
-        <div style={{
-          background: 'rgba(120,20,20,0.3)',
-          border: '1px solid #804040',
-          padding: '4px 12px',
-          ...mono('8px', '#f08080'),
-          letterSpacing: '2px',
-          textTransform: 'uppercase',
-          flexShrink: 0,
-        }} role="note" aria-label="Admin-only zone">
+        <div className="adm-header__badge" role="note" aria-label="Admin-only zone">
           Admin Zone
         </div>
       </div>
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="adm-body">
 
         {/* Sidebar */}
-        <nav
-          aria-label="Admin dashboard sections"
-          style={{
-            width: '180px',
-            flexShrink: 0,
-            background: 'var(--surface)',
-            borderRight: '1px solid var(--border)',
-            display: 'flex',
-            flexDirection: 'column',
-            paddingTop: '8px',
-          }}
-        >
+        <nav aria-label="Admin dashboard sections" className="adm-nav">
           {SECTIONS.map(s => (
             <button
               key={s.key}
               onClick={() => { setSection(s.key); setMsg('') }}
               aria-current={s.key === section ? 'page' : undefined}
-              style={{
-                background: s.key === section ? 'rgba(200,146,42,0.1)' : 'transparent',
-                border: 'none',
-                borderLeft: `3px solid ${s.key === section ? 'var(--gold)' : 'transparent'}`,
-                color: s.key === section ? 'var(--gold)' : 'var(--muted)',
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: '10px',
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
-                padding: '12px 16px',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'color 0.12s, background 0.12s',
-              }}
+              className={`adm-nav__item${s.key === section ? ' adm-nav__item--active' : ''}`}
             >{s.label}</button>
           ))}
         </nav>
@@ -1216,17 +1070,11 @@ export default function AdminDashboard({ onBack }) {
         {/* Main content area */}
         <main
           aria-label={`${activeSection?.label ?? 'Admin'} section`}
-          style={{
-            flex: 1,
-            overflowY: 'auto',
-            padding: '28px 32px',
-          }}
+          className="adm-main"
         >
           {/* Section heading */}
-          <div style={{ marginBottom: '20px', paddingBottom: '14px', borderBottom: '1px solid var(--border)' }}>
-            <h1 style={{ ...cinzel('16px', 'var(--gold)'), margin: 0, textTransform: 'uppercase', letterSpacing: '3px' }}>
-              {activeSection?.label}
-            </h1>
+          <div className="adm-section-heading">
+            <h1>{activeSection?.label}</h1>
           </div>
 
           {/* Message banner */}

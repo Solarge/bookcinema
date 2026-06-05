@@ -16,22 +16,14 @@ import { generateSeries } from './utils/textProviders/index'
 import { series as seriesApi, workspaces as workspacesApi, managed as managedApi, pollJob, auth as authApi, billing as billingApi } from './lib/api'
 import WorkspaceSwitcher from './components/WorkspaceSwitcher'
 import { planLabel, planAllows } from './utils/plans'
+import './styles/app.css'
 
 // ── Small toast notification ──────────────────────────────────────────────────
 function Toast({ msg, kind = 'info', onDismiss }) {
-  const bg    = kind === 'error' ? '#3a0808' : '#0a2010'
-  const border = kind === 'error' ? '#8a1010' : '#4a8a5a'
-  const color  = kind === 'error' ? '#f08080' : '#80d898'
   return (
-    <div style={{
-      position: 'fixed', top: '14px', left: '50%', transform: 'translateX(-50%)',
-      zIndex: 70, background: bg, border: `1px solid ${border}`, color,
-      fontFamily: "'JetBrains Mono', monospace", fontSize: '11px',
-      padding: '10px 18px', letterSpacing: '1px', display: 'flex', alignItems: 'center', gap: '12px',
-      maxWidth: '480px', width: 'max-content',
-    }}>
+    <div className={`app-toast app-toast--${kind}`}>
       <span>{msg}</span>
-      <button onClick={onDismiss} style={{ background: 'none', border: 'none', color, cursor: 'pointer', fontSize: '14px', lineHeight: 1, padding: 0 }}>×</button>
+      <button onClick={onDismiss} className="app-toast__dismiss">×</button>
     </div>
   )
 }
@@ -51,25 +43,16 @@ function UnverifiedBanner({ onResend }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 65,
-      background: '#1a1200', borderBottom: '1px solid #5a4010',
-      padding: '8px 16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      gap: '12px', flexWrap: 'wrap',
-    }}>
-      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#c8a040', letterSpacing: '0.5px' }}>
+    <div className="app-unverified">
+      <span className="app-unverified__text">
         {sent ? 'Verification email sent — check your inbox.' : 'Verify your email to use managed generation.'}
       </span>
       {!sent && (
-        <button onClick={handleResend} disabled={busy} style={{
-          background: 'none', border: '1px solid #5a4010', color: '#c8a040',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: '10px',
-          padding: '3px 10px', cursor: busy ? 'not-allowed' : 'pointer', letterSpacing: '1px',
-        }}>
+        <button onClick={handleResend} disabled={busy} className="app-unverified__resend">
           {busy ? 'Sending…' : 'Resend'}
         </button>
       )}
-      <button onClick={() => setDismissed(true)} style={{ background: 'none', border: 'none', color: '#5a4010', cursor: 'pointer', fontSize: '14px', padding: 0, lineHeight: 1 }}>×</button>
+      <button onClick={() => setDismissed(true)} className="app-unverified__close">×</button>
     </div>
   )
 }
@@ -84,7 +67,7 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
   const canUpgrade = plan !== 'studio'
   const planName = planLabel(plan)
 
-  // Colour hint: gold for paid plans, muted for free
+  // Colour hint: gold for paid plans, muted for free — dynamic, kept inline
   const isPaid = plan === 'pro' || plan === 'studio'
   const planColor = isPaid ? 'var(--gold)' : 'var(--muted)'
 
@@ -106,58 +89,33 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
   }
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 60,
-      background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
-      padding: '0 16px',
-      display: 'flex', alignItems: 'center', gap: '10px', minHeight: '38px',
-      flexWrap: 'wrap',
-    }}>
-      {/* Plan badge */}
+    <div className="app-billing-bar">
+      {/* Plan badge — color/border are dynamic (depends on plan tier) */}
       <span
         aria-label={`Current plan: ${planName}`}
-        style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '9px',
-          letterSpacing: '2px',
-          textTransform: 'uppercase',
-          color: planColor,
-          border: `1px solid ${planColor}`,
-          padding: '2px 8px',
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
-        }}
+        className="app-billing-bar__plan-badge"
+        style={{ color: planColor, border: `1px solid ${planColor}` }}
       >
         {planName}
       </span>
 
-      {/* Credit balance */}
+      {/* Credit balance — color is dynamic (low-credit warning) */}
       <span
         aria-label={creditBalance === null ? 'Credits loading' : `${creditBalance} credits remaining`}
         title="Credits consumed by managed generation (text 1, image 4–10, voice 1–5, video 10–20)"
-        style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '10px',
-          color: lowCredits ? '#f0a050' : 'var(--cream)',
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
-        }}
+        className="app-billing-bar__credits"
+        style={{ color: lowCredits ? '#f0a050' : 'var(--cream)' }}
       >
         {creditBalance === null ? '… cr' : `${creditBalance} cr`}
-        {lowCredits && <span style={{ color: '#f0a050', marginLeft: '4px' }} aria-hidden="true">⚠</span>}
+        {lowCredits && <span className="app-billing-bar__credits-warn" aria-hidden="true">⚠</span>}
       </span>
 
       {/* Spacer */}
-      <div style={{ flex: 1, minWidth: 0 }} />
+      <div className="app-billing-bar__spacer" />
 
       {/* Billing message (transient error) */}
       {billingMsg && (
-        <span
-          role="alert"
-          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#f08080', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1 }}
-        >
-          {billingMsg}
-        </span>
+        <span role="alert" className="app-billing-bar__msg">{billingMsg}</span>
       )}
 
       {/* Buy credits */}
@@ -166,42 +124,23 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
         disabled={busy}
         aria-label="Buy credits"
         title="Buy additional generation credits"
-        style={{
-          background: 'transparent',
-          border: '1px solid var(--border)',
-          color: 'var(--muted)',
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '9px',
-          letterSpacing: '1px',
-          padding: '4px 10px',
-          cursor: busy ? 'not-allowed' : 'pointer',
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
-        }}
+        className="app-billing-bar__buy"
       >
         {busy ? '…' : '+ Credits'}
       </button>
 
-      {/* Billing CTA — always present: "Upgrade" until Studio, then "Manage Plan" */}
+      {/* Billing CTA — background/color/border are dynamic (plan-dependent), keep inline */}
       <button
         onClick={onOpenBilling}
         aria-label={canUpgrade ? `Upgrade from ${planName} plan` : 'Manage your plan and billing'}
         title={canUpgrade
           ? `Upgrade to unlock ${planAllows(plan, 'voice') ? '' : 'voice, '}${planAllows(plan, 'video') ? '' : 'video, '}${planAllows(plan, 'social') ? '' : 'social '}and more`
           : 'Manage your plan and billing'}
+        className="app-billing-bar__upgrade"
         style={{
           background: canUpgrade ? 'var(--gold)' : 'transparent',
           color: canUpgrade ? '#080b10' : 'var(--gold)',
           border: canUpgrade ? 'none' : '1px solid var(--gold)',
-          fontFamily: "'Cinzel', serif",
-          fontSize: '10px',
-          fontWeight: '700',
-          letterSpacing: '1.5px',
-          textTransform: 'uppercase',
-          padding: '5px 14px',
-          cursor: 'pointer',
-          flexShrink: 0,
-          whiteSpace: 'nowrap',
         }}
       >
         {canUpgrade ? 'Upgrade' : 'Manage Plan'}
@@ -232,8 +171,8 @@ function AuthGate({ children }) {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--muted)', letterSpacing: '2px' }}>Loading…</div>
+      <div className="app-auth-loading">
+        <div className="app-auth-loading__text">Loading…</div>
       </div>
     )
   }
@@ -383,12 +322,13 @@ function AppInner() {
 
   // The billing bar is always 38px; unverified banner adds ~36px on top of that.
   // Home-page workspace switcher + user name button sit below those fixed bars.
+  // These offsets are DYNAMIC (computed at runtime) — kept as inline styles.
   const topBarH = 38 // PlanBillingBar height
   const unverifiedH = isUnverified ? 36 : 0
   const homeFixedTop = topBarH + unverifiedH + 14 // extra 14px gap
 
   return (
-    <div className="film-grain" style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="film-grain app-root">
       {/* Persistent plan/credits/billing bar — always shown when authed */}
       {user && (
         <PlanBillingBar
@@ -409,29 +349,29 @@ function AppInner() {
       {toast && <Toast msg={toast.msg} kind={toast.kind} onDismiss={() => setToast(null)} />}
 
       {inviteMsg && (
-        <div style={{ position: 'fixed', top: `${topBarH + unverifiedH + 14}px`, left: '50%', transform: 'translateX(-50%)', zIndex: 60,
-          background: 'var(--surface)', border: '1px solid var(--gold)', color: 'var(--cream)',
-          fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', padding: '8px 16px', letterSpacing: '1px' }}>
+        <div
+          className="app-invite"
+          style={{ top: `${topBarH + unverifiedH + 14}px` }}
+        >
           {inviteMsg}
-          <button onClick={() => setInviteMsg(null)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', marginLeft: '12px', fontSize: '14px' }}>×</button>
+          <button onClick={() => setInviteMsg(null)} className="app-invite__close">×</button>
         </div>
       )}
 
       {/* Workspace switcher — home page, left side (below billing bar) */}
       {user && page === 'home' && (
-        <div style={{ position: 'fixed', top: `${homeFixedTop}px`, left: '24px', zIndex: 50 }}>
+        <div className="app-ws-wrapper" style={{ top: `${homeFixedTop}px` }}>
           <WorkspaceSwitcher />
         </div>
       )}
 
       {/* User name / account button — home page, right side */}
       {user && page === 'home' && (
-        <button onClick={() => { setProfileTab('profile'); setShowProfile(true) }} style={{
-          position: 'fixed', top: `${homeFixedTop}px`, right: '68px', zIndex: 50,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '10px', padding: '6px 12px', cursor: 'pointer', letterSpacing: '1px',
-        }}>
+        <button
+          onClick={() => { setProfileTab('profile'); setShowProfile(true) }}
+          className="app-user-btn"
+          style={{ top: `${homeFixedTop}px` }}
+        >
           {user.name}
         </button>
       )}

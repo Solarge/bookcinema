@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
+import '../styles/misc-components.css'
 
 const MESSAGES = [
   'Absorbing the story...',
@@ -62,124 +63,49 @@ export default function LoadingScreen({ progress: externalProgress, status: exte
   const displayMessage = externalStatus || MESSAGES[msgIndex]
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'var(--bg)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '40px 24px',
-    }}>
+    <div className="ls-wrap">
 
       {/* Film reel */}
-      <div style={{ position: 'relative', marginBottom: '48px' }}>
+      <div className="ls-reel">
         {/* Outer ring */}
-        <div
-          className="animate-spin-reel"
-          style={{
-            width: '100px',
-            height: '100px',
-            borderRadius: '50%',
-            border: '2px solid var(--gold)',
-            borderTopColor: 'transparent',
-            borderRightColor: 'transparent',
-            position: 'relative',
-          }}
-        >
+        <div className="ls-reel__outer animate-spin-reel">
           {/* Sprocket holes */}
           {[0, 60, 120, 180, 240, 300].map(deg => (
-            <div key={deg} style={{
-              position: 'absolute',
-              width: '10px',
-              height: '10px',
-              borderRadius: '50%',
-              background: 'var(--surface)',
-              border: '1px solid var(--gold)',
-              top: '50%',
-              left: '50%',
-              transformOrigin: '0 0',
-              transform: `rotate(${deg}deg) translate(34px, -5px)`,
-            }} />
+            <div
+              key={deg}
+              className="ls-reel__sprocket"
+              style={{ transform: `rotate(${deg}deg) translate(34px, -5px)` }}
+            />
           ))}
         </div>
         {/* Inner ring (counter-spin) */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '50px',
-          height: '50px',
-          borderRadius: '50%',
-          border: '1px solid var(--gold-dim, #8a6420)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <div style={{
-            width: '16px',
-            height: '16px',
-            borderRadius: '50%',
-            background: 'var(--gold)',
-            opacity: 0.6,
-          }} className="animate-pulse-glow" />
+        <div className="ls-reel__inner">
+          <div className="ls-reel__hub animate-pulse-glow" />
         </div>
       </div>
 
       {/* Status message */}
       <div
         key={externalStatus || msgIndex}
-        className="animate-fade-slide"
-        style={{
-          fontFamily: "'Cormorant Garamond', serif",
-          fontStyle: 'italic',
-          fontSize: '22px',
-          color: 'var(--cream)',
-          marginBottom: '12px',
-          textAlign: 'center',
-          minHeight: '32px',
-        }}
+        className="ls-status-msg animate-fade-slide"
       >
         {displayMessage}
       </div>
 
       {/* "Still working…" hint shown after 30 s when progress is stuck */}
       {slowWarning && externalProgress == null && (
-        <div style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '10px',
-          color: 'var(--muted)',
-          letterSpacing: '1px',
-          marginBottom: '24px',
-          textAlign: 'center',
-        }}>
+        <div className="ls-slow-warn">
           Still working… large books can take a few minutes.
         </div>
       )}
 
       {/* Progress bar */}
-      <div style={{ width: '100%', maxWidth: '400px', marginTop: slowWarning ? 0 : '28px' }}>
-        <div style={{
-          width: '100%',
-          height: '2px',
-          background: 'var(--border)',
-          overflow: 'hidden',
-        }}>
-          <div
-            className="progress-fill"
-            style={{ width: `${displayProgress}%` }}
-          />
+      <div className="ls-progress-wrap" style={{ marginTop: slowWarning ? 0 : '28px' }}>
+        <div className="ls-progress-track">
+          <div className="progress-fill" style={{ width: `${displayProgress}%` }} />
         </div>
-        <div style={{
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: '10px',
-          letterSpacing: '2px',
-          color: 'var(--muted)',
-          textAlign: 'right',
-          marginTop: '8px',
-        }}>
-          {externalProgress != null ? `${Math.round(displayProgress)}%` : `${Math.round(displayProgress)}%`}
+        <div className="ls-progress-pct">
+          {Math.round(displayProgress)}%
         </div>
       </div>
     </div>

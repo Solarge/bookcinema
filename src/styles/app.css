@@ -1,0 +1,240 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   App shell — Toast, UnverifiedBanner, PlanBillingBar, AuthGate, AppInner.
+   Prefix: .app-*
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── App root ─────────────────────────────────────────────────────────────── */
+.app-root {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+/* ── Toast ─────────────────────────────────────────────────────────────────── */
+.app-toast {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 10px 18px;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 480px;
+  width: max-content;
+}
+.app-toast--info {
+  background: #0a2010;
+  border: 1px solid #4a8a5a;
+  color: #80d898;
+}
+.app-toast--error {
+  background: #3a0808;
+  border: 1px solid #8a1010;
+  color: #f08080;
+}
+.app-toast__dismiss {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+}
+
+/* ── UnverifiedBanner ─────────────────────────────────────────────────────── */
+.app-unverified {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 65;
+  background: #1a1200;
+  border-bottom: 1px solid #5a4010;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.app-unverified__text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: #c8a040;
+  letter-spacing: 0.5px;
+}
+.app-unverified__resend {
+  background: none;
+  border: 1px solid #5a4010;
+  color: #c8a040;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 3px 10px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.app-unverified__resend:disabled {
+  cursor: not-allowed;
+}
+.app-unverified__close {
+  background: none;
+  border: none;
+  color: #5a4010;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 0;
+  line-height: 1;
+}
+
+/* ── PlanBillingBar ───────────────────────────────────────────────────────── */
+.app-billing-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  flex-wrap: wrap;
+}
+.app-billing-bar__plan-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  /* color and border-color set dynamically via inline style (depends on plan) */
+}
+.app-billing-bar__credits {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  /* color set dynamically (low-credit warning) */
+}
+.app-billing-bar__credits-warn {
+  color: #f0a050;
+  margin-left: 4px;
+}
+.app-billing-bar__spacer {
+  flex: 1;
+  min-width: 0;
+}
+.app-billing-bar__msg {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #f08080;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 1;
+}
+.app-billing-bar__buy {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.app-billing-bar__buy:disabled {
+  cursor: not-allowed;
+}
+.app-billing-bar__buy:hover:not(:disabled) {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+/* Upgrade/Manage button — static base only; active state colors set inline (plan-dependent) */
+.app-billing-bar__upgrade {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 5px 14px;
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* ── AuthGate loading state ───────────────────────────────────────────────── */
+.app-auth-loading {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.app-auth-loading__text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 2px;
+}
+
+/* ── Invite message banner ───────────────────────────────────────────────── */
+.app-invite {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  background: var(--surface);
+  border: 1px solid var(--gold);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 8px 16px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+.app-invite__close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  margin-left: 12px;
+  font-size: 14px;
+}
+
+/* ── User name button (home-page right-side) ─────────────────────────────── */
+.app-user-btn {
+  position: fixed;
+  right: 68px;
+  z-index: 50;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.app-user-btn:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ── Workspace switcher wrapper (home-page left-side) ───────────────────── */
+.app-ws-wrapper {
+  position: fixed;
+  left: 24px;
+  z-index: 50;
+}

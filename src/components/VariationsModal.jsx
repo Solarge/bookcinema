@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { useMedia } from '../contexts/MediaContext'
 import { useSettings } from '../contexts/SettingsContext'
 import useModalA11y from '../hooks/useModalA11y'
+import '../styles/misc-components.css'
 
 export default function VariationsModal({ type, id, prompt, charId, epNum, sceneNum, onClose, onSelect }) {
   const { settings } = useSettings()
@@ -36,42 +37,48 @@ export default function VariationsModal({ type, id, prompt, charId, epNum, scene
   }
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose}>
+    <div className="vm-overlay" onClick={onClose}>
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="variations-modal-title"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '800px', overflow: 'hidden' }}
+        className="vm-dialog"
         onClick={e => e.stopPropagation()}
         onKeyDown={e => e.stopPropagation()}
       >
-        <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span id="variations-modal-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '12px', color: 'var(--gold)', letterSpacing: '3px' }}>
+        <div className="vm-header">
+          <span id="variations-modal-title" className="vm-title">
             A/B VARIATIONS — {type.toUpperCase()}
           </span>
-          <button onClick={onClose} aria-label="Close dialog" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+          <button onClick={onClose} aria-label="Close dialog" className="vm-close-btn">×</button>
         </div>
 
-        <div style={{ padding: '20px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div className="vm-body">
+          <div className="vm-grid">
             {Array.from({ length: count }, (_, i) => (
-              <div key={i} style={{ border: `2px solid ${selected === i ? 'var(--gold)' : 'var(--border)'}`, padding: '12px', cursor: 'pointer', transition: 'border-color 0.15s' }} onClick={() => setSelected(i)}>
-                <div style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', letterSpacing: '2px', color: selected === i ? 'var(--gold)' : 'var(--muted)', marginBottom: '10px' }}>
+              <div
+                key={i}
+                className={`vm-option${selected === i ? ' vm-option--selected' : ''}`}
+                onClick={() => setSelected(i)}
+              >
+                <div className={`vm-option__label${selected === i ? ' vm-option__label--selected' : ' vm-option__label--idle'}`}>
                   OPTION {String.fromCharCode(65 + i)}
-                  {selected === i && <span style={{ marginLeft: '8px', color: '#6dc87a' }}>✓ Selected</span>}
+                  {selected === i && <span className="vm-option__check">✓ Selected</span>}
                 </div>
-                <div style={{ minHeight: '120px', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '10px', border: '1px dashed var(--border)' }}>
-                  {generating[i] ? (
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>Generating…</div>
-                  ) : (
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#4a5a6a', textAlign: 'center', padding: '16px' }}>
-                      Click Generate to create option {String.fromCharCode(65 + i)}
-                    </div>
-                  )}
+                <div className="vm-option__preview">
+                  {generating[i]
+                    ? <div className="vm-option__preview-text">Generating…</div>
+                    : <div className="vm-option__preview-placeholder">
+                        Click Generate to create option {String.fromCharCode(65 + i)}
+                      </div>
+                  }
                 </div>
-                <button onClick={e => { e.stopPropagation(); generateVariation(i) }} disabled={generating[i]}
-                  style={{ width: '100%', background: generating[i] ? 'var(--border)' : 'transparent', border: `1px solid ${generating[i] ? 'var(--border)' : 'var(--gold)'}`, color: generating[i] ? 'var(--muted)' : 'var(--gold)', padding: '8px', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '1px', textTransform: 'uppercase', cursor: generating[i] ? 'not-allowed' : 'pointer' }}>
+                <button
+                  onClick={e => { e.stopPropagation(); generateVariation(i) }}
+                  disabled={generating[i]}
+                  className="vm-option__gen-btn"
+                >
                   {generating[i] ? 'Generating…' : `Generate Option ${String.fromCharCode(65 + i)}`}
                 </button>
               </div>
@@ -79,7 +86,7 @@ export default function VariationsModal({ type, id, prompt, charId, epNum, scene
           </div>
 
           {selected !== null && (
-            <button onClick={() => { onSelect?.(selected); onClose() }} style={{ display: 'block', width: '100%', marginTop: '16px', background: 'var(--gold)', color: '#080b10', border: 'none', padding: '12px', fontFamily: "'Cinzel', serif", fontSize: '12px', letterSpacing: '2px', textTransform: 'uppercase', cursor: 'pointer', fontWeight: '600' }}>
+            <button onClick={() => { onSelect?.(selected); onClose() }} className="vm-use-btn">
               Use Option {String.fromCharCode(65 + selected)}
             </button>
           )}

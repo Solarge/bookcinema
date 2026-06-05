@@ -1,0 +1,325 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   PublicSeriesView — read-only public share page.
+   Prefix: .psv-*
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── States ────────────────────────────────────────────────────────────────── */
+.psv-loading {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.psv-loading__text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 3px;
+}
+.psv-error {
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+}
+.psv-error__brand {
+  font-family: 'Cinzel', serif;
+  font-size: 14px;
+  letter-spacing: 4px;
+  color: var(--gold);
+  opacity: 0.5;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.psv-error__msg {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 24px;
+  color: var(--muted);
+  text-align: center;
+  max-width: 480px;
+}
+.psv-error__link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-decoration: none;
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  padding: 8px 20px;
+}
+.psv-error__link:hover { border-color: var(--gold); }
+
+/* ── Page shell ──────────────────────────────────────────────────────────── */
+.psv-page {
+  min-height: 100vh;
+  background: var(--bg);
+}
+.psv-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.psv-header__brand {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.psv-header__label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 1px;
+}
+.psv-main {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+/* ── Hero ─────────────────────────────────────────────────────────────────── */
+.psv-hero {
+  margin-bottom: 56px;
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--border);
+}
+.psv-hero__title {
+  font-family: 'Cinzel', serif;
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--cream);
+  margin-bottom: 6px;
+  line-height: 1.3;
+}
+.psv-hero__author {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 2px;
+  margin-bottom: 20px;
+}
+.psv-hero__logline {
+  font-style: italic;
+  color: var(--muted);
+  margin-bottom: 12px;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.psv-hero__hook {
+  color: #c8b890;
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+/* ── Section heading ──────────────────────────────────────────────────────── */
+.psv-section-head {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 10px;
+  margin-bottom: 24px;
+}
+
+/* ── Characters section ───────────────────────────────────────────────────── */
+.psv-chars-section {
+  margin-bottom: 64px;
+}
+.psv-chars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+.psv-char-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 20px;
+}
+.psv-char-card__namerow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.psv-char-card__name {
+  font-family: 'Cinzel', serif;
+  font-size: 18px;
+  color: var(--cream);
+}
+.psv-char-card__role {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  padding: 2px 8px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  /* color + border-color set inline (role-dependent) */
+}
+.psv-char-card__age {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+.psv-char-card__desc {
+  font-style: italic;
+  color: #c0b090;
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* ── Episode section ──────────────────────────────────────────────────────── */
+.psv-episode {
+  margin-bottom: 56px;
+}
+.psv-episode__heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.psv-episode__num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  opacity: 0.6;
+}
+.psv-episode__title {
+  font-family: 'Cinzel', serif;
+  font-size: 22px;
+  color: var(--cream);
+  margin: 0;
+}
+.psv-episode__summary {
+  font-style: italic;
+  color: #9090a0;
+  margin-bottom: 8px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+.psv-episode__hook {
+  color: #c8b890;
+  font-size: 16px;
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+.psv-scene {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.psv-scene__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.psv-scene__num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.psv-scene__setting {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+.psv-scene__desc {
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.7;
+  margin-bottom: 14px;
+}
+
+/* ── Dialogue ─────────────────────────────────────────────────────────────── */
+.psv-dialogue {
+  margin-bottom: 14px;
+  padding-left: 16px;
+  /* border-left color set inline (character-dependent) */
+}
+.psv-dialogue__speaker {
+  font-family: 'Cinzel', serif;
+  font-size: 10px;
+  font-variant: small-caps;
+  letter-spacing: 2px;
+  margin-bottom: 4px;
+  /* color set inline (character-dependent) */
+}
+.psv-dialogue__line {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+  font-size: 19px;
+  color: var(--cream);
+  line-height: 1.6;
+}
+.psv-dialogue__dir {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #4a5a6a;
+  margin-top: 4px;
+}
+
+/* ── Production guide ─────────────────────────────────────────────────────── */
+.psv-prod-section { margin-bottom: 48px; }
+.psv-prod-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 24px;
+}
+.psv-prod-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 4px;
+  margin-top: 10px;
+}
+.psv-prod-text {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.7;
+  margin-bottom: 12px;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.psv-footer {
+  border-top: 1px solid var(--border);
+  padding: 24px;
+  text-align: center;
+  margin-top: 32px;
+}
+.psv-footer__brand {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  opacity: 0.5;
+  text-transform: uppercase;
+}
+.psv-footer__disclosure {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #2a3a4a;
+  margin-top: 8px;
+  letter-spacing: 1px;
+}
