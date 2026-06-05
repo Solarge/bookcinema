@@ -9,6 +9,7 @@ import assetRoutes from '../routes/assets.js'
 import shareRoutes from '../routes/share.js'
 import Asset from '../models/Asset.js'
 import Series from '../models/Series.js'
+import Job from '../models/Job.js'
 import { makeAuthedUser } from './helpers/auth.js'
 
 before(startTestDB)
@@ -50,6 +51,53 @@ test('asset list presigns s3Url (browser-loadable, not the raw public URL)', asy
   const res = await authed(request(assetsApp()).get(`/api/assets/${seriesId}`), token, workspace._id)
   assert.equal(res.status, 200)
   assert.match(res.body[0].s3Url, /X-Amz-Signature=/)
+})
+
+test('from-job promotes a completed job into a presigned Asset', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const job = await Job.create({
+    workspaceId: workspace._id, createdBy: user._id, type: 'image', tier: 'standard', status: 'done',
+    resultKey: `generated/${workspace._id}/job1.png`, resultUrl: `https://b.s3.us-east-1.amazonaws.com/generated/${workspace._id}/job1.png`,
+  })
+  const res = await authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id)
+    .send({ jobId: String(job._id), assetKey: 'char-img:slug:c1:0', provider: 'managed' })
+  assert.equal(res.status, 201)
+  assert.equal(res.body.type, 'character_image')
+  assert.equal(res.body.assetKey, 'char-img:slug:c1:0')
+  assert.match(res.body.s3Url, /X-Amz-Signature=/)
+  assert.equal(await Asset.countDocuments({ seriesId: series._id }), 1)
+})
+
+test('from-job is idempotent per (series, assetKey) — regenerate updates in place', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const mk = (n) => Job.create({ workspaceId: workspace._id, createdBy: user._id, type: 'image', tier: 'standard', status: 'done', resultKey: `generated/${workspace._id}/${n}.png`, resultUrl: `https://b.s3.us-east-1.amazonaws.com/generated/${workspace._id}/${n}.png` })
+  const j1 = await mk('a'); const j2 = await mk('b')
+  const send = (jid) => authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id).send({ jobId: String(jid), assetKey: 'char-img:slug:c1:0' })
+  await send(j1._id)
+  const res2 = await send(j2._id)
+  assert.equal(res2.status, 201)
+  assert.equal(await Asset.countDocuments({ seriesId: series._id }), 1)
+  assert.equal((await Asset.findOne({ seriesId: series._id })).s3Key, `generated/${workspace._id}/b.png`)
+})
+
+test('from-job 409s when the job has no stored result', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const job = await Job.create({ workspaceId: workspace._id, createdBy: user._id, type: 'image', tier: 'standard', status: 'queued' })
+  const res = await authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id)
+    .send({ jobId: String(job._id), assetKey: 'char-img:slug:c1:0' })
+  assert.equal(res.status, 409)
+})
+
+test('from-job 404s for a job in another workspace', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const foreignJob = await Job.create({ workspaceId: new mongoose.Types.ObjectId(), createdBy: user._id, type: 'image', tier: 'standard', status: 'done', resultKey: 'k', resultUrl: 'u' })
+  const res = await authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id)
+    .send({ jobId: String(foreignJob._id), assetKey: 'char-img:slug:c1:0' })
+  assert.equal(res.status, 404)
 })
 
 test('asset delete 404s for an asset in another workspace', async () => {

@@ -144,14 +144,38 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     })
   }, [])
 
+  // ── Auto-persist a managed-generation job result as a cloud Asset ──────────
+  // Managed media lives in S3 under the job result; promoting it to an Asset is what
+  // lets a reopened series rehydrate it. Best-effort: never blocks/breaks generation.
+  const persistJobAsset = useCallback(async (kind, slotKey, storeKey, jobId, meta = {}) => {
+    if (!cloudEnabled || !jobId) return
+    try {
+      const result = await assetsApi.fromJob(seriesId, {
+        jobId,
+        assetKey:    toAssetKey(storeKey),
+        provider:    meta.provider,
+        quality:     meta.quality,
+        aspectRatio: meta.aspectRatio,
+        prompt:      meta.prompt,
+      })
+      const patch = { serverId: result._id, serverUrl: result.s3Url, savedToCloud: true }
+      if (kind === 'image')      setCharacters(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else if (kind === 'video') setScenes(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else                       setDialogue(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+    } catch (err) {
+      console.warn('[MediaContext] auto-persist failed (asset can still be saved manually):', err)
+    }
+  }, [cloudEnabled, seriesId])
+
   // ── Image ─────────────────────────────────────────────────────────────────
   const generateCharacterImage = useCallback(async (char, prompt, variationIndex = 0) => {
     const key = char.id
     setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'generating', error: null } }))
     try {
       let url
+      let jobId = null
       if (settings.mode === 'managed') {
-        const { jobId } = await managedApi.generateImage({ prompt, aspectRatio: settings.aspectRatio, tier: settings.managedTier || 'standard' })
+        ({ jobId } = await managedApi.generateImage({ prompt, aspectRatio: settings.aspectRatio, tier: settings.managedTier || 'standard' }))
         const job = await pollJob(jobId)
         if (job.status !== 'done' || !job.result?.url) throw new Error(job.error || 'Managed image generation failed')
         url = job.result.url
@@ -175,13 +199,15 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       if (variationIndex === 0) portraitRefs.current[char.id] = localUrl || url
       setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
       if (settings.mode !== 'managed') addCost('image', settings.imageProvider, settings.imageQuality)
+      // Persist the main portrait so it survives a reload (variations share the char slot on hydrate).
+      if (variationIndex === 0) await persistJobAsset('image', key, storeKey, jobId, { provider: 'managed', quality: settings.imageQuality, aspectRatio: settings.aspectRatio, prompt })
     } catch (err) {
       const displayMsg = err.code === 'plan_feature'
         ? (err.message || 'Image generation requires a higher plan. Upgrade to unlock.')
         : err.message
       setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
-  }, [settings, getApiKey, seriesSlug, addCost])
+  }, [settings, getApiKey, seriesSlug, addCost, persistJobAsset])
 
   // ── Video ─────────────────────────────────────────────────────────────────
   const generateSceneVideo = useCallback(async (epNum, scene, charIds = []) => {
@@ -189,13 +215,14 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'generating', error: null } }))
     try {
       let url
+      let jobId = null
       if (settings.mode === 'managed') {
-        const { jobId } = await managedApi.generateVideo({
+        ({ jobId } = await managedApi.generateVideo({
           prompt:      scene.kling_prompt,
           aspectRatio: settings.aspectRatio,
           duration:    settings.videoDuration,
           tier:        settings.managedTier || 'standard',
-        })
+        }))
         const job = await pollJob(jobId)
         if (job.status !== 'done' || !job.result?.url) {
           const errMsg = job.error || 'Managed video generation failed'
@@ -225,6 +252,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       const localUrl = await fetchAndStore(storeKey, url)
       setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
       if (settings.mode !== 'managed') addCost('video', settings.videoProvider, settings.videoQuality)
+      await persistJobAsset('video', key, storeKey, jobId, { provider: 'managed', aspectRatio: settings.aspectRatio, prompt: scene.kling_prompt })
     } catch (err) {
       // Surface plan_feature 403 errors with a useful upgrade message
       const displayMsg = err.code === 'plan_feature'
@@ -232,7 +260,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
         : err.message
       setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
-  }, [settings, getApiKey, seriesSlug, addCost])
+  }, [settings, getApiKey, seriesSlug, addCost, persistJobAsset])
 
   // ── Voice ─────────────────────────────────────────────────────────────────
   const generateDialogueVoice = useCallback(async (epNum, sceneNum, dIdx, line, voiceId) => {
@@ -241,8 +269,9 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     try {
       const storeKey = mediaKey('dialogue-audio', seriesSlug, `ep${epNum}`, `s${sceneNum}`, `d${dIdx}`)
       let audioUrl
+      let jobId = null
       if (settings.mode === 'managed') {
-        const { jobId } = await managedApi.generateVoice({ text: line, voiceId, tier: settings.managedTier || 'standard' })
+        ({ jobId } = await managedApi.generateVoice({ text: line, voiceId, tier: settings.managedTier || 'standard' }))
         const job = await pollJob(jobId)
         if (job.status !== 'done' || !job.result?.url) throw new Error(job.error || 'Managed voice generation failed')
         audioUrl = job.result.url
@@ -258,13 +287,14 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       }
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl, error: null } }))
       if (settings.mode !== 'managed') addVoiceCost(line, settings.voiceProvider)
+      await persistJobAsset('audio', key, storeKey, jobId, { provider: 'managed', prompt: line })
     } catch (err) {
       const displayMsg = err.code === 'plan_feature'
         ? (err.message || 'Voice generation requires a higher plan. Upgrade to unlock.')
         : err.message
       setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
     }
-  }, [settings, getApiKey, seriesSlug, addVoiceCost])
+  }, [settings, getApiKey, seriesSlug, addVoiceCost, persistJobAsset])
 
   // ── Approval (with optional cloud sync) ──────────────────────────────────
   const setCharApproval = useCallback((id, s) => {

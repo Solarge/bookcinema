@@ -93,6 +93,9 @@ export async function getPublicShare(token) {
 // ── Assets ────────────────────────────────────────────────────────────────────
 export const assets = {
   list: (seriesId) => get(`/api/assets/${seriesId}`),
+  // Persist a completed managed-generation job's result as an Asset (server references
+  // the existing S3 object — no re-upload). { jobId, assetKey, provider?, quality?, aspectRatio?, prompt? }
+  fromJob: (seriesId, data) => post(`/api/assets/${seriesId}/from-job`, data),
   uploadImage: (seriesId, formData) => request(`/api/assets/${seriesId}/image`, { method: 'POST', body: formData, headers: { Authorization: _accessToken ? `Bearer ${_accessToken}` : undefined } }),
   uploadVideo: (seriesId, formData) => request(`/api/assets/${seriesId}/video`, { method: 'POST', body: formData, headers: { Authorization: _accessToken ? `Bearer ${_accessToken}` : undefined } }),
   uploadAudio: (seriesId, formData) => request(`/api/assets/${seriesId}/audio`, { method: 'POST', body: formData, headers: { Authorization: _accessToken ? `Bearer ${_accessToken}` : undefined } }),
