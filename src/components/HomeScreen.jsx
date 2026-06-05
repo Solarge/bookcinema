@@ -3,9 +3,11 @@ import { parsePdf } from '../utils/pdfParser'
 import { checkContentSafety } from '../utils/contentSafety'
 import { GENRE_PRESETS } from '../utils/genrePresets'
 import SettingsPanel from './SettingsPanel'
+import Onboarding from './Onboarding'
 import '../styles/home.css'
 
 const COPYRIGHT_ACK_KEY = 'bookfilm_copyright_ack'
+const ONBOARDED_KEY     = 'bookfilm_onboarded'
 const LARGE_TEXT_CHARS  = 80_000
 
 export default function HomeScreen({
@@ -23,6 +25,13 @@ export default function HomeScreen({
   const [manualText, setManualText] = useState('')
   const [safetyWarning, setSafetyWarning] = useState(null)
   const [showSettings, setShowSettings] = useState(false)
+  // First-run onboarding — show once per browser, then re-openable via the link.
+  const [showOnboarding, setShowOnboarding] = useState(() => !localStorage.getItem(ONBOARDED_KEY))
+
+  function closeOnboarding() {
+    localStorage.setItem(ONBOARDED_KEY, '1')
+    setShowOnboarding(false)
+  }
 
   // Copyright acknowledgement — one-time, persisted
   const [copyrightAck, setCopyrightAck] = useState(() => !!localStorage.getItem(COPYRIGHT_ACK_KEY))
@@ -104,8 +113,18 @@ export default function HomeScreen({
         <div className="home-eyebrow">AI Production Studio</div>
         <h1 className="home-title">BookFilm Studio</h1>
         <p className="home-tagline">
-          Turn any book into a cinematic AI video series
+          Turn any book into a cinematic movie series — no editing skills needed
         </p>
+        <div className="home-howit">
+          How it works: add a book → we write the script → one click makes the movie
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowOnboarding(true)}
+          className="home-howit-link"
+        >
+          ❓ How it works
+        </button>
       </div>
 
       <div className="home-content">
@@ -170,8 +189,8 @@ export default function HomeScreen({
             ) : (
               <>
                 <div className="home-dropzone-icon">📄</div>
-                <div className="home-dropzone-title">Drop your book PDF here</div>
-                <div className="home-dropzone-hint">or click to browse — accepts .pdf</div>
+                <div className="home-dropzone-title">Drop your book here to begin</div>
+                <div className="home-dropzone-hint">or click to choose a PDF from your device</div>
               </>
             )}
           </div>
@@ -180,7 +199,7 @@ export default function HomeScreen({
         {/* Toggle text fallback */}
         <div className={`home-toggle-row${showTextFallback ? ' has-margin' : ''}`}>
           <button onClick={() => setShowTextFallback(v => !v)} className="home-toggle-btn">
-            {showTextFallback ? '← Back to PDF upload' : 'Or describe your book instead'}
+            {showTextFallback ? '← Back to PDF upload' : "No PDF? Type or paste your story instead"}
           </button>
         </div>
 
@@ -244,6 +263,8 @@ export default function HomeScreen({
       </div>
 
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+
+      {showOnboarding && <Onboarding open onClose={closeOnboarding} />}
     </div>
   )
 }

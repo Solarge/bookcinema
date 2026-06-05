@@ -102,11 +102,11 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
       {/* Credit balance — color is dynamic (low-credit warning) */}
       <span
         aria-label={creditBalance === null ? 'Credits loading' : `${creditBalance} credits remaining`}
-        title="Credits consumed by managed generation (text 1, image 4–10, voice 1–5, video 10–20)"
+        title={'Credits are spent when you generate images, videos, voices, and music. Running low? Tap "+ Credits" to buy more.'}
         className="app-billing-bar__credits"
         style={{ color: lowCredits ? '#f0a050' : 'var(--cream)' }}
       >
-        {creditBalance === null ? '… cr' : `${creditBalance} cr`}
+        {creditBalance === null ? '… credits' : `${creditBalance} credits`}
         {lowCredits && <span className="app-billing-bar__credits-warn" aria-hidden="true">⚠</span>}
       </span>
 
@@ -123,7 +123,7 @@ function PlanBillingBar({ plan, creditBalance, onOpenBilling }) {
         onClick={handleBuyCredits}
         disabled={busy}
         aria-label="Buy credits"
-        title="Buy additional generation credits"
+        title="Buy more credits to keep generating images, videos, voices, and music"
         className="app-billing-bar__buy"
       >
         {busy ? '…' : '+ Credits'}

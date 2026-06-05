@@ -58,6 +58,31 @@
   max-width: 480px;
   margin: 0 auto;
 }
+/* Plain "how it works" one-liner under the tagline */
+.home-howit {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  opacity: 0.85;
+  margin: 18px auto 0;
+  max-width: 520px;
+  line-height: 1.6;
+}
+/* Re-open onboarding link */
+.home-howit-link {
+  background: none;
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  cursor: pointer;
+  text-decoration: underline;
+  margin-top: 10px;
+  padding: 4px 6px;
+}
+.home-howit-link:hover { filter: brightness(1.1); }
 
 /* Content wrapper */
 .home-content {

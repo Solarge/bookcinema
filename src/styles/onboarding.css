@@ -1,0 +1,150 @@
+/* ── First-run onboarding overlay ───────────────────────────────────────────
+   Friendly, plain-language 3-step walkthrough for new creators.
+   Built on the same tokens (--bg / --gold / --muted / --cream / --surface).
+   ────────────────────────────────────────────────────────────────────────── */
+
+.onb-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(2px);
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.onb-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 440px;
+  padding: 40px 36px 28px;
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+}
+
+.onb-skip {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 4px 6px;
+}
+.onb-skip:hover { color: var(--gold); }
+
+.onb-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 22px;
+}
+
+.onb-icon {
+  font-size: 48px;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+
+.onb-step-count {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+
+.onb-title {
+  font-family: 'Cinzel', serif;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--cream);
+  margin-bottom: 12px;
+}
+
+.onb-body {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--muted);
+  max-width: 340px;
+  margin: 0 auto 26px;
+}
+
+/* Step dots */
+.onb-dots {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  margin-bottom: 26px;
+}
+.onb-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.onb-dot:hover { border-color: var(--gold); }
+.onb-dot.is-active {
+  background: var(--gold);
+  border-color: var(--gold);
+  width: 22px;
+  border-radius: 5px;
+}
+
+/* Controls */
+.onb-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.onb-back {
+  background: none;
+  border: none;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 10px 4px;
+}
+.onb-back:hover:not(:disabled) { color: var(--gold); }
+.onb-back:disabled { opacity: 0; cursor: default; pointer-events: none; }
+
+.onb-next {
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  padding: 11px 24px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.onb-next:hover { background: rgba(200, 146, 42, 0.12); }
+.onb-next--done {
+  background: var(--gold);
+  color: #080b10;
+  border-color: var(--gold);
+}
+.onb-next--done:hover { filter: brightness(1.08); background: var(--gold); }
