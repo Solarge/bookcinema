@@ -43,6 +43,15 @@ test('asset list returns only the active workspace assets for a series', async (
   assert.equal(res.body.length, 1)
 })
 
+test('asset list presigns s3Url (browser-loadable, not the raw public URL)', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const seriesId = new mongoose.Types.ObjectId()
+  await Asset.create({ ...assetBase(seriesId), s3Key: 'generated/x/y.png', s3Url: 'https://bucket.s3.us-east-1.amazonaws.com/generated/x/y.png', userId: user._id, workspaceId: workspace._id })
+  const res = await authed(request(assetsApp()).get(`/api/assets/${seriesId}`), token, workspace._id)
+  assert.equal(res.status, 200)
+  assert.match(res.body[0].s3Url, /X-Amz-Signature=/)
+})
+
 test('asset delete 404s for an asset in another workspace', async () => {
   const { user, token, workspace } = await makeAuthedUser()
   const foreign = await Asset.create({ ...assetBase(new mongoose.Types.ObjectId()), userId: user._id, workspaceId: new mongoose.Types.ObjectId() })
