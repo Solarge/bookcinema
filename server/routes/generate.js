@@ -225,6 +225,57 @@ router.post('/compile', managedAccess('video'), async (req, res) => {
   }
 })
 
+// POST /api/generate/mux — mux dialogue voice line(s) + a music bed onto a
+// (silent) scene video clip via ffmpeg. Pure post-process; reuses the 'video'
+// feature gate and compile's flat/cheap ffmpeg credit treatment.
+router.post('/mux', managedAccess('video'), async (req, res) => {
+  try {
+    const { videoUrl, voiceUrls, musicUrl, musicVolume } = req.body
+
+    // videoUrl is required and SSRF-validated.
+    const vCheck = validateVideoUrl(videoUrl)
+    if (!vCheck.ok) {
+      return res.status(400).json({ error: `Invalid video URL: ${vCheck.reason}` })
+    }
+
+    const voices = Array.isArray(voiceUrls) ? voiceUrls.filter(v => v != null && v !== '') : []
+
+    // Require at least one audio source: a non-empty voiceUrls or a musicUrl.
+    if (voices.length === 0 && (musicUrl == null || musicUrl === '')) {
+      return res.status(400).json({ error: 'At least one of voiceUrls or musicUrl is required' })
+    }
+
+    // SSRF guard: validate every voice URL.
+    for (let i = 0; i < voices.length; i++) {
+      const check = validateVideoUrl(voices[i])
+      if (!check.ok) {
+        return res.status(400).json({ error: `Invalid voice URL at index ${i}: ${check.reason}` })
+      }
+    }
+
+    // SSRF guard: validate the optional music URL.
+    if (musicUrl != null && musicUrl !== '') {
+      const check = validateVideoUrl(musicUrl)
+      if (!check.ok) {
+        return res.status(400).json({ error: `Invalid music URL: ${check.reason}` })
+      }
+    }
+
+    const vol = Number(musicVolume)
+    const effectiveVolume = Number.isFinite(vol) ? vol : 0.3
+
+    return await enqueueGeneration(req, res, {
+      type: 'mux',
+      tier: 'standard',
+      params:  { hasVoices: voices.length > 0, hasMusic: !!(musicUrl && musicUrl !== '') },
+      payload: { videoUrl, voiceUrls: voices, musicUrl: musicUrl || null, musicVolume: effectiveVolume },
+    })
+  } catch (err) {
+    console.error('generate/mux error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
 // GET /api/generate/estimate?type=&tier=
 // Returns the credit cost + estimated provider cost for a type/tier combination,
 // without debiting any credits. Used by the client to show pre-generation cost info.
