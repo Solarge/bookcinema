@@ -16,6 +16,7 @@ import { series as seriesApi, managed as managedApi, pollJob } from '../lib/api'
 import { planAllows, minPlanFor, planLabel, FEATURE_LABELS } from '../utils/plans'
 import '../styles/results.css'
 import '../styles/virality.css'
+import '../styles/coverage.css'
 
 // Whether generation is possible for a media kind given current settings.
 // In managed mode: plan-gated (voice/video require pro+). Image+text always allowed.
@@ -703,6 +704,41 @@ function ViralitySection({ virality }) {
   )
 }
 
+// ── Book Coverage — how the book was adapted into episodes ──────────────────
+function CoverageSection({ coverage, coverageNote }) {
+  const rows = Array.isArray(coverage) ? coverage : []
+  const note = (coverageNote || '').trim()
+  // Older series won't have these fields — render nothing.
+  if (rows.length === 0 && !note) return null
+
+  return (
+    <section id="coverage" className="rs-coverage-section">
+      <SectionHead>📖 Book Coverage</SectionHead>
+      {rows.length > 0 && (
+        <p className="rs-coverage-subtitle">
+          How your book was adapted into {rows.length} episode{rows.length !== 1 ? 's' : ''}
+        </p>
+      )}
+
+      {note && <p className="rs-coverage-note">{note}</p>}
+
+      {rows.length > 0 && (
+        <ul className="rs-coverage-list">
+          {rows.map((row, i) => (
+            <li key={i} className="rs-coverage-row">
+              <span className="rs-coverage-ep">Ep {row.episode}</span>
+              <div className="rs-coverage-detail">
+                {row.book_section && <div className="rs-coverage-section-name">{row.book_section}</div>}
+                {row.adapts && <p className="rs-coverage-adapts">{row.adapts}</p>}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
 // ── Small helpers ──────────────────────────────────────────────────────────
 function SectionHead({ children }) {
   return (
@@ -882,7 +918,10 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
   const [zipping, setZipping] = useState(false)
   const [savingAll, setSavingAll] = useState(false)
 
-  const { title, author, logline, series_hook, virality, characters = [], episodes = [], production_guide } = series
+  const { title, author, logline, series_hook, virality, coverage, coverage_note, characters = [], episodes = [], production_guide } = series
+
+  // Coverage data present? (controls the nav entry + section render)
+  const hasCoverage = (Array.isArray(coverage) && coverage.length > 0) || !!(coverage_note && coverage_note.trim())
 
   // Inline edit helpers
   const updateChar = useCallback((charId, field, val) => {
@@ -911,6 +950,7 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
 
   const sidebarLinks = [
     ...(virality ? [{ id: 'virality', label: 'Viral Potential' }] : []),
+    ...(hasCoverage ? [{ id: 'coverage', label: 'Coverage' }] : []),
     { id: 'characters', label: 'Characters' },
     ...episodes.map(ep => ({ id: `episode-${ep.number}`, label: `Ep ${ep.number} — ${ep.title}` })),
     { id: 'production-guide', label: 'Production Guide' },
@@ -1069,6 +1109,8 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
           </div>
 
           <ViralitySection virality={virality} />
+
+          <CoverageSection coverage={coverage} coverageNote={coverage_note} />
 
           <CharacterBible characters={characters} seriesTitle={title} onUpdateChar={updateChar} plan={activeWorkspacePlan} onOpenBilling={onOpenBilling} />
 
