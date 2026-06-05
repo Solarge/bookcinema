@@ -18,7 +18,7 @@ export const DEFAULT_SETTINGS = {
   // ── Video generation ─────────────────────────────────────────
   videoProvider: 'fal.ai',    // fal.ai | runway | replicate | lumaai | minimax | klingdirect | localvideo
   videoQuality:  'hd',        // standard | hd | master
-  videoDuration: '5',         // '5' | '10'
+  videoDuration: '10',        // '5' | '10'
   managedVideoTier: 'premium', // 'standard' (40 cr) | 'premium' (80 cr, Kling Pro) — premium by default for stronger motion
 
   // ── Voice generation ─────────────────────────────────────────

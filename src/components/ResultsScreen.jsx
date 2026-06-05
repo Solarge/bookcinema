@@ -198,7 +198,7 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBil
 // ── Scene card ─────────────────────────────────────────────────────────────
 function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generationMode, plan, onOpenBilling }) {
   const { settings } = useSettings()
-  const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug, sceneMusic, generateSceneMusic } = useMedia()
+  const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug, sceneMusic, generateSceneMusic, dialogue, addSceneSound } = useMedia()
   const key = `ep${epNum}-s${scene.scene_number}`
   const asset = scenes[key] ?? {}
   const genInfo = canGenerateInfo(settings, 'video', settings.videoProvider, plan)
@@ -207,6 +207,20 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
   const musicAsset = sceneMusic[key] ?? {}
   const musicStoreKey = `scene-music:${seriesSlug}:ep${epNum}:s${scene.scene_number}`
   const hasMusicPrompt = !!scene.music_prompt
+
+  // ── Add Sound: mux silent clip with dialogue voice + scene music ──────────
+  const hasVideo = asset.status === 'done' && (asset.serverUrl || asset.remoteUrl || asset.localUrl)
+  const hasVoice = (scene.dialogue || []).some((_, i) => {
+    const d = dialogue[`${key}-d${i}`]
+    return d?.serverUrl || d?.audioUrl
+  })
+  const hasMusicAudio = !!(musicAsset.serverUrl || musicAsset.audioUrl)
+  const canAddSound = hasVideo && (hasVoice || hasMusicAudio) && asset.status !== 'generating'
+  const addSoundHint = !hasVideo
+    ? 'Generate the scene video first.'
+    : (!hasVoice && !hasMusicAudio)
+      ? 'Generate a dialogue voice and/or scene music first.'
+      : null
 
   return (
     <div className="rs-scene-card">
@@ -242,6 +256,23 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
         onSaveToCloud={() => saveToCloud('video', key, storeKey, { provider: settings.videoProvider, prompt: scene.kling_prompt, quality: settings.videoQuality, aspectRatio: settings.aspectRatio })}
         onDeleteFromCloud={() => deleteFromCloud('video', key)}
       />
+
+      {/* Add Sound — mux the silent clip with dialogue voice + scene music bed */}
+      {settings.mode === 'managed' && (
+        <div className="rs-add-sound-row">
+          <button
+            type="button"
+            className="rs-add-sound-btn"
+            onClick={() => addSceneSound(epNum, scene)}
+            disabled={!canAddSound}
+            title={addSoundHint || 'Mux this clip with its dialogue voice + scene music'}
+            aria-label={addSoundHint || `Add sound to scene ${scene.scene_number}`}
+          >
+            {asset.status === 'generating' && asset.hasSound ? '🔊 Adding…' : '🔊 Add Sound'}
+          </button>
+          {asset.hasSound && <span className="rs-add-sound-indicator">🔊 sound</span>}
+        </div>
+      )}
 
       {/* Scene music bed — only in managed mode (the music API is managed-only) */}
       {settings.mode === 'managed' && (
