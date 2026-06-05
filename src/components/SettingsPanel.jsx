@@ -123,6 +123,33 @@ export default function SettingsPanel({ onClose }) {
             </div>
           </Section>
 
+          {/* ── EPISODES PER SERIES ─────────────────────────────────── */}
+          <Section title="Episodes per Series">
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#4a5a6a', marginBottom: '10px' }}>
+              More episodes = more scenes + higher credit/time cost.
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <input
+                type="number"
+                min={3}
+                max={12}
+                value={settings.episodeCount ?? 7}
+                onChange={e => {
+                  const v = Math.min(12, Math.max(3, parseInt(e.target.value, 10) || 7))
+                  updateSettings({ episodeCount: v })
+                }}
+                style={{
+                  width: '64px', background: '#0a0806', border: '1px solid var(--border)',
+                  color: 'var(--cream)', fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: '13px', padding: '6px 10px', outline: 'none', textAlign: 'center',
+                }}
+              />
+              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>
+                episodes (3–12)
+              </span>
+            </div>
+          </Section>
+
           {/* ── OUTPUT LANGUAGE ─────────────────────────────────────── */}
           <Section title="Output Language">
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#4a5a6a', marginBottom: '10px' }}>

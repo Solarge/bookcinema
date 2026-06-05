@@ -56,9 +56,11 @@ async function enqueueGeneration(req, res, { type, tier, params, payload }) {
 
 router.post('/text', managedAccess('text'), async (req, res) => {
   try {
-    const { bookText, genrePreset = 'cinematic', language = 'en', tier = 'standard', rightsConfirmed } = req.body
+    const { bookText, genrePreset = 'cinematic', language = 'en', tier = 'standard', rightsConfirmed, episodeCount: rawEpisodeCount } = req.body
     if (!bookText) return res.status(400).json({ error: 'bookText is required' })
     if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+    // Clamp episodeCount to [3,12], default 7 if absent or invalid.
+    const episodeCount = Math.min(12, Math.max(3, Math.round(Number(rawEpisodeCount)) || 7))
 
     // Copyright assertion — server-enforced. The client HomeScreen passes rightsConfirmed:true
     // after the user acknowledges the copyright notice. Must be checked BEFORE moderation/debit.
@@ -88,7 +90,7 @@ router.post('/text', managedAccess('text'), async (req, res) => {
       })
     }
 
-    return await enqueueGeneration(req, res, { type: 'text', tier, params: { genrePreset, language }, payload: { bookText, genrePreset, language, tier } })
+    return await enqueueGeneration(req, res, { type: 'text', tier, params: { genrePreset, language, episodeCount }, payload: { bookText, genrePreset, language, tier, episodeCount } })
   } catch (err) { console.error('generate/text error:', err); res.status(500).json({ error: 'Server error' }) }
 })
 

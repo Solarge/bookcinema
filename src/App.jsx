@@ -349,7 +349,7 @@ function AppInner() {
     try {
       let series
       if (settings.mode === 'managed') {
-        const { jobId } = await managedApi.generateText({ bookText, genrePreset: preset, language: settings.language ?? 'en', tier: settings.managedTier || 'standard' })
+        const { jobId } = await managedApi.generateText({ bookText, genrePreset: preset, language: settings.language ?? 'en', tier: settings.managedTier || 'standard', episodeCount: settings.episodeCount ?? 7 })
         const job = await pollJob(jobId)
         if (job.status !== 'done') throw new Error(job.error || 'Managed generation failed')
         series = typeof job.result?.text === 'string' ? JSON.parse(job.result.text) : job.result?.text

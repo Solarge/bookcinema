@@ -6,7 +6,7 @@ export const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
 
 export function isConfigured() { return !!process.env.ANTHROPIC_API_KEY }
 
-export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', model = DEFAULT_MODEL }) {
+export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', episodeCount = 7, model = DEFAULT_MODEL }) {
   // Read from env every call so tests (and runtime key rotation) take effect immediately.
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('Anthropic is not configured (ANTHROPIC_API_KEY missing)')
@@ -18,7 +18,7 @@ export async function generate({ bookText, genrePreset = 'cinematic', language =
       headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       body: JSON.stringify({
         model, max_tokens: 16000,
-        system: buildSystemPrompt(genrePreset, language),
+        system: buildSystemPrompt(genrePreset, language, episodeCount),
         messages: [{ role: 'user', content: `Here is the book to transform into a cinematic series:\n\n${bookText}` }],
       }),
       signal: AbortSignal.timeout(120000),

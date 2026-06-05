@@ -6,11 +6,11 @@ export const DEFAULT_MODEL = 'gemini-2.5-flash'
 
 export function isConfigured() { return !!process.env.GEMINI_API_KEY }
 
-export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', model = DEFAULT_MODEL }) {
+export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', episodeCount = 7, model = DEFAULT_MODEL }) {
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) throw new Error('Gemini is not configured (GEMINI_API_KEY missing)')
 
-  const systemPrompt = buildSystemPrompt(genrePreset, language)
+  const systemPrompt = buildSystemPrompt(genrePreset, language, episodeCount)
   const userText = `Here is the book to transform into a cinematic series:\n\n${bookText}`
 
   let res

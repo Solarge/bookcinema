@@ -126,6 +126,40 @@ test('POST /text debits credits on enqueue (text standard = 1)', async () => {
   assert.equal((await Workspace.findById(workspace._id)).creditBalance, 4)
 })
 
+test('POST /text passes episodeCount through to the job params', async () => {
+  const { token, workspace } = await betaUser()
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bull2' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/text'), token, workspace._id)
+    .send({ bookText: 'a fable', genrePreset: 'cinematic', language: 'en', tier: 'standard', rightsConfirmed: true, episodeCount: 5 })
+  assert.equal(res.status, 202)
+  const job = await Job.findById(res.body.jobId)
+  assert.equal(job.params.episodeCount, 5)
+  assert.equal(enq[0].payload.episodeCount, 5)
+})
+
+test('POST /text clamps out-of-range episodeCount (99 → 12)', async () => {
+  const { token, workspace } = await betaUser()
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bull3' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/text'), token, workspace._id)
+    .send({ bookText: 'a fable', tier: 'standard', rightsConfirmed: true, episodeCount: 99 })
+  assert.equal(res.status, 202)
+  const job = await Job.findById(res.body.jobId)
+  assert.equal(job.params.episodeCount, 12)
+})
+
+test('POST /text defaults episodeCount to 7 when omitted', async () => {
+  const { token, workspace } = await betaUser()
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bull4' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/text'), token, workspace._id)
+    .send({ bookText: 'a fable', tier: 'standard', rightsConfirmed: true })
+  assert.equal(res.status, 202)
+  const job = await Job.findById(res.body.jobId)
+  assert.equal(job.params.episodeCount, 7)
+})
+
 test('POST /image debits cost-weighted credits (image standard = 4)', async () => {
   const { token, workspace } = await betaUser()
   const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
