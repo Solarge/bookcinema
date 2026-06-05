@@ -7,8 +7,8 @@ function buildBASE(fixedCount) {
   const packageLabel = auto ? 'full' : `${fixedCount}-episode`
   const coverageRule = `CRITICAL: cover the ENTIRE book end to end. Every major chapter, plot arc, turning point, and the ending must be represented across the episodes — do NOT summarize, skip, compress, or stop partway through the book. Adapt the whole work, in order.`
   const episodeDirective = auto
-    ? `Decide how many episodes the book actually needs to cover ALL of its content — let the source material determine it based on its length, chapters, and natural story arcs (a short story might be 2–3 episodes; a full novel many more). Do NOT force a fixed number, and never pad or truncate to hit a target. Each episode runs as long as its content genuinely needs (typically ~2–3 minutes) with as many scenes as the story requires. ${coverageRule}`
-    : `Generate exactly ${fixedCount} episodes, and ensure those ${fixedCount} episodes together cover the WHOLE book (allocate the book's content evenly across them). Each episode should have 3–4 scenes. ${coverageRule}`
+    ? `Decide how many episodes the book actually needs to cover ALL of its content — let the source material determine it based on its length, chapters, and natural story arcs. Adapt at FEATURE depth. A full-length novel should become MANY episodes — often 10–20+, not a handful — and each episode should be SUBSTANTIAL: typically 4–8 scenes running ~3–5 minutes. Do NOT compress the book into a few short episodes; err on the side of MORE episodes and LONGER, fully-dramatized episodes that honour the book's chapters and arcs. Only a genuinely short work (a short story) should yield few episodes. Do NOT force a fixed number, and never pad or truncate to hit a target. ${coverageRule}`
+    : `Generate exactly ${fixedCount} episodes, and ensure those ${fixedCount} episodes together cover the WHOLE book (allocate the book's content evenly across them). Each episode should have 4–8 scenes. ${coverageRule}`
   return `You are a cinematic series producer and screenwriter. Your job is to transform a book into a complete ${packageLabel} AI video production package. Every response must be a valid JSON object only — no markdown, no preamble.
 
 Analyze the book provided and return a JSON object with this exact structure:
@@ -35,7 +35,7 @@ Analyze the book provided and return a JSON object with this exact structure:
     {
       "number": 1,
       "title": "Episode title",
-      "duration": "2:00–2:30 min",
+      "duration": "3:00–5:00 min",
       "mood": "One-line mood description",
       "characters_in_episode": ["character_slug"],
       "locations": ["Location 1", "Location 2"],
@@ -75,6 +75,11 @@ Analyze the book provided and return a JSON object with this exact structure:
     "engagement_tips": ["tip1", "tip2"]
   },
 
+  "coverage": [
+    { "episode": 1, "book_section": "e.g. Chapters 1–3", "adapts": "1–2 sentence summary of what this episode dramatizes from the book" }
+  ],
+  "coverage_note": "2–3 honest sentences explaining how the book was divided into episodes and why this many — tied to the book's actual structure/length.",
+
   "virality": {
     "score": 0,
     "rating": "low | medium | high",
@@ -95,6 +100,8 @@ ${episodeDirective} Make the dialogue feel like a real film script — natural, 
 The kling_prompt drives a real TEXT-TO-VIDEO model (Kling, Runway Gen-3, Luma, Minimax) — it must describe a MOVING ~5-second shot, not a static portrait or a still being slowly panned. For every scene's kling_prompt, demand real motion: explicit camera movement (e.g. slow push-in, dolly, tracking, pan, tilt, handheld), visible character action and physical movement, and a composition that visibly changes over the clip. Still include lens, color grade, mood, photorealistic cinematic style, and the duration in seconds. Make video prompts highly detailed and specific enough to generate consistent, motion-rich output.
 
 MUSIC: Decide honestly WHERE music is actually required — not every scene needs a bed (silence and ambient tension are valid choices). For each scene set "needs_music" truthfully and, when true, write a concrete "music_prompt" (genre, instrumentation, tempo, mood) aligned to that scene's mood; keep scene beds SHORT and supportive so they sit under dialogue, never overpowering it. For each episode, set "soundtrack.needs_soundtrack" and write a cohesive episode score "music_prompt" that captures the whole episode's arc (a unifying score, not a per-scene snippet), with a realistic "duration_sec". Keep every music_prompt consistent with production_guide.music_direction.
+
+COVERAGE: Fill 'coverage' with one entry per episode mapping it to the book section(s) it adapts, and write an honest 'coverage_note' explaining the episode breakdown — so the user can see the whole book is covered.
 
 VIRALITY: After building the production package, honestly analyze THIS specific series' viral potential and fill the "virality" object. Base the score (0–100), rating, and probability_pct on this story's actual hooks, themes, and characters — do not be generically optimistic. Tie every reason, risk, and improvement to concrete details of this adaptation, give one genuinely scroll-stopping strongest_hook, and pick the best_platform and recommended_format for it.`
 }

@@ -111,6 +111,7 @@ export async function generateSeriesFromBook({
       system: buildSystemPrompt(genrePreset, language, episodeCount),
       user: `Here is the book to transform into a cinematic series:\n\n${bookText}`,
       json: true,
+      maxTokens: config.managed.seriesMaxTokens,
     })
     return parseSeriesJson(raw)
   }
@@ -141,6 +142,7 @@ export async function generateSeriesFromBook({
     system: buildSystemPrompt(genrePreset, language, episodeCount),
     user: `The following is a faithful, complete, section-by-section summary of an ENTIRE book. Adapt the WHOLE work into the series — cover every section:\n\n${combined}`,
     json: true,
+    maxTokens: config.managed.seriesMaxTokens,
   })
   return parseSeriesJson(raw)
 }

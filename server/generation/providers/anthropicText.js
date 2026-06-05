@@ -3,6 +3,13 @@ import { generateSeriesFromBook } from '../chunkedText.js'
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 export const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
 
+// Anthropic caps output tokens per model. DEFAULT_MODEL (Claude Sonnet 4) supports
+// up to 64000 output tokens, so a 32000 series request is well within range. We still
+// clamp to a conservative safe maximum so an over-large maxTokens (e.g. if a caller
+// overrides the model with one that caps lower) never produces a 400 — callers asking
+// for more than the cap silently get the cap instead of an error.
+export const MODEL_MAX_OUTPUT = 64000
+
 export function isConfigured() { return !!process.env.ANTHROPIC_API_KEY }
 
 /**
@@ -19,6 +26,9 @@ export async function complete({ system, user, model = DEFAULT_MODEL, maxTokens 
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) throw new Error('Anthropic is not configured (ANTHROPIC_API_KEY missing)')
 
+  // Clamp to the model's safe output ceiling so an over-large request never errors.
+  const safeMaxTokens = Math.min(maxTokens, MODEL_MAX_OUTPUT)
+
   let res
   try {
     res = await fetch(ANTHROPIC_URL, {
@@ -30,7 +40,7 @@ export async function complete({ system, user, model = DEFAULT_MODEL, maxTokens 
       },
       body: JSON.stringify({
         model,
-        max_tokens: maxTokens,
+        max_tokens: safeMaxTokens,
         system,
         messages: [{ role: 'user', content: user }],
       }),
