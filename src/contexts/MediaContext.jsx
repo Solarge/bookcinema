@@ -197,7 +197,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       const storeKey = mediaKey('char-img', seriesSlug, char.id, variationIndex)
       const localUrl = await fetchAndStore(storeKey, url)
       if (variationIndex === 0) portraitRefs.current[char.id] = localUrl || url
-      setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
+      setCharacters(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, jobId, error: null } }))
       if (settings.mode !== 'managed') addCost('image', settings.imageProvider, settings.imageQuality)
       // Persist the main portrait so it survives a reload (variations share the char slot on hydrate).
       if (variationIndex === 0) await persistJobAsset('image', key, storeKey, jobId, { provider: 'managed', quality: settings.imageQuality, aspectRatio: settings.aspectRatio, prompt })
@@ -250,7 +250,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       }
       const storeKey = mediaKey('scene-vid', seriesSlug, `ep${epNum}`, `s${scene.scene_number}`)
       const localUrl = await fetchAndStore(storeKey, url)
-      setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, error: null } }))
+      setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', remoteUrl: url, localUrl: localUrl || url, jobId, error: null } }))
       if (settings.mode !== 'managed') addCost('video', settings.videoProvider, settings.videoQuality)
       await persistJobAsset('video', key, storeKey, jobId, { provider: 'managed', aspectRatio: settings.aspectRatio, prompt: scene.kling_prompt })
     } catch (err) {
@@ -285,7 +285,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
         audioUrl = result.audioUrl
         if (result.audioBlob) await fetchAndStore(storeKey, result.audioBlob)
       }
-      setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl, error: null } }))
+      setDialogue(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl, jobId, error: null } }))
       if (settings.mode !== 'managed') addVoiceCost(line, settings.voiceProvider)
       await persistJobAsset('audio', key, storeKey, jobId, { provider: 'managed', prompt: line })
     } catch (err) {
@@ -322,10 +322,29 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
   // storeKey: the IndexedDB key (mediaKey output)
   const saveToCloud = useCallback(async (kind, slotKey, storeKey, meta = {}) => {
     if (!cloudEnabled) return
+    const applyCloudPatch = (patch) => {
+      if (kind === 'image')      setCharacters(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else if (kind === 'video') setScenes(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else                       setDialogue(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+    }
     setSaving(prev => ({ ...prev, [storeKey]: 'saving' }))
     try {
       const blob = await getBlob(storeKey)
-      if (!blob) throw new Error('Asset not found in local store — generate it first.')
+      if (!blob) {
+        // Managed media isn't always cached locally (the S3 fetch can be CORS-blocked),
+        // so promote the generation job's S3 result directly instead of re-uploading bytes.
+        const slot = kind === 'image' ? characters[slotKey] : kind === 'video' ? scenes[slotKey] : dialogue[slotKey]
+        if (slot?.jobId) {
+          const result = await assetsApi.fromJob(seriesId, {
+            jobId: slot.jobId, assetKey: toAssetKey(storeKey),
+            provider: meta.provider, quality: meta.quality, aspectRatio: meta.aspectRatio, prompt: meta.prompt,
+          })
+          applyCloudPatch({ serverId: result._id, serverUrl: result.s3Url, savedToCloud: true })
+          setSaving(prev => ({ ...prev, [storeKey]: undefined }))
+          return
+        }
+        throw new Error('Asset not found in local store — generate it first.')
+      }
       const { mime, filename } = blobMeta(blob, kind)
       const typedBlob = blob.type ? blob : new Blob([blob], { type: mime })
       const fd = new FormData()
@@ -342,14 +361,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       else if (kind === 'video') result = await assetsApi.uploadVideo(seriesId, fd)
       else result = await assetsApi.uploadAudio(seriesId, fd)
 
-      const cloudPatch = { serverId: result._id, serverUrl: result.s3Url, savedToCloud: true }
-      if (kind === 'image') {
-        setCharacters(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...cloudPatch } }))
-      } else if (kind === 'video') {
-        setScenes(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...cloudPatch } }))
-      } else {
-        setDialogue(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...cloudPatch } }))
-      }
+      applyCloudPatch({ serverId: result._id, serverUrl: result.s3Url, savedToCloud: true })
       setSaving(prev => ({ ...prev, [storeKey]: undefined }))
     } catch (err) {
       setSaving(prev => ({ ...prev, [storeKey]: 'error:' + err.message }))
@@ -357,7 +369,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       setTimeout(() => setSaving(prev => ({ ...prev, [storeKey]: undefined })), 8000)
       console.warn('[MediaContext] saveToCloud failed:', err)
     }
-  }, [cloudEnabled, seriesId, settings.imageProvider])
+  }, [cloudEnabled, seriesId, settings.imageProvider, characters, scenes, dialogue])
 
   // ── Delete from cloud ─────────────────────────────────────────────────────
   const deleteFromCloud = useCallback(async (kind, slotKey) => {

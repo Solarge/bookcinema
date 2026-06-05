@@ -17,6 +17,12 @@ router.use(requireAuth, resolveWorkspace)
 // Managed generation job type → Asset type
 const JOB_TYPE_TO_ASSET = { image: 'character_image', video: 'scene_video', voice: 'dialogue_audio', audio: 'dialogue_audio' }
 
+// Derive the S3 object key from a stored public URL (for jobs/assets created before
+// resultKey/s3Key was stored, or by an older worker build).
+function keyFromUrl(url) {
+  try { return decodeURIComponent(new URL(url).pathname.replace(/^\/+/, '')) } catch { return null }
+}
+
 // Replace the stored public s3Url with a short-lived presigned URL the browser can
 // actually load (the bucket keeps Block Public Access on). Falls back to the stored
 // URL if signing fails for any reason.
@@ -54,7 +60,9 @@ router.post('/:seriesId/from-job', async (req, res) => {
 
     const job = await Job.findOne({ _id: jobId, workspaceId: req.workspace._id })
     if (!job) return res.status(404).json({ error: 'Job not found' })
-    if (job.status !== 'done' || !job.resultKey) return res.status(409).json({ error: 'Job has no stored result' })
+    // Accept resultKey, or derive it from the stored public URL (older worker builds).
+    const s3Key = job.resultKey || keyFromUrl(job.resultUrl)
+    if (job.status !== 'done' || !s3Key) return res.status(409).json({ error: 'Job has no stored result' })
 
     const assetType = JOB_TYPE_TO_ASSET[job.type]
     if (!assetType) return res.status(400).json({ error: `Job type '${job.type}' cannot be saved as an asset` })
@@ -62,7 +70,7 @@ router.post('/:seriesId/from-job', async (req, res) => {
     const fields = {
       userId: req.user._id, workspaceId: req.workspace._id, seriesId: req.params.seriesId,
       type: assetType, assetKey,
-      s3Key: job.resultKey, s3Url: job.resultUrl, s3Bucket: config.aws.bucketName,
+      s3Key, s3Url: job.resultUrl, s3Bucket: config.aws.bucketName,
       provider: provider || '', quality: quality || 'hd', aspectRatio: aspectRatio || '9:16', prompt: prompt || '',
       costUsd: job.costUsd || 0,
     }
