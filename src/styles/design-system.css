@@ -1,0 +1,153 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   BookFilm design system — reusable classes built on the tokens in index.css.
+   Goal: move repeated inline styles into semantic classes without changing the
+   look. Use these app-wide instead of style={{...}} for common patterns.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── Typography ───────────────────────────────────────────────────────────── */
+.ds-display    { font-family: 'Cinzel', serif; }
+.ds-mono       { font-family: 'JetBrains Mono', monospace; }
+.ds-gold       { color: var(--gold); }
+.ds-cream      { color: var(--cream); }
+.ds-muted      { color: var(--muted); }
+.ds-section-title {
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.ds-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────────────── */
+.ds-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 7px 14px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  background: transparent;
+  color: var(--muted);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.ds-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+.ds-btn-gold {
+  background: var(--gold);
+  color: #080b10;
+  border-color: var(--gold);
+  font-weight: 700;
+}
+.ds-btn-gold:hover:not(:disabled) { filter: brightness(1.08); }
+.ds-btn-outline { border-color: var(--border); color: var(--muted); }
+.ds-btn-outline:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+.ds-btn-ghost { border-color: transparent; color: var(--muted); }
+.ds-btn-ghost:hover:not(:disabled) { color: var(--gold); }
+.ds-btn-danger { border-color: #804040; color: #f08080; }
+.ds-btn-danger:hover:not(:disabled) { background: rgba(139, 26, 26, 0.15); }
+.ds-btn-sm { padding: 4px 8px; font-size: 9px; letter-spacing: 1px; }
+.ds-btn-lg { padding: 12px 28px; font-size: 12px; }
+
+/* ── Surfaces / cards ─────────────────────────────────────────────────────── */
+.ds-card    { background: var(--surface);  border: 1px solid var(--border); }
+.ds-surface { background: var(--surface2); border: 1px solid var(--border); }
+.ds-panel   { background: var(--surface);  border: 1px solid var(--border); padding: 20px; }
+
+/* ── Form fields ──────────────────────────────────────────────────────────── */
+.ds-field-label {
+  display: block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.ds-input {
+  width: 100%;
+  background: #0a0e14;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+.ds-input:focus { border-color: var(--gold); }
+.ds-input::placeholder { color: var(--muted); }
+
+/* ── Badges / pills ───────────────────────────────────────────────────────── */
+.ds-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.ds-badge-gold { color: var(--gold); border-color: var(--gold); }
+
+/* ── Layout helpers ───────────────────────────────────────────────────────── */
+.ds-container { width: 100%; max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+.ds-row   { display: flex; align-items: center; }
+.ds-row-wrap { display: flex; align-items: center; flex-wrap: wrap; }
+.ds-stack { display: flex; flex-direction: column; }
+.ds-between { display: flex; align-items: center; justify-content: space-between; }
+.ds-center { display: flex; align-items: center; justify-content: center; }
+.ds-gap-6  { gap: 6px; }
+.ds-gap-8  { gap: 8px; }
+.ds-gap-12 { gap: 12px; }
+.ds-gap-16 { gap: 16px; }
+
+/* ── Modal / dialog ───────────────────────────────────────────────────────── */
+.ds-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 500;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.ds-modal-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+
+/* ── Auth pages (login / register / forgot / reset) ───────────────────────── */
+.auth-screen   { min-height: 100vh; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.auth-card     { background: var(--surface); border: 1px solid var(--border); padding: 40px; width: 100%; max-width: 420px; }
+.auth-title    { font-family: 'Cinzel', serif; font-size: 24px; color: var(--gold); margin-bottom: 8px; text-align: center; }
+.auth-subtitle { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--muted); letter-spacing: 3px; text-align: center; margin-bottom: 28px; }
+.auth-input    { display: block; width: 100%; background: #0a0806; border: 1px solid var(--border); color: var(--cream); font-family: 'JetBrains Mono', monospace; font-size: 13px; padding: 12px 14px; outline: none; margin-bottom: 12px; }
+.auth-input:focus { border-color: var(--gold); }
+.auth-submit   { display: block; width: 100%; background: var(--gold); color: #080b10; border: none; padding: 13px; font-family: 'Cinzel', serif; font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; margin-top: 4px; }
+.auth-submit:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+.auth-error    { background: #3a0808; border: 1px solid var(--red); padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #f08080; margin-bottom: 16px; }
+.auth-success  { background: #0a2010; border: 1px solid #4a8a5a; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #80d898; margin-bottom: 16px; }
+.auth-link     { background: none; border: none; color: var(--muted); font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer; text-decoration: underline; padding: 0; }
+.auth-links-row { display: flex; justify-content: space-between; margin-top: 16px; }
+.auth-hint     { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); margin-bottom: 20px; line-height: 1.6; }
+.auth-center   { text-align: center; margin-top: 20px; }
+.auth-consent      { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; cursor: pointer; }
+.auth-consent-last { margin-bottom: 16px; }
+.auth-consent input[type="checkbox"] { margin-top: 2px; accent-color: var(--gold); flex-shrink: 0; cursor: pointer; }
+.auth-consent-text { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--muted); line-height: 1.6; }
+.auth-inline-link  { background: none; border: none; color: var(--gold); font-family: 'JetBrains Mono', monospace; font-size: 11px; cursor: pointer; text-decoration: underline; padding: 0; }
+
+/* ── Messages ─────────────────────────────────────────────────────────────── */
+.ds-alert-error   { background: #200a0a; border: 1px solid #7a3a3a; color: #f08080; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.ds-alert-success { background: #0a2010; border: 1px solid #3a7a4a; color: #6dc87a; padding: 10px 14px; font-family: 'JetBrains Mono', monospace; font-size: 11px; }
