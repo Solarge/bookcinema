@@ -6,7 +6,7 @@ export const DEFAULT_MODEL = 'llama-3.3-70b-versatile'
 
 export function isConfigured() { return !!process.env.GROQ_API_KEY }
 
-export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', model = DEFAULT_MODEL }) {
+export async function generate({ bookText, genrePreset = 'cinematic', language = 'en', episodeCount = 7, model = DEFAULT_MODEL }) {
   // Read from env every call so tests (and runtime key rotation) take effect immediately.
   const apiKey = process.env.GROQ_API_KEY
   if (!apiKey) throw new Error('Groq is not configured (GROQ_API_KEY missing)')
@@ -20,7 +20,7 @@ export async function generate({ bookText, genrePreset = 'cinematic', language =
         model, max_tokens: 8000, temperature: 0.7,
         response_format: { type: 'json_object' },
         messages: [
-          { role: 'system', content: buildSystemPrompt(genrePreset, language) },
+          { role: 'system', content: buildSystemPrompt(genrePreset, language, episodeCount) },
           { role: 'user', content: `Here is the book to transform into a cinematic series:\n\n${bookText}` },
         ],
       }),

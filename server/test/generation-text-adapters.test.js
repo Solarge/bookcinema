@@ -143,3 +143,29 @@ test('deepseekText.generate surfaces a provider error body', async () => {
   globalThis.fetch = async () => ({ ok: false, status: 429, json: async () => ({ error: { message: 'rate limited' } }) })
   await assert.rejects(() => deepseekGenerate({ bookText: 'x', genrePreset: 'cinematic', language: 'en' }), /rate limited|429/)
 })
+
+// ── episodeCount passthrough tests ────────────────────────────────────────────
+
+test('groqText.generate passes episodeCount into the system prompt', async () => {
+  process.env.GROQ_API_KEY = 'test-key'
+  let capturedBody
+  globalThis.fetch = async (_url, opts) => {
+    capturedBody = JSON.parse(opts.body)
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: JSON.stringify({ title: 'T', characters: [], episodes: [] }) } }] }) }
+  }
+  await groqGenerate({ bookText: 'a book', genrePreset: 'cinematic', language: 'en', episodeCount: 5 })
+  assert.match(capturedBody.messages[0].content, /5-episode/)
+  assert.doesNotMatch(capturedBody.messages[0].content, /7-episode/)
+})
+
+test('anthropicText.generate passes episodeCount into the system prompt', async () => {
+  process.env.ANTHROPIC_API_KEY = 'test-key'
+  let capturedBody
+  globalThis.fetch = async (_url, opts) => {
+    capturedBody = JSON.parse(opts.body)
+    return { ok: true, status: 200, json: async () => ({ content: [{ text: JSON.stringify({ title: 'A', characters: [], episodes: [] }) }], stop_reason: 'end_turn' }) }
+  }
+  await anthropicGenerate({ bookText: 'a book', genrePreset: 'cinematic', language: 'en', episodeCount: 10 })
+  assert.match(capturedBody.system, /10-episode/)
+  assert.doesNotMatch(capturedBody.system, /7-episode/)
+})

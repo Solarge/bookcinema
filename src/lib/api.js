@@ -135,7 +135,7 @@ export const analytics = {
 
 // ── Managed generation ──────────────────────────────────────────────────────
 export const managed = {
-  generateText:    (data) => post('/api/generate/text',    data), // { bookText, genrePreset, language, tier } -> { jobId }
+  generateText:    (data) => post('/api/generate/text',    data), // { bookText, genrePreset, language, tier, episodeCount? } -> { jobId }
   generateImage:   (data) => post('/api/generate/image',   data), // { prompt, aspectRatio, tier } -> { jobId }
   generateVoice:   (data) => post('/api/generate/voice',   data), // { text, voiceId, tier } -> { jobId }
   generateVideo:   (data) => post('/api/generate/video',   data), // { prompt, aspectRatio, duration, tier } -> { jobId }

@@ -1,7 +1,8 @@
 import { getPreset } from './presets.js'
 import { buildLanguagePromptInstruction } from './lang.js'
 
-const BASE = `You are a cinematic series producer and screenwriter. Your job is to transform a book into a complete 7-episode AI video production package. Every response must be a valid JSON object only — no markdown, no preamble.
+function buildBASE(n) {
+  return `You are a cinematic series producer and screenwriter. Your job is to transform a book into a complete ${n}-episode AI video production package. Every response must be a valid JSON object only — no markdown, no preamble.
 
 Analyze the book provided and return a JSON object with this exact structure:
 
@@ -61,10 +62,21 @@ Analyze the book provided and return a JSON object with this exact structure:
   }
 }
 
-Generate all 7 episodes. Each episode should have 3–4 scenes. Make the dialogue feel like a real film script — natural, emotionally intelligent, true to the book's themes. Video prompts must be highly detailed and specific enough to generate consistent visual output.`
+Generate all ${n} episodes. Each episode should have 3–4 scenes. Make the dialogue feel like a real film script — natural, emotionally intelligent, true to the book's themes. Video prompts must be highly detailed and specific enough to generate consistent visual output.`
+}
 
-export function buildSystemPrompt(genrePresetKey = 'cinematic', langCode = 'en') {
+/**
+ * Build the system prompt used by all text-generation adapters.
+ *
+ * @param {string} genrePresetKey  - Genre/style preset key (default 'cinematic')
+ * @param {string} langCode        - BCP-47 language code (default 'en')
+ * @param {number} episodeCount    - Number of episodes to generate, clamped to [3,12] (default 7)
+ */
+export function buildSystemPrompt(genrePresetKey = 'cinematic', langCode = 'en', episodeCount = 7) {
+  // Clamp a numeric episode count to [3,12]; fall back to 7 only for non-numeric input.
+  const rounded = Math.round(Number(episodeCount))
+  const n = Number.isFinite(rounded) ? Math.min(12, Math.max(3, rounded)) : 7
   const preset = getPreset(genrePresetKey)
   const langInstruction = buildLanguagePromptInstruction(langCode)
-  return `${BASE}\n\nSTYLE INSTRUCTIONS:\n${preset.claudeAddition}\n${preset.systemAddition}${langInstruction}`
+  return `${buildBASE(n)}\n\nSTYLE INSTRUCTIONS:\n${preset.claudeAddition}\n${preset.systemAddition}${langInstruction}`
 }
