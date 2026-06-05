@@ -2,7 +2,7 @@ import { Router } from 'express'
 import crypto from 'crypto'
 import User from '../models/User.js'
 import { signAccess, signRefresh, verifyRefresh, verifyAccess, signEmailToken } from '../utils/jwt.js'
-import { sendEmail, passwordResetEmail, verifyEmail } from '../utils/email.js'
+import { sendEmail, passwordResetEmail, verifyEmail, welcomeEmail } from '../utils/email.js'
 import { config } from '../config.js'
 import { authLimiter } from '../middleware/rateLimit.js'
 import { blacklistToken, isTokenBlacklisted } from '../utils/redis.js'
@@ -191,8 +191,21 @@ router.get('/verify-email', async (req, res) => {
     if (payload.purpose !== 'verify_email') return res.status(400).json({ error: 'Invalid token purpose' })
     const user = await User.findById(payload.userId)
     if (!user) return res.status(404).json({ error: 'User not found' })
+    const alreadyVerified = !!user.emailVerifiedAt
     user.emailVerifiedAt = user.emailVerifiedAt || new Date()
     await user.save()
+    // Send welcome email on first verification — best-effort
+    if (!alreadyVerified) {
+      try {
+        await sendEmail({
+          to: user.email,
+          subject: 'Welcome to BookFilm Studio!',
+          html: welcomeEmail(user.name),
+        })
+      } catch (emailErr) {
+        console.warn('[auth] welcome email failed (non-fatal):', emailErr.message)
+      }
+    }
     // In test/API mode return JSON; in browser redirect
     if (req.headers.accept?.includes('application/json')) {
       return res.json({ message: 'Email verified' })

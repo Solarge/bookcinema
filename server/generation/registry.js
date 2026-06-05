@@ -93,7 +93,7 @@ export const MANAGED_PROVIDERS = {
   // premium 80 cr ($3.20 rev) vs ~$1.20 est cost → positive margin.
   video: {
     standard: {
-      credits: 40, estCostUsd: 0.60,
+      credits: 40, estCostUsd: 0.6,
       providers: [
         { provider: 'replicate', adapter: replicateVideo, model: replicateVideo.DEFAULT_MODEL },
         { provider: 'runway',    adapter: runwayVideo,    model: runwayVideo.DEFAULT_MODEL },
@@ -102,7 +102,7 @@ export const MANAGED_PROVIDERS = {
       ],
     },
     premium: {
-      credits: 80, estCostUsd: 1.20,
+      credits: 80, estCostUsd: 1.2,
       providers: [
         { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.DEFAULT_MODEL },
         { provider: 'runway',    adapter: runwayVideo,    model: runwayVideo.DEFAULT_MODEL },
