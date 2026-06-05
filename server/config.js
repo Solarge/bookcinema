@@ -101,6 +101,10 @@ export const config = {
     // When set, the middleware sums today's Job.costUsd across ALL workspaces and
     // blocks new generation if adding estCostFor(type,tier) would exceed this cap.
     dailySpendCapUsd: Number(process.env.MANAGED_DAILY_SPEND_CAP_USD) || 0,
+    // Maximum length of bookText accepted by /api/generate/text (characters).
+    // Reduces copyright-volume exposure and limits per-request LLM cost.
+    // Operators can raise/lower this via the MANAGED_MAX_BOOKTEXT_CHARS env var.
+    maxBookTextChars: Number(process.env.MANAGED_MAX_BOOKTEXT_CHARS) || 30000,
     caps: {
       text:  Number(process.env.MANAGED_CAP_TEXT_DAILY)  || 20,
       image: Number(process.env.MANAGED_CAP_IMAGE_DAILY) || 50,

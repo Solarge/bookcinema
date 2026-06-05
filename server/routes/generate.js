@@ -10,6 +10,8 @@ import { estCostFor } from '../generation/registry.js'
 import { debitCredits, refundCredits } from '../utils/credits.js'
 import { planFeatures } from '../plans.js'
 import { validateVideoUrl } from '../utils/urlGuard.js'
+import { moderateText } from '../utils/moderation.js'
+import { config } from '../config.js'
 
 const router = Router()
 router.use(requireAuth, resolveWorkspace, generationLimiter)
@@ -52,9 +54,38 @@ async function enqueueGeneration(req, res, { type, tier, params, payload }) {
 
 router.post('/text', managedAccess('text'), async (req, res) => {
   try {
-    const { bookText, genrePreset = 'cinematic', language = 'en', tier = 'standard' } = req.body
+    const { bookText, genrePreset = 'cinematic', language = 'en', tier = 'standard', rightsConfirmed } = req.body
     if (!bookText) return res.status(400).json({ error: 'bookText is required' })
     if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+
+    // Copyright assertion — server-enforced. The client HomeScreen passes rightsConfirmed:true
+    // after the user acknowledges the copyright notice. Must be checked BEFORE moderation/debit.
+    if (rightsConfirmed !== true) {
+      return res.status(400).json({
+        error: 'You must confirm you have the rights to use this text or that it is in the public domain.',
+        code: 'rights_required',
+      })
+    }
+
+    // bookText length cap — reduces copyright-volume and cost exposure.
+    // Cap is configurable via MANAGED_MAX_BOOKTEXT_CHARS env var (default 30 000).
+    const maxChars = config.managed.maxBookTextChars
+    if (bookText.length > maxChars) {
+      return res.status(400).json({
+        error: `Input is too long (max ${maxChars} characters). Please use an excerpt.`,
+        code: 'too_long',
+      })
+    }
+
+    // Server-side moderation — runs BEFORE credit debit so blocked content is never charged.
+    const mod = await moderateText(bookText)
+    if (mod.flagged) {
+      return res.status(422).json({
+        error: 'This content violates our usage policy and cannot be generated.',
+        code: 'content_blocked',
+      })
+    }
+
     return await enqueueGeneration(req, res, { type: 'text', tier, params: { genrePreset, language }, payload: { bookText, genrePreset, language, tier } })
   } catch (err) { console.error('generate/text error:', err); res.status(500).json({ error: 'Server error' }) }
 })
@@ -65,6 +96,16 @@ router.post('/voice', managedAccess('voice'), async (req, res) => {
     const { text, voiceId, tier = 'standard' } = req.body
     if (!text) return res.status(400).json({ error: 'text is required' })
     if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+
+    // Server-side moderation — runs BEFORE credit debit so blocked content is never charged.
+    const mod = await moderateText(text)
+    if (mod.flagged) {
+      return res.status(422).json({
+        error: 'This content violates our usage policy and cannot be generated.',
+        code: 'content_blocked',
+      })
+    }
+
     return await enqueueGeneration(req, res, { type: 'voice', tier, params: { text, voiceId: voiceId || null }, payload: { text, voiceId, tier } })
   } catch (err) { console.error('generate/voice error:', err); res.status(500).json({ error: 'Server error' }) }
 })
@@ -75,6 +116,16 @@ router.post('/image', managedAccess('image'), async (req, res) => {
     const { prompt, aspectRatio = '9:16', tier = 'standard' } = req.body
     if (!prompt) return res.status(400).json({ error: 'prompt is required' })
     if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+
+    // Server-side moderation — runs BEFORE credit debit so blocked content is never charged.
+    const mod = await moderateText(prompt)
+    if (mod.flagged) {
+      return res.status(422).json({
+        error: 'This content violates our usage policy and cannot be generated.',
+        code: 'content_blocked',
+      })
+    }
+
     return await enqueueGeneration(req, res, { type: 'image', tier, params: { prompt, aspectRatio }, payload: { prompt, aspectRatio, tier } })
   } catch (err) { console.error('generate/image error:', err); res.status(500).json({ error: 'Server error' }) }
 })
@@ -86,6 +137,16 @@ router.post('/video', managedAccess('video'), async (req, res) => {
     const effectivePrompt = prompt || kling_prompt
     if (!effectivePrompt) return res.status(400).json({ error: 'prompt is required' })
     if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+
+    // Server-side moderation — runs BEFORE credit debit so blocked content is never charged.
+    const mod = await moderateText(effectivePrompt)
+    if (mod.flagged) {
+      return res.status(422).json({
+        error: 'This content violates our usage policy and cannot be generated.',
+        code: 'content_blocked',
+      })
+    }
+
     return await enqueueGeneration(req, res, {
       type: 'video', tier,
       params:  { prompt: effectivePrompt, aspectRatio, duration },

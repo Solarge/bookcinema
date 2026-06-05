@@ -81,7 +81,7 @@ test('text/standard job creation sets costUsd = estCostFor(text,standard)', asyn
   const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
   await Workspace.findByIdAndUpdate(workspace._id, { monthlyCredits: 50, purchasedCredits: 0, creditPeriod: period })
   const res = await authed(request(app(fakeQueue)).post('/api/generate/text'), token, workspace._id)
-    .send({ bookText: 'once upon a time', tier: 'standard' })
+    .send({ bookText: 'once upon a time', rightsConfirmed: true, tier: 'standard' })
   assert.equal(res.status, 202)
   const job = await Job.findById(res.body.jobId)
   assert.equal(job.costUsd, estCostFor('text', 'standard'), 'costUsd should equal estCostFor(text,standard)')
@@ -116,7 +116,7 @@ test('POST /text 202 body includes creditsCharged and creditsRemaining', async (
   const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
   await Workspace.findByIdAndUpdate(workspace._id, { monthlyCredits: 10, purchasedCredits: 5, creditPeriod: period })
   const res = await authed(request(app(fakeQueue)).post('/api/generate/text'), token, workspace._id)
-    .send({ bookText: 'the tale', tier: 'standard' })
+    .send({ bookText: 'the tale', rightsConfirmed: true, tier: 'standard' })
   assert.equal(res.status, 202)
   assert.ok(res.body.jobId, 'jobId present')
   // text/standard costs 1 credit; started with 15 total

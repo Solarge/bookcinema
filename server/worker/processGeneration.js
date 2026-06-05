@@ -1,5 +1,6 @@
 import Job from '../models/Job.js'
 import UsageLog from '../models/UsageLog.js'
+import Workspace from '../models/Workspace.js'
 import { resolve as defaultResolve } from '../generation/resolve.js'
 import { uploadBuffer as defaultUpload } from '../utils/s3.js'
 
@@ -12,7 +13,16 @@ export async function processGeneration(data, deps = {}) {
   try {
     const entry = resolveFn(type, tier)
 
-    // --- free-first failover loop ---
+    // --- plan-aware free-first failover loop ---
+    // Fetch the workspace plan once per job so we can skip freeOnly providers
+    // for paid-plan (pro/studio) workspaces.
+    // Rationale: free-tier API accounts (Groq free, Gemini free, etc.) prohibit
+    // commercial use. Paid customers must not inadvertently run on these keys.
+    // To flag a provider as free-tier: set freeOnly:true on its registry entry.
+    // Default: no entries flagged → no behavior change.
+    const ws = await Workspace.findById(workspaceId).select('plan').lean()
+    const isPaidPlan = ws && (ws.plan === 'pro' || ws.plan === 'studio')
+
     // entry.providers is the ordered list; entry.adapter/.provider for legacy injected fakes.
     const providers = entry.providers || [{ provider: entry.provider, adapter: entry.adapter, model: entry.model }]
     let result
@@ -20,6 +30,8 @@ export async function processGeneration(data, deps = {}) {
     for (const p of providers) {
       // Skip providers whose key isn't configured (not a failure — just not available here)
       if (typeof p.adapter.isConfigured === 'function' && !p.adapter.isConfigured()) continue
+      // Skip freeOnly providers for paid-plan workspaces (commercial ToS safety).
+      if (p.freeOnly && isPaidPlan) continue
       try {
         result = await p.adapter.generate({ ...payload, model: p.model })
         provider = p.provider

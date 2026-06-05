@@ -24,6 +24,15 @@ export const FLAT_EST_COSTS = {
 // Each tier has an ordered `providers` list; the worker tries them in order,
 // skipping providers whose isConfigured() returns false, and failing over on error.
 // Credits charged = the tier's nominal credits regardless of which provider serves.
+//
+// freeOnly: true — optional flag on a provider entry.
+// When set, the worker will SKIP this provider for paid-plan (pro/studio) workspaces.
+// Purpose: free-tier API accounts (Groq free, Gemini free, etc.) prohibit commercial use.
+// Paid customers must not inadvertently run on these keys.
+// Usage: once the operator confirms a provider key is a free-tier account, add
+//   freeOnly: true to its entry. Example:
+//     { provider: 'groq', adapter: groqText, model: groqText.DEFAULT_MODEL, freeOnly: true },
+// Default is no entries flagged → no behavior change until the operator explicitly marks them.
 export const MANAGED_PROVIDERS = {
   text: {
     standard: {
