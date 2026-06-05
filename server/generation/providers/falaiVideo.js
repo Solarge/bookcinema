@@ -3,8 +3,8 @@
 // against https://fal.run/fal-ai/kling-video/v1.6/standard/text-to-video before
 // deploying to production.
 
-const SUBMIT_URL = 'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video'
 export const DEFAULT_MODEL = 'fal-ai/kling-video/v1.6/standard/text-to-video'
+export const PRO_MODEL = 'fal-ai/kling-video/v1.6/pro/text-to-video'
 
 export function isConfigured() { return !!process.env.FALAI_KEY }
 
@@ -34,16 +34,17 @@ async function pollFalQueue(statusUrl, apiKey, maxAttempts = 100) {
   throw new Error('fal.ai video generation timed out after polling')
 }
 
-export async function generate({ prompt, aspectRatio = '9:16', duration = 5 }) {
+export async function generate({ prompt, aspectRatio = '9:16', duration = 5, model }) {
   const apiKey = process.env.FALAI_KEY
   if (!apiKey) throw new Error('fal.ai is not configured (FALAI_KEY missing)')
 
   const ar = ASPECT_RATIO_MAP[aspectRatio] || '9:16'
+  const submitUrl = `https://queue.fal.run/${model || DEFAULT_MODEL}`
 
   // Submit to fal.ai async queue
   let submitRes
   try {
-    submitRes = await fetch(SUBMIT_URL, {
+    submitRes = await fetch(submitUrl, {
       method: 'POST',
       headers: { Authorization: `Key ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

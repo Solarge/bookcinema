@@ -221,7 +221,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
           prompt:      scene.kling_prompt,
           aspectRatio: settings.aspectRatio,
           duration:    settings.videoDuration,
-          tier:        settings.managedTier || 'standard',
+          tier:        settings.managedVideoTier || 'premium',
         }))
         const job = await pollJob(jobId)
         if (job.status !== 'done' || !job.result?.url) {

@@ -181,6 +181,30 @@ export default function SettingsPanel({ onClose }) {
             ))}
           </Section>
 
+          {/* ── VIDEO TIER ───────────────────────────────────────────── */}
+          <Section title="Video Tier">
+            <div className="set-tab-row">
+              {[['standard', 'Standard · 40 cr'], ['premium', 'Premium (Kling Pro) · 80 cr']].map(([val, label]) => {
+                const isLocked = val === 'premium' && !hasPremium
+                const isActive = (settings.managedVideoTier || 'premium') === val
+                return (
+                  <button
+                    key={val}
+                    onClick={() => { if (!isLocked) updateSettings({ managedVideoTier: val }) }}
+                    disabled={isLocked}
+                    title={isLocked ? 'Requires Pro or Studio plan — upgrade to unlock' : undefined}
+                    className={`set-tab-btn${isActive && !isLocked ? ' is-active' : ''}`}
+                  >
+                    {label}
+                    {isLocked && (
+                      <span className="set-lock-badge">🔒 Pro</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </Section>
+
           {/* ── VIDEO DURATION ───────────────────────────────────────── */}
           <Section title="Video Duration">
             {DURATION_OPTIONS.map(({ value, label, sub }) => (
