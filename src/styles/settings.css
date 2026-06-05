@@ -114,6 +114,22 @@
   color: var(--muted);
   letter-spacing: 0.5px;
 }
+.set-tab-sublabel {
+  font-size: 8px;
+  color: var(--muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* Simple / Advanced view toggle */
+.set-view-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 10px 18px 0;
+}
+.set-view-toggle .set-tab-btn {
+  flex: 1;
+}
 
 /* Tier / plan description */
 .set-tier-desc {
