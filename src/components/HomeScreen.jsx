@@ -76,7 +76,7 @@ export default function HomeScreen({
     if (!copyrightAck) return
     const safety = checkContentSafety(text)
     if (!safety.safe) { setSafetyWarning(safety.message); return }
-    onGenerate(text, genrePreset)
+    onGenerate(text, genrePreset, copyrightAck)
   }
 
   const hasContent = (pdfStatus === 'done' && uploadedText) ||
