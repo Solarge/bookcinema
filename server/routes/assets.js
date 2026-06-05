@@ -6,16 +6,30 @@ import { requireAuth } from '../middleware/auth.js'
 import { resolveWorkspace } from '../middleware/workspace.js'
 import { uploadImage, uploadVideo, uploadAudio } from '../middleware/upload.js'
 import { uploadLimiter } from '../middleware/rateLimit.js'
-import { deleteObject } from '../utils/s3.js'
+import { deleteObject, getPresignedUrl } from '../utils/s3.js'
 
 const router = Router()
 router.use(requireAuth, resolveWorkspace)
+
+// Replace the stored public s3Url with a short-lived presigned URL the browser can
+// actually load (the bucket keeps Block Public Access on). Falls back to the stored
+// URL if signing fails for any reason.
+async function withSignedUrl(asset) {
+  const obj = typeof asset.toObject === 'function' ? asset.toObject() : asset
+  if (!obj.s3Key) return obj
+  try {
+    return { ...obj, s3Url: await getPresignedUrl(obj.s3Key, 3600) }
+  } catch (err) {
+    console.warn('assets presign failed, falling back to stored url:', err.message)
+    return obj
+  }
+}
 
 // GET /api/assets/:seriesId — list assets for a series in the active workspace
 router.get('/:seriesId', async (req, res) => {
   try {
     const assets = await Asset.find({ seriesId: req.params.seriesId, workspaceId: req.workspace._id }).sort({ createdAt: 1 })
-    res.json(assets)
+    res.json(await Promise.all(assets.map(withSignedUrl)))
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
 
