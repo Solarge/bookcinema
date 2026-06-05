@@ -48,5 +48,28 @@ The platform pays for all AI. Premium image/video need funded provider accounts:
 - For paid customers, use **paid** Groq/Gemini tiers and flag the free ones `freeOnly: true` in `server/generation/registry.js` (commercial-ToS safety).
 Optionally set `MANAGED_DAILY_SPEND_CAP_USD` (platform daily $ kill-switch).
 
-## 7. Required prod env recap
+## 7. S3 bucket: keep private + add CORS
+
+The asset bucket should keep **Block Public Access ON**. Generated media is served to the
+browser via short-lived **presigned URLs** (the jobs route signs them at read-time), so the
+bucket never needs public-read. Images/video/voice display fine this way.
+
+For the browser to also **cache** assets locally (IndexedDB via `fetchAndStore`) it issues a
+cross-origin `fetch()` against the presigned URL — that needs a bucket **CORS** rule. Without
+it, display still works (the `<img>`/`<video>` tag loads the presigned URL directly), but
+caching falls back to streaming each view. Apply this CORS config to the bucket:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://<your-app-domain>"],
+    "AllowedMethods": ["GET"],
+    "AllowedHeaders": ["*"],
+    "ExposeHeaders": [],
+    "MaxAgeSeconds": 3000
+  }
+]
+```
+
+## 8. Required prod env recap
 `MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `AWS_*`, `REDIS_URL` (+ `REDIS_PASSWORD` in root `.env` for docker), `SOCIAL_TOKEN_KEY` (social), `STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET`/`STRIPE_PRICE_*` (billing). Build the frontend with `VITE_API_URL` set. The worker (`npm run worker`) must run alongside the API for managed generation.
