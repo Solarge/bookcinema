@@ -142,7 +142,8 @@ export const managed = {
   generateImage:   (data) => post('/api/generate/image',   data), // { prompt, aspectRatio, tier } -> { jobId }
   generateVoice:   (data) => post('/api/generate/voice',   data), // { text, voiceId, tier } -> { jobId }
   generateVideo:   (data) => post('/api/generate/video',   data), // { prompt, aspectRatio, duration, tier } -> { jobId }
-  compileEpisode:  (data) => post('/api/generate/compile', data), // { seriesId, episodeNumber, clips: [url,...] } -> { jobId }
+  generateMusic:   (data) => post('/api/generate/music',   data), // { prompt, duration, tier } -> { jobId }
+  compileEpisode:  (data) => post('/api/generate/compile', data), // { seriesId, episodeNumber, clips: [url,...], soundtrackUrl? } -> { jobId }
   getJob:          (id)   => get(`/api/jobs/${id}`),
   listJobs:        ()     => get('/api/jobs'),
 }

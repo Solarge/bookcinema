@@ -62,6 +62,9 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
   const [characters, setCharacters] = useState({})
   const [scenes,     setScenes]     = useState({})
   const [dialogue,   setDialogue]   = useState({})
+  // Music: per-scene beds keyed `ep<n>-s<m>`; per-episode scores keyed `ep<n>`.
+  const [sceneMusic,   setSceneMusic]   = useState({})
+  const [episodeScore, setEpisodeScore] = useState({})
   const [sessionCost, setSessionCost] = useState(() => loadSessionCost())
   // Per-slot saving state: { [storeKey]: 'saving' | 'error' | undefined }
   const [saving, setSaving] = useState({})
@@ -118,6 +121,22 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
               ...prev,
               [key]: { ...(prev[key] ?? IDLE), ...cloudPatch, audioUrl: s3Url },
             }))
+          } else if (prefix === 'scene-music') {
+            // mediaKey('scene-music', slug, 'ep<n>', 's<n>')
+            const epPart = parts[2]
+            const sPart  = parts[3]
+            const key = `${epPart}-${sPart}` // 'ep1-s1'
+            setSceneMusic(prev => ({
+              ...prev,
+              [key]: { ...(prev[key] ?? IDLE), ...cloudPatch, audioUrl: s3Url },
+            }))
+          } else if (prefix === 'episode-score') {
+            // mediaKey('episode-score', slug, 'ep<n>')
+            const key = parts[2] // 'ep1'
+            setEpisodeScore(prev => ({
+              ...prev,
+              [key]: { ...(prev[key] ?? IDLE), ...cloudPatch, audioUrl: s3Url },
+            }))
           }
         }
       } catch (err) {
@@ -152,6 +171,8 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
   // lets a reopened series rehydrate it. Best-effort: never blocks/breaks generation.
   const persistJobAsset = useCallback(async (kind, slotKey, storeKey, jobId, meta = {}) => {
     if (!cloudEnabled || !jobId) return
+    // Music kinds must tell the backend what flavour of asset this is.
+    const assetType = kind === 'scene-music' ? 'scene_music' : kind === 'episode-score' ? 'episode_score' : undefined
     try {
       const result = await assetsApi.fromJob(seriesId, {
         jobId,
@@ -160,11 +181,14 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
         quality:     meta.quality,
         aspectRatio: meta.aspectRatio,
         prompt:      meta.prompt,
+        ...(assetType ? { assetType } : {}),
       })
       const patch = { serverId: result._id, serverUrl: result.s3Url, savedToCloud: true }
-      if (kind === 'image')      setCharacters(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
-      else if (kind === 'video') setScenes(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
-      else                       setDialogue(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      if (kind === 'image')             setCharacters(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else if (kind === 'video')        setScenes(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else if (kind === 'scene-music')  setSceneMusic(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else if (kind === 'episode-score') setEpisodeScore(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else                              setDialogue(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
     } catch (err) {
       console.warn('[MediaContext] auto-persist failed (asset can still be saved manually):', err)
     }
@@ -299,6 +323,52 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     }
   }, [settings, getApiKey, seriesSlug, addVoiceCost, persistJobAsset])
 
+  // ── Music: per-scene bed ────────────────────────────────────────────────────
+  const generateSceneMusic = useCallback(async (epNum, scene) => {
+    const key = `ep${epNum}-s${scene.scene_number}`
+    setSceneMusic(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'generating', error: null } }))
+    try {
+      const tier = settings.managedTier || 'standard'
+      const { jobId } = await managedApi.generateMusic({ prompt: scene.music_prompt, duration: 8, tier })
+      const job = await pollJob(jobId)
+      if (job.status !== 'done' || !job.result?.url) throw new Error(job.error || 'Managed music generation failed')
+      const url = job.result.url
+      const storeKey = mediaKey('scene-music', seriesSlug, `ep${epNum}`, `s${scene.scene_number}`)
+      const localUrl = await fetchAndStore(storeKey, url)
+      setSceneMusic(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl: localUrl || url, jobId, error: null } }))
+      await persistJobAsset('scene-music', key, storeKey, jobId, { provider: 'managed', prompt: scene.music_prompt })
+    } catch (err) {
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Music generation requires a higher plan. Upgrade to unlock.')
+        : err.message
+      setSceneMusic(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
+    }
+  }, [settings, seriesSlug, persistJobAsset])
+
+  // ── Music: per-episode soundtrack score ─────────────────────────────────────
+  const generateEpisodeSoundtrack = useCallback(async (epNum, episode) => {
+    const key = `ep${epNum}`
+    setEpisodeScore(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'generating', error: null } }))
+    try {
+      const tier = settings.managedTier || 'standard'
+      const prompt = episode.soundtrack?.music_prompt
+      const duration = episode.soundtrack?.duration_sec || 20
+      const { jobId } = await managedApi.generateMusic({ prompt, duration, tier })
+      const job = await pollJob(jobId)
+      if (job.status !== 'done' || !job.result?.url) throw new Error(job.error || 'Managed soundtrack generation failed')
+      const url = job.result.url
+      const storeKey = mediaKey('episode-score', seriesSlug, `ep${epNum}`)
+      const localUrl = await fetchAndStore(storeKey, url)
+      setEpisodeScore(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'done', audioUrl: localUrl || url, jobId, error: null } }))
+      await persistJobAsset('episode-score', key, storeKey, jobId, { provider: 'managed', prompt })
+    } catch (err) {
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Soundtrack generation requires a higher plan. Upgrade to unlock.')
+        : err.message
+      setEpisodeScore(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'error', error: displayMsg } }))
+    }
+  }, [settings, seriesSlug, persistJobAsset])
+
   // ── Approval (with optional cloud sync) ──────────────────────────────────
   const setCharApproval = useCallback((id, s) => {
     setCharacters(prev => {
@@ -325,10 +395,14 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
   // storeKey: the IndexedDB key (mediaKey output)
   const saveToCloud = useCallback(async (kind, slotKey, storeKey, meta = {}) => {
     if (!cloudEnabled) return
+    // Music kinds carry an explicit assetType for the backend; they also persist as audio.
+    const assetType = kind === 'scene-music' ? 'scene_music' : kind === 'episode-score' ? 'episode_score' : undefined
     const applyCloudPatch = (patch) => {
-      if (kind === 'image')      setCharacters(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
-      else if (kind === 'video') setScenes(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
-      else                       setDialogue(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      if (kind === 'image')             setCharacters(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else if (kind === 'video')        setScenes(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else if (kind === 'scene-music')  setSceneMusic(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else if (kind === 'episode-score') setEpisodeScore(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
+      else                              setDialogue(prev => ({ ...prev, [slotKey]: { ...(prev[slotKey] ?? IDLE), ...patch } }))
     }
     setSaving(prev => ({ ...prev, [storeKey]: 'saving' }))
     try {
@@ -336,11 +410,16 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       if (!blob) {
         // Managed media isn't always cached locally (the S3 fetch can be CORS-blocked),
         // so promote the generation job's S3 result directly instead of re-uploading bytes.
-        const slot = kind === 'image' ? characters[slotKey] : kind === 'video' ? scenes[slotKey] : dialogue[slotKey]
+        const slot = kind === 'image' ? characters[slotKey]
+          : kind === 'video' ? scenes[slotKey]
+          : kind === 'scene-music' ? sceneMusic[slotKey]
+          : kind === 'episode-score' ? episodeScore[slotKey]
+          : dialogue[slotKey]
         if (slot?.jobId) {
           const result = await assetsApi.fromJob(seriesId, {
             jobId: slot.jobId, assetKey: toAssetKey(storeKey),
             provider: meta.provider, quality: meta.quality, aspectRatio: meta.aspectRatio, prompt: meta.prompt,
+            ...(assetType ? { assetType } : {}),
           })
           applyCloudPatch({ serverId: result._id, serverUrl: result.s3Url, savedToCloud: true })
           setSaving(prev => ({ ...prev, [storeKey]: undefined }))
@@ -358,6 +437,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       if (meta.quality)     fd.append('quality', meta.quality)
       if (meta.aspectRatio) fd.append('aspectRatio', meta.aspectRatio)
       if (meta.costUsd != null) fd.append('costUsd', String(meta.costUsd))
+      if (assetType) fd.append('assetType', assetType)
 
       let result
       if (kind === 'image') result = await assetsApi.uploadImage(seriesId, fd)
@@ -372,14 +452,16 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       setTimeout(() => setSaving(prev => ({ ...prev, [storeKey]: undefined })), 8000)
       console.warn('[MediaContext] saveToCloud failed:', err)
     }
-  }, [cloudEnabled, seriesId, settings.imageProvider, characters, scenes, dialogue])
+  }, [cloudEnabled, seriesId, settings.imageProvider, characters, scenes, dialogue, sceneMusic, episodeScore])
 
   // ── Delete from cloud ─────────────────────────────────────────────────────
   const deleteFromCloud = useCallback(async (kind, slotKey) => {
     if (!cloudEnabled) return
     const getServerId = () => {
-      if (kind === 'image')  return characters[slotKey]?.serverId
-      if (kind === 'video')  return scenes[slotKey]?.serverId
+      if (kind === 'image')         return characters[slotKey]?.serverId
+      if (kind === 'video')         return scenes[slotKey]?.serverId
+      if (kind === 'scene-music')   return sceneMusic[slotKey]?.serverId
+      if (kind === 'episode-score') return episodeScore[slotKey]?.serverId
       return dialogue[slotKey]?.serverId
     }
     const serverId = getServerId()
@@ -390,10 +472,12 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       console.warn('[MediaContext] deleteFromCloud failed:', err)
     }
     const clearCloud = slot => ({ ...slot, serverId: undefined, serverUrl: undefined, savedToCloud: false })
-    if (kind === 'image')  setCharacters(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
-    else if (kind === 'video') setScenes(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
+    if (kind === 'image')             setCharacters(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
+    else if (kind === 'video')        setScenes(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
+    else if (kind === 'scene-music')  setSceneMusic(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
+    else if (kind === 'episode-score') setEpisodeScore(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
     else setDialogue(prev => ({ ...prev, [slotKey]: clearCloud(prev[slotKey] ?? IDLE) }))
-  }, [cloudEnabled, characters, scenes, dialogue])
+  }, [cloudEnabled, characters, scenes, dialogue, sceneMusic, episodeScore])
 
   // ── Batch ─────────────────────────────────────────────────────────────────
   const generateBatch = useCallback(async (series, mode = 'batch') => {
@@ -421,8 +505,9 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
 
   return (
     <MediaContext.Provider value={{
-      characters, scenes, dialogue, sessionCost,
+      characters, scenes, dialogue, sceneMusic, episodeScore, sessionCost,
       generateCharacterImage, generateSceneVideo, generateDialogueVoice, generateBatch,
+      generateSceneMusic, generateEpisodeSoundtrack,
       setCharApproval, setSceneApproval,
       portraitRefs,
       // Cloud sync
