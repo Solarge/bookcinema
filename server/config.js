@@ -16,6 +16,8 @@ export const config = {
   jwtExpiry:    process.env.JWT_EXPIRY        || '15m',
   refreshExpiry:process.env.REFRESH_EXPIRY    || '7d',
   clientUrl:    process.env.CLIENT_URL        || 'http://localhost:5173',
+  adminUrl:     process.env.ADMIN_URL         || '',
+  cookieDomain: process.env.COOKIE_DOMAIN     || '',
 
   aws: {
     region:          required('AWS_REGION'),

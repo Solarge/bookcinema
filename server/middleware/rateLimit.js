@@ -35,3 +35,12 @@ export const uploadLimiter = rateLimit({
   legacyHeaders: false,
   skip: () => process.env.NODE_ENV === 'test',
 })
+
+export const adminLimiter = rateLimit({
+  windowMs: 60 * 1000,       // 1 min
+  max: 60,
+  message: { error: 'Too many admin requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+})

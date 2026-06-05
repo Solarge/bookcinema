@@ -42,8 +42,17 @@ app.set('trust proxy', 1)
 
 // ── Security middleware ───────────────────────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }))
+// Build the allowed-origins list: always include clientUrl; add adminUrl when configured.
+const _allowedOrigins = [config.clientUrl]
+if (config.adminUrl) _allowedOrigins.push(config.adminUrl)
+
 app.use(cors({
-  origin: config.clientUrl,
+  origin: (origin, cb) => {
+    // Allow requests with no origin (server-to-server, curl, Postman in dev) and
+    // any origin that is in the explicit allowed list.
+    if (!origin || _allowedOrigins.includes(origin)) return cb(null, true)
+    cb(new Error(`CORS: origin ${origin} not allowed`))
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Workspace-Id'],
