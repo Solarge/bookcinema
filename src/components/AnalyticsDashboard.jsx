@@ -2,13 +2,14 @@ import { useState, useEffect, useRef } from 'react'
 import PropTypes from 'prop-types'
 import { getAnalytics, exportAnalyticsCSV, clearAnalytics } from '../utils/analytics'
 import { useDivModalA11y } from '../hooks/useModalA11y'
+import '../styles/misc-components.css'
 
 function StatCard({ label, value, sub }) {
   return (
-    <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', padding: '16px', textAlign: 'center' }}>
-      <div style={{ fontFamily: "'Cinzel', serif", fontSize: '28px', color: 'var(--gold)', marginBottom: '4px' }}>{value}</div>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', letterSpacing: '2px', textTransform: 'uppercase' }}>{label}</div>
-      {sub && <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#4a5a6a', marginTop: '2px' }}>{sub}</div>}
+    <div className="an-stat-card">
+      <div className="an-stat-value">{value}</div>
+      <div className="an-stat-label">{label}</div>
+      {sub && <div className="an-stat-sub">{sub}</div>}
     </div>
   )
 }
@@ -20,8 +21,8 @@ function DayRow({ session }) {
   const voices = session.events.filter(e => e.type === 'voice').length
   const cost   = session.events.reduce((a, e) => a + (e.costUsd ?? 0), 0)
   return (
-    <div style={{ display: 'flex', gap: '16px', padding: '10px 0', borderBottom: '1px solid var(--border)', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px' }}>
-      <span style={{ color: 'var(--muted)', width: '100px', flexShrink: 0 }}>{session.date}</span>
+    <div className="an-day-row">
+      <span className="an-day-date">{session.date}</span>
       <span style={{ color: 'var(--char-protagonist)' }}>🖼 {imgs}</span>
       <span style={{ color: 'var(--char-love)' }}>🎬 {vids}</span>
       <span style={{ color: 'var(--char-ally)' }}>🎙 {voices}</span>
@@ -43,32 +44,27 @@ export default function AnalyticsDashboard({ onClose }) {
   const recent = [...data.sessions].reverse().slice(0, 30)
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 400, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }} onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()} role="presentation">
+    <div className="an-overlay" onClick={onClose} onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onClose()} role="presentation">
       <div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="analytics-modal-title"
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        className="an-dialog"
         onClick={e => e.stopPropagation()}
       >
-
-        <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span id="analytics-modal-title" style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>ANALYTICS</span>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button onClick={exportAnalyticsCSV} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 12px', background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', cursor: 'pointer', letterSpacing: '1px' }}>
-              ⬇ Export CSV
-            </button>
-            <button onClick={() => { clearAnalytics(); setData(getAnalytics()) }} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', padding: '6px 12px', background: 'transparent', border: '1px solid #804040', color: '#f08080', cursor: 'pointer', letterSpacing: '1px' }}>
-              Clear
-            </button>
-            <button onClick={onClose} aria-label="Close analytics dialog" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        <div className="an-header">
+          <span id="analytics-modal-title" className="an-title">ANALYTICS</span>
+          <div className="an-header-actions">
+            <button onClick={exportAnalyticsCSV} className="an-export-btn">⬇ Export CSV</button>
+            <button onClick={() => { clearAnalytics(); setData(getAnalytics()) }} className="an-clear-btn">Clear</button>
+            <button onClick={onClose} aria-label="Close analytics dialog" className="an-close-btn">×</button>
           </div>
         </div>
 
-        <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+        <div className="an-body">
           {/* Totals */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '12px', marginBottom: '28px' }}>
+          <div className="an-stats-grid">
             <StatCard label="Series" value={data.totals.seriesGenerated ?? 0} />
             <StatCard label="Images" value={data.totals.images ?? 0} />
             <StatCard label="Videos" value={data.totals.videos ?? 0} />
@@ -77,12 +73,11 @@ export default function AnalyticsDashboard({ onClose }) {
           </div>
 
           {/* Day-by-day */}
-          <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', letterSpacing: '3px', color: 'var(--gold)', marginBottom: '12px' }}>RECENT ACTIVITY</div>
-          {recent.length === 0 ? (
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--muted)', textAlign: 'center', padding: '32px' }}>No activity recorded yet</div>
-          ) : (
-            recent.map(s => <DayRow key={s.date} session={s} />)
-          )}
+          <div className="an-activity-heading">RECENT ACTIVITY</div>
+          {recent.length === 0
+            ? <div className="an-no-activity">No activity recorded yet</div>
+            : recent.map(s => <DayRow key={s.date} session={s} />)
+          }
         </div>
       </div>
     </div>

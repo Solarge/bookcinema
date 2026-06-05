@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { getPublicShare } from '../lib/api'
+import '../styles/public-series.css'
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function roleColor(role) {
@@ -12,78 +13,59 @@ function roleColor(role) {
 }
 
 function SectionHead({ children }) {
-  return (
-    <h2 style={{
-      fontFamily: "'Cinzel', serif", fontSize: '13px', letterSpacing: '4px',
-      textTransform: 'uppercase', color: 'var(--gold)', borderBottom: '1px solid var(--border)',
-      paddingBottom: '10px', marginBottom: '24px',
-    }}>{children}</h2>
-  )
+  return <h2 className="psv-section-head">{children}</h2>
 }
 
 function Label({ children }) {
-  return (
-    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '2px', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: '4px', marginTop: '10px' }}>
-      {children}
-    </div>
-  )
+  return <div className="psv-prod-label">{children}</div>
 }
 
 // ── Character card (read-only) ──────────────────────────────────────────────
 function CharacterCard({ char }) {
+  const rc = roleColor(char.role)
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
-        <span style={{ fontFamily: "'Cinzel', serif", fontSize: '18px', color: 'var(--cream)' }}>{char.name}</span>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', padding: '2px 8px', border: `1px solid ${roleColor(char.role)}`, color: roleColor(char.role), letterSpacing: '1.5px', textTransform: 'uppercase' }}>{char.role}</span>
-        {char.age && <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>{char.age}</span>}
+    <div className="psv-char-card">
+      <div className="psv-char-card__namerow">
+        <span className="psv-char-card__name">{char.name}</span>
+        <span className="psv-char-card__role" style={{ border: `1px solid ${rc}`, color: rc }}>{char.role}</span>
+        {char.age && <span className="psv-char-card__age">{char.age}</span>}
       </div>
-      {char.description && (
-        <p style={{ fontStyle: 'italic', color: '#c0b090', fontSize: '15px', lineHeight: '1.6' }}>{char.description}</p>
-      )}
+      {char.description && <p className="psv-char-card__desc">{char.description}</p>}
     </div>
   )
 }
 
 // ── Episode section (read-only) ─────────────────────────────────────────────
 function EpisodeSection({ episode, characters }) {
-  const charName = (id) => (characters || []).find(c => c.id === id)?.name || id
+  const charName  = (id) => (characters || []).find(c => c.id === id)?.name || id
   const charColor = (id) => roleColor((characters || []).find(c => c.id === id)?.role)
 
   return (
-    <section style={{ marginBottom: '56px' }} aria-label={`Episode ${episode.number}: ${episode.title}`}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px', marginBottom: '16px' }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '3px', color: 'var(--gold)', opacity: 0.6 }}>EPISODE {episode.number}</span>
-        <h3 style={{ fontFamily: "'Cinzel', serif", fontSize: '22px', color: 'var(--cream)', margin: 0 }}>{episode.title}</h3>
+    <section className="psv-episode" aria-label={`Episode ${episode.number}: ${episode.title}`}>
+      <div className="psv-episode__heading">
+        <span className="psv-episode__num">EPISODE {episode.number}</span>
+        <h3 className="psv-episode__title">{episode.title}</h3>
       </div>
-      {episode.summary && (
-        <p style={{ fontStyle: 'italic', color: '#9090a0', marginBottom: '8px', fontSize: '15px', lineHeight: '1.7' }}>{episode.summary}</p>
-      )}
-      {episode.episode_hook && (
-        <p style={{ color: '#c8b890', fontSize: '16px', marginBottom: '24px', lineHeight: '1.6' }}>{episode.episode_hook}</p>
-      )}
+      {episode.summary && <p className="psv-episode__summary">{episode.summary}</p>}
+      {episode.episode_hook && <p className="psv-episode__hook">{episode.episode_hook}</p>}
 
       {(episode.scenes || []).map((scene, idx) => (
-        <div key={idx} style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '20px', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', letterSpacing: '2px', color: 'var(--muted)', textTransform: 'uppercase' }}>Scene {scene.scene_number}</span>
-            {scene.setting && (
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--gold)', letterSpacing: '1px' }}>{scene.setting}</span>
-            )}
+        <div key={idx} className="psv-scene">
+          <div className="psv-scene__header">
+            <span className="psv-scene__num">Scene {scene.scene_number}</span>
+            {scene.setting && <span className="psv-scene__setting">{scene.setting}</span>}
           </div>
           {scene.scene_description && (
-            <p style={{ color: 'var(--muted)', fontSize: '15px', lineHeight: '1.7', marginBottom: '14px' }}>{scene.scene_description}</p>
+            <p className="psv-scene__desc">{scene.scene_description}</p>
           )}
           {(scene.dialogue || []).map((line, dIdx) => (
-            <div key={dIdx} style={{ marginBottom: '14px', paddingLeft: '16px', borderLeft: `2px solid ${charColor(line.character)}44` }}>
-              <div style={{ fontFamily: "'Cinzel', serif", fontSize: '10px', fontVariant: 'small-caps', letterSpacing: '2px', color: charColor(line.character), marginBottom: '4px' }}>
+            <div key={dIdx} className="psv-dialogue" style={{ borderLeft: `2px solid ${charColor(line.character)}44` }}>
+              <div className="psv-dialogue__speaker" style={{ color: charColor(line.character) }}>
                 {charName(line.character)}
               </div>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '19px', color: 'var(--cream)', lineHeight: '1.6' }}>
-                &ldquo;{line.line}&rdquo;
-              </div>
+              <div className="psv-dialogue__line">&ldquo;{line.line}&rdquo;</div>
               {line.voice_direction && (
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#4a5a6a', marginTop: '4px' }}>{line.voice_direction}</div>
+                <div className="psv-dialogue__dir">{line.voice_direction}</div>
               )}
             </div>
           ))}
@@ -117,8 +99,8 @@ export default function PublicSeriesView({ token }) {
   // Loading state
   if (state === 'loading') {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--muted)', letterSpacing: '3px' }}>Loading…</div>
+      <div className="psv-loading">
+        <div className="psv-loading__text">Loading…</div>
       </div>
     )
   }
@@ -126,14 +108,10 @@ export default function PublicSeriesView({ token }) {
   // Error / not found state
   if (state === 'error') {
     return (
-      <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px', padding: '24px' }}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '14px', letterSpacing: '4px', color: 'var(--gold)', opacity: 0.5, textTransform: 'uppercase', marginBottom: '8px' }}>BookFilm Studio</div>
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '24px', color: 'var(--muted)', textAlign: 'center', maxWidth: '480px' }}>
-          {errMsg || 'This share link is not available.'}
-        </div>
-        <a href="/" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '2px', color: 'var(--gold)', textDecoration: 'none', marginTop: '16px', border: '1px solid var(--border)', padding: '8px 20px' }}>
-          Go to BookFilm Studio
-        </a>
+      <div className="psv-error">
+        <div className="psv-error__brand">BookFilm Studio</div>
+        <div className="psv-error__msg">{errMsg || 'This share link is not available.'}</div>
+        <a href="/" className="psv-error__link">Go to BookFilm Studio</a>
       </div>
     )
   }
@@ -142,39 +120,29 @@ export default function PublicSeriesView({ token }) {
   const { title, author, logline, series_hook, characters = [], episodes = [], production_guide } = s
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="psv-page">
       {/* Public header */}
-      <header style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '12px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', letterSpacing: '3px', color: 'var(--gold)', textTransform: 'uppercase' }}>
-          BookFilm Studio
-        </div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', letterSpacing: '1px' }}>
-          Shared Series — Read Only
-        </div>
+      <header className="psv-header">
+        <div className="psv-header__brand">BookFilm Studio</div>
+        <div className="psv-header__label">Shared Series — Read Only</div>
       </header>
 
       {/* Main content */}
-      <main style={{ maxWidth: '860px', margin: '0 auto', padding: '48px 24px' }} aria-label="Shared series content">
+      <main className="psv-main" aria-label="Shared series content">
 
         {/* Hero block */}
-        <div style={{ marginBottom: '56px', paddingBottom: '36px', borderBottom: '1px solid var(--border)' }}>
-          <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: '36px', fontWeight: '600', color: 'var(--cream)', marginBottom: '6px', lineHeight: '1.3' }}>{title}</h1>
-          {author && (
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--gold)', letterSpacing: '2px', marginBottom: '20px' }}>{author}</div>
-          )}
-          {logline && (
-            <p style={{ fontStyle: 'italic', color: 'var(--muted)', marginBottom: '12px', fontSize: '17px', lineHeight: '1.6' }}>{logline}</p>
-          )}
-          {series_hook && (
-            <p style={{ color: '#c8b890', fontSize: '18px', lineHeight: '1.6' }}>{series_hook}</p>
-          )}
+        <div className="psv-hero">
+          <h1 className="psv-hero__title">{title}</h1>
+          {author && <div className="psv-hero__author">{author}</div>}
+          {logline && <p className="psv-hero__logline">{logline}</p>}
+          {series_hook && <p className="psv-hero__hook">{series_hook}</p>}
         </div>
 
         {/* Characters */}
         {characters.length > 0 && (
-          <section style={{ marginBottom: '64px' }} aria-label="Characters">
+          <section className="psv-chars-section" aria-label="Characters">
             <SectionHead>Character Bible</SectionHead>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '16px' }}>
+            <div className="psv-chars-grid">
               {characters.map(char => <CharacterCard key={char.id || char.name} char={char} />)}
             </div>
           </section>
@@ -192,25 +160,25 @@ export default function PublicSeriesView({ token }) {
 
         {/* Production guide (trimmed) */}
         {production_guide && (
-          <section style={{ marginBottom: '48px' }} aria-label="Production guide">
+          <section className="psv-prod-section" aria-label="Production guide">
             <SectionHead>Production Guide</SectionHead>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', padding: '24px' }}>
+            <div className="psv-prod-panel">
               {production_guide.visual_style && (
                 <>
                   <Label>Visual Style</Label>
-                  <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: '1.7', marginBottom: '12px' }}>{production_guide.visual_style}</p>
+                  <p className="psv-prod-text">{production_guide.visual_style}</p>
                 </>
               )}
               {production_guide.tone && (
                 <>
                   <Label>Tone</Label>
-                  <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: '1.7', marginBottom: '12px' }}>{production_guide.tone}</p>
+                  <p className="psv-prod-text">{production_guide.tone}</p>
                 </>
               )}
               {production_guide.cinematography_notes && (
                 <>
                   <Label>Cinematography</Label>
-                  <p style={{ color: 'var(--muted)', fontSize: '14px', lineHeight: '1.7' }}>{production_guide.cinematography_notes}</p>
+                  <p className="psv-prod-text">{production_guide.cinematography_notes}</p>
                 </>
               )}
             </div>
@@ -219,13 +187,11 @@ export default function PublicSeriesView({ token }) {
       </main>
 
       {/* Footer */}
-      <footer style={{ borderTop: '1px solid var(--border)', padding: '24px', textAlign: 'center', marginTop: '32px' }}>
+      <footer className="psv-footer">
         <a href="/" style={{ textDecoration: 'none' }} aria-label="Made with BookFilm Studio">
-          <span style={{ fontFamily: "'Cinzel', serif", fontSize: '11px', letterSpacing: '3px', color: 'var(--gold)', opacity: 0.5, textTransform: 'uppercase' }}>
-            Made with BookFilm Studio
-          </span>
+          <span className="psv-footer__brand">Made with BookFilm Studio</span>
         </a>
-        <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#2a3a4a', marginTop: '8px', letterSpacing: '1px' }}>
+        <p className="psv-footer__disclosure">
           AI-generated content — review before publishing and disclose AI origin per platform rules.
         </p>
       </footer>

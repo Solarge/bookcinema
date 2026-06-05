@@ -1,0 +1,324 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   DistributionPanel — social connect / schedule / posts list + plan gate.
+   Prefix: .dist-*
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* ── Section headings + labels ──────────────────────────────────────────── */
+.dist-section-head {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.dist-field-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 5px;
+  display: block;
+}
+.dist-input {
+  display: block;
+  width: 100%;
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 9px 12px;
+  outline: none;
+  box-sizing: border-box;
+}
+.dist-input:focus { border-color: var(--gold); }
+.dist-input--select { cursor: pointer; }
+.dist-input--dark-scheme { color-scheme: dark; }
+
+/* ── Status badge ───────────────────────────────────────────────────────── */
+.dist-status-badge {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  /* bg, border, color set inline (status-dependent) */
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+.dist-btn {
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+}
+.dist-btn:disabled { cursor: not-allowed; }
+.dist-btn--primary         { background: var(--gold); color: #080b10; }
+.dist-btn--primary:disabled { background: var(--border); color: var(--muted); }
+.dist-btn--primary:hover:not(:disabled) { filter: brightness(1.08); }
+.dist-btn--secondary {
+  background: var(--surface2);
+  color: var(--cream);
+  border: 1px solid var(--border);
+  padding: 6px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dist-btn--secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+.dist-btn--secondary:hover:not(:disabled) { border-color: var(--gold); color: var(--gold); }
+.dist-btn--danger {
+  background: transparent;
+  color: #f08080;
+  border: 1px solid #804040;
+  padding: 6px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dist-btn--danger:disabled { opacity: 0.5; cursor: not-allowed; }
+.dist-btn--danger:hover:not(:disabled) { background: rgba(139,26,26,0.15); }
+.dist-btn--sm {
+  padding: 5px 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 1.5px;
+}
+
+/* ── Connect Accounts ───────────────────────────────────────────────────── */
+.dist-accounts { margin-bottom: 28px; }
+.dist-accounts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dist-account-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+}
+.dist-account-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.dist-account-meta { flex: 1; min-width: 0; }
+.dist-account-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--cream);
+}
+.dist-account-connected {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #6dc87a;
+  margin-top: 2px;
+}
+.dist-account-setup {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* ── Schedule form ───────────────────────────────────────────────────────── */
+.dist-form-section { margin-bottom: 28px; }
+.dist-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dist-url-switch { display: flex; gap: 6px; margin-bottom: 6px; }
+.dist-url-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 3px;
+  word-break: break-all;
+}
+.dist-platform-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* platform pill — border/bg/color/cursor/opacity all set inline (dynamic state) */
+.dist-platform-pill {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 5px 10px;
+  letter-spacing: 1px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--cream);
+  cursor: pointer;
+}
+.dist-no-platforms {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #f0a050;
+  margin-top: 6px;
+}
+
+/* ── Scheduled posts list ─────────────────────────────────────────────────── */
+.dist-posts-section {}
+.dist-posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.dist-no-posts {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+}
+.dist-post-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+.dist-post-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.dist-post-card__meta { flex: 1; min-width: 0; }
+.dist-post-card__title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--cream);
+  margin-bottom: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dist-post-card__date {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+}
+.dist-post-card__actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.dist-post-card__targets {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+.dist-target-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dist-target-icon { font-size: 12px; width: 16px; text-align: center; flex-shrink: 0; }
+.dist-target-name {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  width: 70px;
+  flex-shrink: 0;
+}
+.dist-target-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--gold);
+  text-decoration: underline;
+  margin-left: 4px;
+}
+.dist-target-error {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: #f08080;
+  margin-left: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Plan gate ────────────────────────────────────────────────────────────── */
+.dist-plan-gate {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  padding: 28px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.dist-plan-gate__icon { font-size: 28px; opacity: 0.5; }
+.dist-plan-gate__title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  color: var(--cream);
+  letter-spacing: 2px;
+}
+.dist-plan-gate__body {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 360px;
+}
+.dist-plan-gate__plan-name { color: var(--gold); }
+.dist-plan-gate__upgrade {
+  background: var(--gold);
+  color: #080b10;
+  border: none;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 9px 20px;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.dist-plan-gate__upgrade:hover { filter: brightness(1.08); }
+
+/* ── Section dividers ─────────────────────────────────────────────────────── */
+.dist-separator {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+  margin-bottom: 24px;
+}
+.dist-separator--last {
+  border-top: 1px solid var(--border);
+  padding-top: 24px;
+}
+
+/* ── Loading ────────────────────────────────────────────────────────────── */
+.dist-loading {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  padding: 8px 0;
+}

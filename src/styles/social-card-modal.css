@@ -1,0 +1,112 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   SocialCardModal — copy social captions per platform.
+   Prefix: .scm-*
+   ────────────────────────────────────────────────────────────────────────── */
+
+.scm-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 560px;
+  overflow: hidden;
+  padding: 0;
+}
+.scm-header {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.scm-title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 2px;
+}
+.scm-close-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  cursor: pointer;
+  line-height: 1;
+}
+.scm-close-btn:hover { color: var(--cream); }
+
+/* ── Platform tabs ─────────────────────────────────────────────────────────── */
+.scm-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+}
+.scm-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  padding: 10px 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.scm-tab:hover:not(.scm-tab--active) {
+  color: var(--cream);
+}
+.scm-tab--active {
+  background: rgba(200,146,42,0.1);
+  border-bottom-color: var(--gold);
+  color: var(--gold);
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────────── */
+.scm-body { padding: 20px; }
+.scm-platform-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 8px;
+  letter-spacing: 2px;
+}
+.scm-textarea {
+  width: 100%;
+  background: #0a0806;
+  border: 1px solid var(--border);
+  color: var(--cream);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px;
+  line-height: 1.7;
+  padding: 14px;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+}
+.scm-textarea:focus { border-color: var(--gold); }
+.scm-copy-btn {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 11px;
+  font-family: 'Cinzel', serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+}
+.scm-copy-btn--default {
+  background: var(--gold);
+  color: #080b10;
+}
+.scm-copy-btn--copied {
+  background: rgba(109,200,122,0.1);
+  color: #6dc87a;
+  border: 1px solid #3a7a4a;
+}

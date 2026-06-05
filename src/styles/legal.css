@@ -1,0 +1,105 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   Legal pages (LegalPages.jsx) — modal shell + content helpers.
+   Prefix: .legal-*
+   ────────────────────────────────────────────────────────────────────────── */
+
+.legal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.legal-dialog {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  width: 100%;
+  max-width: 580px;
+  max-height: 88vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.legal-header {
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.legal-header__title {
+  font-family: 'Cinzel', serif;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 3px;
+}
+.legal-header__close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 22px;
+  cursor: pointer;
+  line-height: 1;
+}
+.legal-header__close:hover { color: var(--cream); }
+.legal-draft-banner {
+  background: #3a2800;
+  border-bottom: 1px solid #806000;
+  padding: 10px 20px;
+  flex-shrink: 0;
+}
+.legal-draft-banner__text {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #f0c040;
+  letter-spacing: 1px;
+}
+.legal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--cream);
+  line-height: 1.8;
+}
+.legal-section-head {
+  font-family: 'Cinzel', serif;
+  font-size: 12px;
+  color: var(--gold);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 20px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.legal-p {
+  margin: 0 0 10px;
+  color: var(--muted);
+}
+
+/* ── LegalLinks row ──────────────────────────────────────────────────────── */
+.legal-links-row {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.legal-link-btn {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+.legal-link-btn:hover { color: var(--gold); }

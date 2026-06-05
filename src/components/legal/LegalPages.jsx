@@ -1,40 +1,36 @@
 import { useState, useRef } from 'react'
 import useModalA11y from '../../hooks/useModalA11y'
+import '../../styles/legal.css'
 
 // ── shared overlay / modal shell ─────────────────────────────────────────────
 function LegalModal({ title, titleId, onClose, children }) {
   const dialogRef = useRef(null)
   useModalA11y(onClose, dialogRef)
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}
-      onClick={onClose}
-    >
+    <div className="legal-overlay" onClick={onClose}>
       <div
         ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        style={{ background: 'var(--surface)', border: '1px solid var(--border)', width: '100%', maxWidth: '580px', maxHeight: '88vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+        className="legal-dialog"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
-          <span id={titleId} style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--gold)', letterSpacing: '3px' }}>{title}</span>
-          <button onClick={onClose} aria-label="Close dialog" style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: '22px', cursor: 'pointer', lineHeight: 1 }}>×</button>
+        <div className="legal-header">
+          <span id={titleId} className="legal-header__title">{title}</span>
+          <button onClick={onClose} aria-label="Close dialog" className="legal-header__close">×</button>
         </div>
 
         {/* Draft banner */}
-        <div style={{ background: '#3a2800', borderBottom: '1px solid #806000', padding: '10px 20px', flexShrink: 0 }}>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#f0c040', letterSpacing: '1px' }}>
+        <div className="legal-draft-banner">
+          <span className="legal-draft-banner__text">
             ⚠ DRAFT — placeholder text, not legal advice; replace before launch.
           </span>
         </div>
 
         {/* Scrollable body */}
-        <div style={{ padding: '24px', overflowY: 'auto', flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--cream)', lineHeight: '1.8' }}>
-          {children}
-        </div>
+        <div className="legal-body">{children}</div>
       </div>
     </div>
   )
@@ -42,15 +38,11 @@ function LegalModal({ title, titleId, onClose, children }) {
 
 // ── shared section heading helper ────────────────────────────────────────────
 function H({ children }) {
-  return (
-    <div style={{ fontFamily: "'Cinzel', serif", fontSize: '12px', color: 'var(--gold)', letterSpacing: '2px', textTransform: 'uppercase', marginTop: '20px', marginBottom: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>
-      {children}
-    </div>
-  )
+  return <div className="legal-section-head">{children}</div>
 }
 
 function P({ children }) {
-  return <p style={{ margin: '0 0 10px', color: 'var(--muted)' }}>{children}</p>
+  return <p className="legal-p">{children}</p>
 }
 
 // ── Terms of Service ─────────────────────────────────────────────────────────
@@ -188,15 +180,13 @@ export function AiContentDisclosure({ onClose }) {
 export function LegalLinks() {
   const [open, setOpen] = useState(null) // null | 'terms' | 'privacy' | 'dmca' | 'ai'
 
-  const linkStyle = { background: 'none', border: 'none', color: 'var(--muted)', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', cursor: 'pointer', textDecoration: 'underline', padding: 0 }
-
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '12px', flexWrap: 'wrap' }}>
-        <button onClick={() => setOpen('terms')}   style={linkStyle}>Terms of Service</button>
-        <button onClick={() => setOpen('privacy')} style={linkStyle}>Privacy Policy</button>
-        <button onClick={() => setOpen('dmca')}    style={linkStyle}>DMCA / Copyright</button>
-        <button onClick={() => setOpen('ai')}      style={linkStyle}>AI Content</button>
+      <div className="legal-links-row">
+        <button onClick={() => setOpen('terms')}   className="legal-link-btn">Terms of Service</button>
+        <button onClick={() => setOpen('privacy')} className="legal-link-btn">Privacy Policy</button>
+        <button onClick={() => setOpen('dmca')}    className="legal-link-btn">DMCA / Copyright</button>
+        <button onClick={() => setOpen('ai')}      className="legal-link-btn">AI Content</button>
       </div>
       {open === 'terms'   && <TermsOfService      onClose={() => setOpen(null)} />}
       {open === 'privacy' && <PrivacyPolicy        onClose={() => setOpen(null)} />}

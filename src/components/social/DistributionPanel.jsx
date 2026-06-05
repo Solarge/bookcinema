@@ -3,6 +3,7 @@ import PropTypes from 'prop-types'
 import { social as socialApi } from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { planAllows, minPlanFor, planLabel } from '../../utils/plans'
+import '../../styles/distribution.css'
 
 // Platform display config
 const PLATFORM_META = {
@@ -22,6 +23,7 @@ const STATUS_COLORS = {
   cancelled:  { bg: '#0a0a0a', border: '#3a3a3a', text: '#666' },
 }
 
+// Status badges are fully dynamic (color depends on status value), keep inline
 function statusStyle(status) {
   const c = STATUS_COLORS[status] ?? STATUS_COLORS.scheduled
   return {
@@ -34,65 +36,6 @@ function statusStyle(status) {
     letterSpacing: '1.5px',
     textTransform: 'uppercase',
     padding: '2px 8px',
-  }
-}
-
-const inputStyle = {
-  display: 'block',
-  width: '100%',
-  background: '#0a0806',
-  border: '1px solid var(--border)',
-  color: 'var(--cream)',
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: '11px',
-  padding: '9px 12px',
-  outline: 'none',
-  boxSizing: 'border-box',
-}
-
-const labelStyle = {
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: '9px',
-  color: 'var(--muted)',
-  letterSpacing: '2px',
-  textTransform: 'uppercase',
-  marginBottom: '5px',
-  display: 'block',
-}
-
-const sectionHeadStyle = {
-  fontFamily: "'JetBrains Mono', monospace",
-  fontSize: '9px',
-  color: 'var(--muted)',
-  letterSpacing: '2px',
-  textTransform: 'uppercase',
-  marginBottom: '12px',
-}
-
-function btn(disabled, variant = 'primary') {
-  if (variant === 'danger') return {
-    background: 'transparent', color: '#f08080', border: '1px solid #804040',
-    padding: '6px 12px', fontFamily: "'JetBrains Mono', monospace",
-    fontSize: '9px', letterSpacing: '1.5px', textTransform: 'uppercase',
-    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-  }
-  if (variant === 'secondary') return {
-    background: 'var(--surface2)', color: 'var(--cream)', border: '1px solid var(--border)',
-    padding: '6px 12px', fontFamily: "'JetBrains Mono', monospace",
-    fontSize: '9px', letterSpacing: '1.5px', textTransform: 'uppercase',
-    cursor: disabled ? 'not-allowed' : 'pointer', opacity: disabled ? 0.5 : 1,
-  }
-  return {
-    background: disabled ? 'var(--border)' : 'var(--gold)',
-    color: disabled ? 'var(--muted)' : '#080b10',
-    border: 'none',
-    padding: '10px 20px',
-    fontFamily: "'Cinzel', serif",
-    fontSize: '11px',
-    fontWeight: '600',
-    letterSpacing: '2px',
-    textTransform: 'uppercase',
-    cursor: disabled ? 'not-allowed' : 'pointer',
   }
 }
 
@@ -130,27 +73,22 @@ function ConnectAccounts({ providers, accounts, onMsg, onRefresh }) {
   }
 
   return (
-    <div style={{ marginBottom: '28px' }}>
-      <div style={sectionHeadStyle}>Connected Accounts</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+    <div className="dist-accounts">
+      <div className="dist-section-head">Connected Accounts</div>
+      <div className="dist-accounts-list">
         {providers.map(p => {
           const meta    = PLATFORM_META[p.key] ?? { label: p.label, icon: '📡' }
           const account = accounts.find(a => a.platform === p.key)
           const isBusy  = connecting === p.key || disconnecting === account?.id
 
           return (
-            <div key={p.key} style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              padding: '10px 14px',
-              background: 'var(--surface2)',
-              border: '1px solid var(--border)',
-            }}>
+            <div key={p.key} className="dist-account-row">
               {/* Icon + label */}
-              <span style={{ fontSize: '16px', width: '20px', textAlign: 'center', flexShrink: 0 }}>{meta.icon}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--cream)' }}>{meta.label}</div>
+              <span className="dist-account-icon">{meta.icon}</span>
+              <div className="dist-account-meta">
+                <div className="dist-account-label">{meta.label}</div>
                 {account && (
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#6dc87a', marginTop: '2px' }}>
+                  <div className="dist-account-connected">
                     {account.displayName}
                   </div>
                 )}
@@ -160,24 +98,19 @@ function ConnectAccounts({ providers, accounts, onMsg, onRefresh }) {
               {!p.configured ? (
                 <span
                   title="Add this platform's API credentials on the server to enable it."
-                  style={{
-                    fontFamily: "'JetBrains Mono', monospace", fontSize: '9px',
-                    color: 'var(--muted)', border: '1px solid var(--border)',
-                    padding: '4px 10px', letterSpacing: '1px', textTransform: 'uppercase',
-                    cursor: 'default', opacity: 0.6,
-                  }}
+                  className="dist-account-setup"
                 >Setup required</span>
               ) : account ? (
                 <button
                   onClick={() => handleDisconnect(account.id, p.key)}
                   disabled={isBusy}
-                  style={btn(isBusy, 'danger')}
+                  className="dist-btn dist-btn--danger"
                 >{isBusy ? '…' : 'Disconnect'}</button>
               ) : (
                 <button
                   onClick={() => handleConnect(p.key)}
                   disabled={isBusy}
-                  style={btn(isBusy, 'secondary')}
+                  className="dist-btn dist-btn--secondary"
                 >{isBusy ? 'Connecting…' : 'Connect'}</button>
               )}
             </div>
@@ -253,21 +186,21 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
   const ALL_PLATFORMS = Object.keys(PLATFORM_META)
 
   return (
-    <div style={{ marginBottom: '28px' }}>
-      <div style={sectionHeadStyle}>Schedule a Post</div>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div className="dist-form-section">
+      <div className="dist-section-head">Schedule a Post</div>
+      <form onSubmit={handleSubmit} className="dist-form">
 
         {/* Video URL */}
         <div>
-          <label htmlFor="dist-video-url" style={labelStyle}>Video URL</label>
+          <label htmlFor="dist-video-url" className="dist-field-label">Video URL</label>
           {(videoOptions?.length ?? 0) > 0 && (
-            <div style={{ display: 'flex', gap: '6px', marginBottom: '6px' }}>
+            <div className="dist-url-switch">
               <button type="button" onClick={() => setUseDropdown(true)}
-                style={{ ...btn(false, useDropdown ? 'secondary' : 'primary'), padding: '5px 10px', fontSize: '9px' }}>
+                className={`dist-btn dist-btn--sm ${useDropdown ? 'dist-btn--secondary' : 'dist-btn--primary'}`}>
                 Pick Generated
               </button>
               <button type="button" onClick={() => setUseDropdown(false)}
-                style={{ ...btn(false, !useDropdown ? 'secondary' : 'primary'), padding: '5px 10px', fontSize: '9px' }}>
+                className={`dist-btn dist-btn--sm ${!useDropdown ? 'dist-btn--secondary' : 'dist-btn--primary'}`}>
                 Paste URL
               </button>
             </div>
@@ -277,7 +210,7 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
               id="dist-video-url"
               value={videoUrl}
               onChange={e => setVideoUrl(e.target.value)}
-              style={{ ...inputStyle, cursor: 'pointer' }}
+              className="dist-input dist-input--select"
             >
               {videoOptions.map(opt => (
                 <option key={opt.url} value={opt.url}>{opt.label}</option>
@@ -290,46 +223,45 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
               placeholder="https://…"
               value={videoUrl}
               onChange={e => setVideoUrl(e.target.value)}
-              style={inputStyle}
+              className="dist-input"
             />
           )}
           {videoUrl && (
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', marginTop: '3px', wordBreak: 'break-all' }}>
-              {videoUrl}
-            </div>
+            <div className="dist-url-hint">{videoUrl}</div>
           )}
         </div>
 
         {/* Title */}
         <div>
-          <label htmlFor="dist-title" style={labelStyle}>Title</label>
+          <label htmlFor="dist-title" className="dist-field-label">Title</label>
           <input
             id="dist-title"
             type="text"
             placeholder="Post title"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            style={inputStyle}
+            className="dist-input"
           />
         </div>
 
         {/* Caption */}
         <div>
-          <label htmlFor="dist-caption" style={labelStyle}>Caption</label>
+          <label htmlFor="dist-caption" className="dist-field-label">Caption</label>
           <textarea
             id="dist-caption"
             placeholder="Caption / description…"
             value={caption}
             onChange={e => setCaption(e.target.value)}
             rows={3}
-            style={{ ...inputStyle, resize: 'vertical' }}
+            className="dist-input"
+            style={{ resize: 'vertical' }}
           />
         </div>
 
         {/* Target platforms */}
         <div>
-          <label style={labelStyle}>Target Platforms</label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+          <label className="dist-field-label">Target Platforms</label>
+          <div className="dist-platform-pills">
             {ALL_PLATFORMS.map(platform => {
               const meta       = PLATFORM_META[platform]
               const connected  = connectedPlatforms.includes(platform)
@@ -342,16 +274,13 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
                   disabled={!connected}
                   onClick={() => connected && toggleTarget(platform)}
                   title={connected ? undefined : 'Connect this platform first'}
+                  className="dist-platform-pill"
                   style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: '10px',
-                    padding: '5px 10px',
                     border: `1px solid ${checked && connected ? 'var(--gold)' : 'var(--border)'}`,
                     background: checked && connected ? 'rgba(200,160,80,0.12)' : 'transparent',
                     color: connected ? (checked ? 'var(--gold)' : 'var(--cream)') : 'var(--muted)',
                     cursor: connected ? 'pointer' : 'not-allowed',
                     opacity: connected ? 1 : 0.45,
-                    letterSpacing: '1px',
                   }}
                 >
                   {meta.icon} {meta.label}
@@ -360,7 +289,7 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
             })}
           </div>
           {connectedPlatforms.length === 0 && (
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#f0a050', marginTop: '6px' }}>
+            <div className="dist-no-platforms">
               Connect at least one platform above to schedule a post.
             </div>
           )}
@@ -368,17 +297,17 @@ function SchedulePostForm({ accounts, videoOptions, onMsg, onPosted }) {
 
         {/* Scheduled time */}
         <div>
-          <label htmlFor="dist-scheduled-at" style={labelStyle}>Scheduled At</label>
+          <label htmlFor="dist-scheduled-at" className="dist-field-label">Scheduled At</label>
           <input
             id="dist-scheduled-at"
             type="datetime-local"
             value={scheduledAt}
             onChange={e => setScheduledAt(e.target.value)}
-            style={{ ...inputStyle, colorScheme: 'dark' }}
+            className="dist-input dist-input--dark-scheme"
           />
         </div>
 
-        <button type="submit" disabled={submitting || connectedPlatforms.length === 0} style={btn(submitting || connectedPlatforms.length === 0)}>
+        <button type="submit" disabled={submitting || connectedPlatforms.length === 0} className="dist-btn dist-btn--primary">
           {submitting ? 'Scheduling…' : 'Schedule Post'}
         </button>
       </form>
@@ -416,42 +345,34 @@ function ScheduledPostsList({ posts, onMsg, onRefresh }) {
 
   if (posts.length === 0) {
     return (
-      <div>
-        <div style={sectionHeadStyle}>Scheduled Posts</div>
-        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)' }}>
-          No posts scheduled yet.
-        </div>
+      <div className="dist-posts-section">
+        <div className="dist-section-head">Scheduled Posts</div>
+        <div className="dist-no-posts">No posts scheduled yet.</div>
       </div>
     )
   }
 
   return (
-    <div>
-      <div style={sectionHeadStyle}>Scheduled Posts</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+    <div className="dist-posts-section">
+      <div className="dist-section-head">Scheduled Posts</div>
+      <div className="dist-posts-list">
         {posts.map(post => (
-          <div key={post.id} style={{
-            background: 'var(--surface2)',
-            border: '1px solid var(--border)',
-            padding: '12px 14px',
-          }}>
+          <div key={post.id} className="dist-post-card">
             {/* Header row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: 'var(--cream)', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {post.title}
-                </div>
-                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)' }}>
+            <div className="dist-post-card__header">
+              <div className="dist-post-card__meta">
+                <div className="dist-post-card__title">{post.title}</div>
+                <div className="dist-post-card__date">
                   {post.scheduledAt ? new Date(post.scheduledAt).toLocaleString() : '—'}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+              <div className="dist-post-card__actions">
                 <span style={statusStyle(post.status)}>{post.status}</span>
                 {post.status === 'scheduled' && (
                   <button
                     onClick={() => handleCancel(post.id)}
                     disabled={cancelling === post.id}
-                    style={btn(cancelling === post.id, 'danger')}
+                    className="dist-btn dist-btn--danger"
                   >{cancelling === post.id ? '…' : 'Cancel'}</button>
                 )}
               </div>
@@ -459,22 +380,22 @@ function ScheduledPostsList({ posts, onMsg, onRefresh }) {
 
             {/* Per-target rows */}
             {(post.targets ?? []).length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid var(--border)', paddingTop: '8px' }}>
+              <div className="dist-post-card__targets">
                 {post.targets.map((t, i) => {
                   const meta = PLATFORM_META[t.platform] ?? { label: t.platform, icon: '📡' }
                   return (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '12px', width: '16px', textAlign: 'center', flexShrink: 0 }}>{meta.icon}</span>
-                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--muted)', width: '70px', flexShrink: 0 }}>{meta.label}</span>
+                    <div key={i} className="dist-target-row">
+                      <span className="dist-target-icon">{meta.icon}</span>
+                      <span className="dist-target-name">{meta.label}</span>
                       <span style={statusStyle(t.status)}>{t.status}</span>
                       {t.postUrl && (
                         <a href={t.postUrl} target="_blank" rel="noopener noreferrer"
-                          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: 'var(--gold)', textDecoration: 'underline', marginLeft: '4px' }}>
+                          className="dist-target-link">
                           View
                         </a>
                       )}
                       {t.error && (
-                        <span role="alert" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#f08080', marginLeft: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span role="alert" className="dist-target-error">
                           {t.error}
                         </span>
                       )}
@@ -501,31 +422,18 @@ function SocialPlanGate({ onOpenBilling }) {
   const req = minPlanFor('social')
   const reqLabel = planLabel(req)
   return (
-    <div style={{
-      background: 'var(--surface2)',
-      border: '1px solid var(--border)',
-      padding: '28px 24px',
-      textAlign: 'center',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px',
-    }}>
-      <span aria-hidden="true" style={{ fontSize: '28px', opacity: 0.5 }}>🔒</span>
-      <div style={{ fontFamily: "'Cinzel', serif", fontSize: '13px', color: 'var(--cream)', letterSpacing: '2px' }}>
-        Social Distribution
-      </div>
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', lineHeight: '1.6', maxWidth: '360px' }}>
+    <div className="dist-plan-gate">
+      <span aria-hidden="true" className="dist-plan-gate__icon">🔒</span>
+      <div className="dist-plan-gate__title">Social Distribution</div>
+      <div className="dist-plan-gate__body">
         Schedule and publish posts to YouTube, TikTok, Instagram, and more.
-        Requires the <span style={{ color: 'var(--gold)' }}>{reqLabel}</span> plan or higher.
+        Requires the <span className="dist-plan-gate__plan-name">{reqLabel}</span> plan or higher.
       </div>
       {onOpenBilling && (
         <button
           onClick={onOpenBilling}
           aria-label={`Upgrade to ${reqLabel} to unlock Social Distribution`}
-          style={{
-            background: 'var(--gold)', color: '#080b10', border: 'none',
-            fontFamily: "'Cinzel', serif", fontSize: '11px', fontWeight: '700',
-            letterSpacing: '2px', textTransform: 'uppercase',
-            padding: '9px 20px', cursor: 'pointer', marginTop: '4px',
-          }}
+          className="dist-plan-gate__upgrade"
         >
           Upgrade to {reqLabel}
         </button>
@@ -581,11 +489,7 @@ export default function DistributionPanel({ videoOptions = [], onMsg, onOpenBill
   }
 
   if (loading) {
-    return (
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: 'var(--muted)', padding: '8px 0' }}>
-        Loading distribution data…
-      </div>
-    )
+    return <div className="dist-loading">Loading distribution data…</div>
   }
 
   return (
@@ -596,7 +500,7 @@ export default function DistributionPanel({ videoOptions = [], onMsg, onOpenBill
         onMsg={onMsg}
         onRefresh={loadAll}
       />
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '24px', marginBottom: '24px' }}>
+      <div className="dist-separator">
         <SchedulePostForm
           accounts={accounts}
           videoOptions={videoOptions}
@@ -604,7 +508,7 @@ export default function DistributionPanel({ videoOptions = [], onMsg, onOpenBill
           onPosted={loadAll}
         />
       </div>
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: '24px' }}>
+      <div className="dist-separator--last">
         <ScheduledPostsList
           posts={posts}
           onMsg={onMsg}
