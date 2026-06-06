@@ -170,7 +170,11 @@ export const billing = {
 
 // ── Social Distribution ───────────────────────────────────────────────────────
 export const social = {
+  // Returns EVERY supported platform: [{ key, label, configured }]. Unconfigured
+  // platforms (configured:false) are still listed so the UI can show them as
+  // "not set up yet" instead of hiding them.
   providers:  ()         => get('/api/social/providers'),
+  // 503 { code:'not_configured' } if the platform has no server-side API keys.
   connect:    (platform) => get(`/api/social/${platform}/connect`),
   accounts:   ()         => get('/api/social/accounts'),
   disconnect: (id)       => del(`/api/social/accounts/${id}`),

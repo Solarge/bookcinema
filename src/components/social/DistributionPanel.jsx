@@ -48,10 +48,11 @@ function ConnectAccounts({ providers, accounts, onMsg, onRefresh }) {
     setConnecting(platform)
     try {
       const { url } = await socialApi.connect(platform)
-      window.location.href = url
+      // Hand off to the platform's OAuth consent screen.
+      window.location.assign(url)
     } catch (err) {
       if (err.code === 'not_configured' || err.status === 503) {
-        onMsg(`${PLATFORM_META[platform]?.label ?? platform} is not configured on the server. Add the platform's API credentials to enable it.`)
+        onMsg(`${PLATFORM_META[platform]?.label ?? platform} isn't available yet — an admin needs to add its API keys. See docs/SOCIAL-SETUP.md.`)
       } else {
         onMsg(err.message)
       }
@@ -75,6 +76,11 @@ function ConnectAccounts({ providers, accounts, onMsg, onRefresh }) {
   return (
     <div className="dist-accounts">
       <div className="dist-section-head">Connected Accounts</div>
+      <p className="dist-accounts-intro">
+        Connect your accounts to auto-post finished videos. Platforms marked
+        {' '}<span className="dist-accounts-intro__tag">Not set up yet</span> need an
+        admin to add API keys.
+      </p>
       <div className="dist-accounts-list">
         {providers.map(p => {
           const meta    = PLATFORM_META[p.key] ?? { label: p.label, icon: '📡' }
@@ -97,9 +103,19 @@ function ConnectAccounts({ providers, accounts, onMsg, onRefresh }) {
               {/* Action button */}
               {!p.configured ? (
                 <span
-                  title="Add this platform's API credentials on the server to enable it."
                   className="dist-account-setup"
-                >Setup required</span>
+                  title="This platform needs API keys added by an admin — see setup guide."
+                >
+                  Not set up yet
+                  <a
+                    href="https://github.com/Solarge/bookcinema/blob/main/docs/SOCIAL-SETUP.md"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="dist-account-setup__help"
+                    title="This platform needs API keys added by an admin — see setup guide."
+                    aria-label={`${meta.label} needs an admin to add API keys — open the setup guide`}
+                  >?</a>
+                </span>
               ) : account ? (
                 <button
                   onClick={() => handleDisconnect(account.id, p.key)}
