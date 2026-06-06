@@ -1,0 +1,44 @@
+# Runs the three GPU model services together on one host.
+# Usage: ENGINE_API_KEY=... HF_TOKEN=... docker compose -f docker-compose.gpu.yml up -d --build
+# Requires the NVIDIA Container Toolkit (docker --gpus). Each service grabs a GPU;
+# on a single-GPU box they share it (fine for image+voice+music at low concurrency).
+services:
+  image:
+    build: ./image
+    ports: ["8001:8001"]
+    environment:
+      ENGINE_API_KEY: ${ENGINE_API_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+      ENGINE_IMAGE_MODEL: ${ENGINE_IMAGE_MODEL:-black-forest-labs/FLUX.1-dev}
+    volumes: ["models:/models"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+
+  voice:
+    build: ./voice
+    ports: ["8002:8002"]
+    environment:
+      ENGINE_API_KEY: ${ENGINE_API_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+    volumes: ["models:/models"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+
+  music:
+    build: ./music
+    ports: ["8004:8004"]
+    environment:
+      ENGINE_API_KEY: ${ENGINE_API_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+    volumes: ["models:/models"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+
+volumes:
+  models:
