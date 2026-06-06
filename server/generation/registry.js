@@ -14,6 +14,8 @@ import * as lumaVideo from './providers/lumaVideo.js'
 import * as falaiVideo from './providers/falaiVideo.js'
 import * as replicateMusic from './providers/replicateMusic.js'
 import * as falaiMusic from './providers/falaiMusic.js'
+import * as engineImage from './providers/engineImage.js'
+import * as engineVoice from './providers/engineVoice.js'
 
 // Fixed estimated cost for job types that don't go through the provider registry
 // (e.g. compile = server-side ffmpeg; small fixed cost for CPU/egress).
@@ -78,6 +80,7 @@ export const MANAGED_PROVIDERS = {
     standard: {
       credits: 4, estCostUsd: 0.003,
       providers: [
+        { provider: 'engine',     adapter: engineImage,     model: engineImage.DEFAULT_MODEL },
         { provider: 'replicate',  adapter: replicateImage,  model: replicateImage.DEFAULT_MODEL },
         { provider: 'stability',  adapter: stabilityImage,  model: stabilityImage.DEFAULT_MODEL },
         { provider: 'falai',      adapter: falaiImage,      model: falaiImage.DEFAULT_MODEL },
@@ -86,6 +89,7 @@ export const MANAGED_PROVIDERS = {
     premium: {
       credits: 10, estCostUsd: 0.05,
       providers: [
+        { provider: 'engine',    adapter: engineImage,    model: engineImage.DEFAULT_MODEL },
         { provider: 'falai',     adapter: falaiImage,     model: falaiImage.DEFAULT_MODEL },
         { provider: 'replicate', adapter: replicateImage, model: replicateImage.DEFAULT_MODEL },
       ],
@@ -96,6 +100,7 @@ export const MANAGED_PROVIDERS = {
     standard: {
       credits: 1, estCostUsd: 0.0005,
       providers: [
+        { provider: 'engine',     adapter: engineVoice,    model: engineVoice.DEFAULT_MODEL },
         { provider: 'openai',     adapter: openaiTTSVoice, model: openaiTTSVoice.DEFAULT_MODEL },
         { provider: 'googletts',  adapter: googleTTSVoice, model: googleTTSVoice.DEFAULT_MODEL },
         { provider: 'elevenlabs', adapter: elevenlabsVoice, model: elevenlabsVoice.DEFAULT_MODEL },
@@ -104,6 +109,7 @@ export const MANAGED_PROVIDERS = {
     premium: {
       credits: 5, estCostUsd: 0.01,
       providers: [
+        { provider: 'engine',     adapter: engineVoice,     model: engineVoice.DEFAULT_MODEL },
         { provider: 'elevenlabs', adapter: elevenlabsVoice, model: elevenlabsVoice.DEFAULT_MODEL },
         { provider: 'openai',     adapter: openaiTTSVoice,  model: openaiTTSVoice.DEFAULT_MODEL },
       ],
