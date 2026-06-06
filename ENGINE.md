@@ -31,6 +31,7 @@ FastAPI + Dockerfiles implementing the HTTP contract, one per modality:
 ### Deploy & infra
 - **Contract** the services implement: `docs/ENGINE-SETUP.md`.
 - **Deployment plan** (RunPod + AWS, sizing, cost, phasing): `docs/GPU-DEPLOYMENT.md`.
+- **Cheap / non-AWS deploy** (own GPU, Vast.ai, RunPod, Modal serverless): `docs/DEPLOY-CHEAP.md`.
 - **Infrastructure-as-code** (provision the GPU host + bootstrap the services): `infra/terraform/` and `infra/cdk/` (equivalent; pick one). Validated on PRs by `.github/workflows/infra.yml`.
 
 ## Environment variables (set in `server/.env.server`)
