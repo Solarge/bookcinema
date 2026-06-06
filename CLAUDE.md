@@ -1,3 +1,19 @@
+# Project Instructions
+
+## Autonomy
+- You have full permission to proceed on all tasks without asking for approval
+- Do not ask "shall I proceed?", "would you like me to?", or "is that okay?"
+- Make decisions, execute them, and report what you did
+- If you encounter multiple approaches, pick the best one and proceed
+- Only pause if something is genuinely blocked (missing credential, ambiguous requirement with no logical default)
+
+## Permissions
+- Read, create, edit, and delete files freely
+- Run terminal commands without asking first
+- Install packages as needed
+- Make code changes across the codebase without confirmation
+- Do not ask for permission before running bash commands, editing files, or installing packages
+
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
