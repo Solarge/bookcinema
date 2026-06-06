@@ -29,13 +29,26 @@ export function getProvider(key) {
 }
 
 /**
- * Returns an array of all platforms with their configured state.
- * Used by GET /api/social/providers to show UI what's available.
+ * Returns an array of EVERY supported platform with its configured state, as
+ * { key, label, configured }. Unlike a "configured-only" filter, this always
+ * lists all platforms so the UI can render unconfigured ones (greyed out with
+ * a "needs admin setup" affordance) instead of silently hiding them.
+ *
+ * Used by GET /api/social/providers.
  */
-export function listConfigured() {
+export function listAll() {
   return Array.from(SOCIAL_PROVIDERS.entries()).map(([key, provider]) => ({
     key,
     label:      provider.meta.label,
     configured: provider.isConfigured(),
   }))
+}
+
+/**
+ * Backward-compatible alias of listAll(). Historically this returned every
+ * platform with a `configured` flag (NOT a filtered list), so the shape is
+ * identical — kept so existing callers/tests keep working.
+ */
+export function listConfigured() {
+  return listAll()
 }

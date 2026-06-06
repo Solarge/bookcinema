@@ -11,7 +11,7 @@ import { startTestDB, stopTestDB, clearTestDB } from './helpers/db.js'
 import { encryptToken, decryptToken } from '../utils/cryptoTokens.js'
 import SocialAccount from '../models/SocialAccount.js'
 import ScheduledPost from '../models/ScheduledPost.js'
-import { getProvider, listConfigured, SOCIAL_PROVIDERS } from '../social/index.js'
+import { getProvider, listConfigured, listAll, SOCIAL_PROVIDERS } from '../social/index.js'
 
 before(startTestDB)
 after(stopTestDB)
@@ -120,6 +120,22 @@ test('listConfigured returns 6 entries', () => {
     assert.ok(entry.label, 'label present')
     assert.ok('configured' in entry, 'configured present')
   }
+})
+
+test('listAll returns ALL 6 platforms with { key, label, configured }', () => {
+  const list = listAll()
+  assert.equal(list.length, 6, 'every supported platform is listed')
+  const keys = list.map(e => e.key).sort()
+  assert.deepEqual(keys, ['facebook', 'instagram', 'linkedin', 'tiktok', 'x', 'youtube'])
+  for (const entry of list) {
+    assert.ok(entry.key,   'key present')
+    assert.ok(entry.label, 'label present')
+    assert.equal(typeof entry.configured, 'boolean', 'configured is a boolean')
+  }
+})
+
+test('listConfigured is a backward-compatible alias of listAll', () => {
+  assert.deepEqual(listConfigured(), listAll())
 })
 
 test('isConfigured() is false when env vars are not set', () => {

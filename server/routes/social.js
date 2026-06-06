@@ -16,7 +16,7 @@ import SocialAccount from '../models/SocialAccount.js'
 import ScheduledPost from '../models/ScheduledPost.js'
 import { encryptToken, decryptToken } from '../utils/cryptoTokens.js'
 import { config } from '../config.js'
-import { getProvider, listConfigured } from '../social/index.js'
+import { getProvider, listConfigured, listAll } from '../social/index.js'
 import { getSocialPublishQueue } from '../utils/socialQueue.js'
 import { validateVideoUrl } from '../utils/urlGuard.js'
 import { planFeatureError } from '../middleware/managedAccess.js'
@@ -32,7 +32,7 @@ export const socialRouter = Router()
 
 /** Returns the provider registry to use — injected fake or real. */
 function registryFor(req) {
-  return req.app.locals.socialProviders || { getProvider, listConfigured }
+  return req.app.locals.socialProviders || { getProvider, listConfigured, listAll }
 }
 
 /** Returns the social publish queue — injected fake or real BullMQ queue. */
@@ -64,10 +64,17 @@ function buildRedirectUri(req, platform) {
 // ---------------------------------------------------------------------------
 // GET /api/social/providers  (requireAuth)
 // ---------------------------------------------------------------------------
+// Returns the FULL platform list — every supported platform with a `configured`
+// boolean — so the UI can surface unconfigured platforms (greyed "not set up
+// yet") rather than hiding them. Prefers listAll(); falls back to
+// listConfigured() for injected fakes that predate listAll().
 socialRouter.get('/providers', requireAuth, (req, res) => {
   try {
     const registry = registryFor(req)
-    res.json(registry.listConfigured())
+    const list = typeof registry.listAll === 'function'
+      ? registry.listAll()
+      : registry.listConfigured()
+    res.json(list)
   } catch (err) {
     console.error('social/providers error:', err)
     res.status(500).json({ error: 'Server error' })

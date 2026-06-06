@@ -99,6 +99,22 @@
 
 /* ── Connect Accounts ───────────────────────────────────────────────────── */
 .dist-accounts { margin-bottom: 28px; }
+.dist-accounts-intro {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: -4px 0 14px;
+}
+.dist-accounts-intro__tag {
+  color: var(--cream);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 8px;
+}
 .dist-accounts-list {
   display: flex;
   flex-direction: column;
@@ -131,6 +147,9 @@
   margin-top: 2px;
 }
 .dist-account-setup {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
   color: var(--muted);
@@ -139,7 +158,26 @@
   letter-spacing: 1px;
   text-transform: uppercase;
   cursor: default;
-  opacity: 0.6;
+  opacity: 0.7;
+}
+.dist-account-setup__help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 9px;
+  line-height: 1;
+  cursor: help;
+  flex-shrink: 0;
+}
+.dist-account-setup__help:hover {
+  color: var(--gold);
+  border-color: var(--gold);
 }
 
 /* ── Schedule form ───────────────────────────────────────────────────────── */
