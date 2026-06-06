@@ -11,10 +11,20 @@ APIs as automatic fallback.
 | Image   | `image/` | `black-forest-labs/FLUX.1-dev` | 8001 | `POST /generate` → PNG bytes |
 | Voice   | `voice/` | Coqui XTTS-v2 | 8002 | `POST /generate` → WAV bytes |
 | Music   | `music/` | `facebook/musicgen-large` | 8004 | `POST /generate` → WAV bytes |
+| Video   | `video/` | `Lightricks/LTX-Video` | 8003 | `POST /generate` → MP4 bytes |
 
 > Text (LLM) is **not** in this folder — serve it with **vLLM**, which already
 > exposes the OpenAI-compatible `/v1/chat/completions` the `engineText` adapter
-> calls. Video gets its own service later (Phase D). See `../docs/GPU-DEPLOYMENT.md`.
+> calls. See `../docs/GPU-DEPLOYMENT.md`.
+
+**Video tier (heavy):** the `video/` service uses LTX-Video (text→video, and
+image→video from a `character_ref` keyframe for consistency). It wants a **larger
+GPU (40–80 GB ideal; runs on 24 GB with short clips)** — on a small box, run it on
+its **own** host, not alongside image/voice/music. Open video quality trails
+Kling/Veo and clips are short (the model has a per-call frame cap; the app stitches
+multiple scene clips into longer episodes via its ffmpeg compile step), so **keep
+cloud video fallback enabled** until it clears the benchmark/quality gate. Set
+`ENGINE_VIDEO_URL` to enable it.
 
 All services:
 - Require `Authorization: Bearer $ENGINE_API_KEY` when `ENGINE_API_KEY` is set (the adapters send it automatically).
@@ -64,6 +74,7 @@ In `server/.env.server` (only the ones you've deployed; leave cloud keys unset f
 ENGINE_IMAGE_URL=https://<host>:8001        # or RunPod proxy URL / AWS ALB
 ENGINE_VOICE_URL=https://<host>:8002
 ENGINE_MUSIC_URL=https://<host>:8004
+ENGINE_VIDEO_URL=https://<video-host>:8003  # likely a separate, larger-GPU host
 ENGINE_API_KEY=<same token as above>
 ENGINE_TIMEOUT_MS=900000
 ```

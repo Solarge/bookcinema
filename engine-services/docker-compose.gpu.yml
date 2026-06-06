@@ -40,5 +40,20 @@ services:
         reservations:
           devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
 
+  # Video is the heavy tier — give it a larger GPU (40-80GB ideal). On a single
+  # small GPU box, run it on its OWN host instead of alongside image/voice/music.
+  video:
+    build: ./video
+    ports: ["8003:8003"]
+    environment:
+      ENGINE_API_KEY: ${ENGINE_API_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+      ENGINE_VIDEO_MODEL: ${ENGINE_VIDEO_MODEL:-Lightricks/LTX-Video}
+    volumes: ["models:/models"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+
 volumes:
   models:
