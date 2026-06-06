@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars and fill in. NEVER commit the real file (it's gitignored).
+region            = "us-east-1"
+instance_type     = "g5.xlarge"        # image/voice/music. Use g6e.xlarge / p4d for video.
+engine_api_key    = "change-me-to-a-long-random-token"
+hf_token          = ""                  # required for gated FLUX.1-dev / XTTS
+ssh_cidr          = ""                  # e.g. "203.0.113.4/32" to allow your SSH; empty = SSM only
+engine_ports_cidr = "0.0.0.0/0"        # RESTRICT to your app/worker egress IP in production
+# key_name        = "my-keypair"
+# ami_id          = "ami-xxxxxxxx"       # override the Deep Learning AMI lookup
+# repo_url        = "https://github.com/Solarge/bookcinema.git"
+# repo_branch     = "main"
+# root_volume_gb  = 300
