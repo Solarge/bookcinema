@@ -6,6 +6,7 @@ import { startTestDB, stopTestDB, clearTestDB } from './helpers/db.js'
 import Job from '../models/Job.js'
 import UsageLog from '../models/UsageLog.js'
 import { processGeneration } from '../worker/processGeneration.js'
+import { config } from '../config.js'
 
 before(startTestDB); after(stopTestDB); beforeEach(clearTestDB)
 
@@ -136,4 +137,66 @@ test('processGeneration failover: all providers throw → re-throws last error',
     /gemini down/
   )
   assert.equal((await Job.findById(job._id)).status, 'failed')
+})
+
+// --- best-of-N integration (OFF by default; on only when config.engine.bestOfN > 1) ---
+
+test('processGeneration: bestOfN>1 uploads the higher-scored media candidate', async () => {
+  const realFetch = globalThis.fetch
+  const realN = config.engine.bestOfN
+  const realScoreUrl = config.engine.scoreUrl
+  // Turn the engine on for this test only and route scoring to a stubbed service that
+  // scores by buffer content so the winner is deterministic.
+  config.engine.bestOfN = 2
+  config.engine.scoreUrl = 'http://scorer/score'
+  globalThis.fetch = async (_url, opts) => {
+    const body = JSON.parse(opts.body)
+    const tag = Buffer.from(body.data_base64, 'base64').toString()
+    return { ok: true, json: async () => ({ score: tag === 'WIN' ? 0.9 : 0.1 }) }
+  }
+  try {
+    const wsId = new mongoose.Types.ObjectId(), uid = new mongoose.Types.ObjectId()
+    const job = await Job.create({ workspaceId: wsId, createdBy: uid, type: 'image', tier: 'standard', status: 'queued' })
+    const fakeResolve = () => ({
+      credits: 4,
+      providers: [
+        { provider: 'loser',  adapter: { isConfigured: () => true, generate: async () => ({ buffer: Buffer.from('LOSE'), mimeType: 'image/png', ext: 'png' }) }, model: 'm1' },
+        { provider: 'winner', adapter: { isConfigured: () => true, generate: async () => ({ buffer: Buffer.from('WIN'),  mimeType: 'image/png', ext: 'png' }) }, model: 'm2' },
+      ],
+    })
+    let uploadedBuffer = null
+    const fakeUpload = async (key, buf) => { uploadedBuffer = buf; return 'https://s3.example/' + key }
+    await processGeneration({ jobId: String(job._id), type: 'image', tier: 'standard', payload: { prompt: 'p' }, workspaceId: String(wsId), createdBy: String(uid) }, { resolveFn: fakeResolve, uploadFn: fakeUpload })
+    const updated = await Job.findById(job._id)
+    assert.equal(updated.status, 'done')
+    assert.equal(uploadedBuffer.toString(), 'WIN', 'higher-scored candidate must be uploaded')
+    // provider logged = the winner
+    assert.equal(await UsageLog.countDocuments({ workspaceId: wsId, action: 'generate_image', success: true, provider: 'winner' }), 1)
+  } finally {
+    config.engine.bestOfN = realN
+    config.engine.scoreUrl = realScoreUrl
+    globalThis.fetch = realFetch
+  }
+})
+
+test('processGeneration: bestOfN>1 still uses failover for text (text not scored)', async () => {
+  const realN = config.engine.bestOfN
+  config.engine.bestOfN = 3
+  try {
+    const wsId = new mongoose.Types.ObjectId(), uid = new mongoose.Types.ObjectId()
+    const job = await Job.create({ workspaceId: wsId, createdBy: uid, type: 'text', tier: 'standard', status: 'queued' })
+    const fakeResolve = () => ({
+      credits: 1,
+      providers: [
+        { provider: 'groq',   adapter: { isConfigured: () => true, generate: async () => { throw new Error('rate limit') } }, model: 'llama' },
+        { provider: 'gemini', adapter: { isConfigured: () => true, generate: async () => ({ title: 'TextWins', characters: [], episodes: [] }) }, model: 'g' },
+      ],
+    })
+    await processGeneration({ jobId: String(job._id), type: 'text', tier: 'standard', payload: { bookText: 'x' }, workspaceId: String(wsId), createdBy: String(uid) }, { resolveFn: fakeResolve })
+    const updated = await Job.findById(job._id)
+    assert.equal(updated.status, 'done')
+    assert.match(updated.resultText, /"title":"TextWins"/)
+  } finally {
+    config.engine.bestOfN = realN
+  }
 })
