@@ -69,6 +69,14 @@ export const config = {
     textUrl:  process.env.ENGINE_TEXT_URL  || null, // future
     apiKey:   process.env.ENGINE_API_KEY   || null, // optional bearer token
     timeoutMs: Number(process.env.ENGINE_TIMEOUT_MS) || 600000,
+    // Best-of-N ensemble (the "quality guarantee"). OFF by default (1 = disabled →
+    // current first-success failover behavior, 100% unchanged). When >1, a MEDIA job
+    // generates candidates from up to N configured providers, scores them, and ships
+    // the WINNER (see generation/bestOfN.js). Text jobs are never best-of-N'd here.
+    bestOfN:  Number(process.env.ENGINE_BEST_OF_N) || 1,
+    // Optional external scoring service URL (see generation/scoring.js). When null,
+    // scoring is inert (returns a neutral 0.5) and never changes selection arbitrarily.
+    scoreUrl: process.env.ENGINE_SCORE_URL || null,
   },
 
   admin: {

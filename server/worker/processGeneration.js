@@ -2,6 +2,7 @@ import Job from '../models/Job.js'
 import UsageLog from '../models/UsageLog.js'
 import Workspace from '../models/Workspace.js'
 import { resolve as defaultResolve } from '../generation/resolve.js'
+import { generateBestOfN } from '../generation/bestOfN.js'
 import { uploadBuffer as defaultUpload } from '../utils/s3.js'
 import { sendEmail, jobCompleteEmail } from '../utils/email.js'
 import { config } from '../config.js'
@@ -31,23 +32,35 @@ export async function processGeneration(data, deps = {}) {
     // entry.providers is the ordered list; entry.adapter/.provider for legacy injected fakes.
     const providers = entry.providers || [{ provider: entry.provider, adapter: entry.adapter, model: entry.model }]
     let result
-    let lastError
-    for (const p of providers) {
-      // Skip providers whose key isn't configured (not a failure — just not available here)
-      if (typeof p.adapter.isConfigured === 'function' && !p.adapter.isConfigured()) continue
-      // Skip freeOnly providers for paid-plan workspaces (commercial ToS safety).
-      if (p.freeOnly && isPaidPlan) continue
-      try {
-        result = await p.adapter.generate({ ...payload, model: p.model })
-        provider = p.provider
-        break
-      } catch (e) {
-        lastError = e
-        console.warn(`[managed] provider failover: ${type}/${tier} → ${p.provider} failed: ${e.message}`)
+
+    // Best-of-N ensemble (the quality guarantee) — OFF by default. When ENGINE_BEST_OF_N>1
+    // and the job is MEDIA, generate candidates from up to N providers, score them, and ship
+    // the winner. With the default n=1 (or for text), the code path below is the EXACT current
+    // first-success failover loop — behavior is 100% unchanged.
+    const n = config.engine.bestOfN || 1
+    if (type !== 'text' && n > 1) {
+      const won = await generateBestOfN({ providers, payload, type, n, isPaidPlan })
+      result = won.result
+      provider = won.provider
+    } else {
+      let lastError
+      for (const p of providers) {
+        // Skip providers whose key isn't configured (not a failure — just not available here)
+        if (typeof p.adapter.isConfigured === 'function' && !p.adapter.isConfigured()) continue
+        // Skip freeOnly providers for paid-plan workspaces (commercial ToS safety).
+        if (p.freeOnly && isPaidPlan) continue
+        try {
+          result = await p.adapter.generate({ ...payload, model: p.model })
+          provider = p.provider
+          break
+        } catch (e) {
+          lastError = e
+          console.warn(`[managed] provider failover: ${type}/${tier} → ${p.provider} failed: ${e.message}`)
+        }
       }
-    }
-    if (result === undefined) {
-      throw lastError || new Error(`No configured provider available for ${type}/${tier}`)
+      if (result === undefined) {
+        throw lastError || new Error(`No configured provider available for ${type}/${tier}`)
+      }
     }
     // --------------------------------
 
