@@ -1,18 +1,28 @@
 /**
- * Chunked (map-reduce) full-book text generation.
+ * Chunked full-book text generation.
  *
- * For books longer than `threshold` characters the module:
- *   1. Splits the text into ≤threshold-char chunks on paragraph/sentence boundaries.
- *   2. Summarises each chunk (map) with a plain-text LLM call.
- *   3. Joins the summaries and runs the normal series-generation call (reduce).
+ * Short books (≤threshold) are sent in a SINGLE pass — identical to the original behaviour.
  *
- * Short books (≤threshold) are sent in a single pass — identical to the original behaviour.
+ * Large books (>threshold) use a SECTION-FIRST pipeline so episode count and detail scale
+ * with the book's actual length (instead of being squeezed through one summary→reduce call):
+ *   1. Split the text into ≤threshold-char chunks on paragraph/sentence boundaries.
+ *   2. BIBLE pass: summarise each chunk (small calls), join them, then ONE call to produce the
+ *      shared book-wide "series bible" (title, author, logline, series_hook, the full cast,
+ *      production_guide, coverage_note, virality) — NO episodes.
+ *   3. SECTION passes: for EACH chunk, ONE call that gets the bible (title + cast + style) plus
+ *      the chunk's ACTUAL text and returns episodes[] dramatizing that section in full.
+ *   4. MERGE: concat all sections' episodes in order, renumber 1..N, union the cast, build one
+ *      coverage entry per episode, and stitch in the bible's shared fields.
+ *
+ * Resilience: a section call that fails or returns unparseable JSON is logged and SKIPPED. If
+ * EVERY section fails, we fall back to the old summarise→single-reduce path so nothing regresses.
  *
  * The `complete` function injected by each adapter does the actual LLM call so the
- * orchestration always uses the *same* provider for both summary and series calls.
+ * orchestration always uses the *same* provider for every call.
  */
 
 import { buildSystemPrompt } from './systemPrompt.js'
+import { buildBiblePrompt, buildSectionPrompt } from './sectionPrompts.js'
 import { parseSeriesJson } from './parseSeriesJson.js'
 import { config } from '../config.js'
 
@@ -116,13 +126,12 @@ export async function generateSeriesFromBook({
     return parseSeriesJson(raw)
   }
 
-  // ── Map-reduce path (large book) ───────────────────────────────────────────
+  // ── Section-first path (large book) ────────────────────────────────────────
   const chunks = splitIntoChunks(bookText, threshold)
 
-  // Map: summarise each chunk (sequentially to respect rate limits)
+  // Map: summarise each chunk (sequentially to respect rate limits). Reused for the bible.
   const summaries = []
   for (let i = 0; i < chunks.length; i++) {
-    // Run up to 3 at a time to avoid hammering rate limits
     summaries.push(
       await complete({
         system: SUMMARY_SYSTEM,
@@ -133,7 +142,130 @@ export async function generateSeriesFromBook({
     )
   }
 
-  // Reduce: combine summaries and generate the series
+  // ── BIBLE pass: one call → shared book-wide fields (no episodes). ───────────
+  const overview = summaries
+    .map((s, i) => `--- SECTION ${i + 1} ---\n\n${s}`)
+    .join('\n\n')
+
+  let bible
+  try {
+    const bibleRaw = await complete({
+      system: buildBiblePrompt(genrePreset, language),
+      user: `Here is a faithful, section-by-section overview of the ENTIRE book. Build the series bible (shared fields + full recurring cast) for adapting it:\n\n${overview}`,
+      json: true,
+      maxTokens: config.managed.seriesMaxTokens,
+    })
+    bible = parseSeriesJson(bibleRaw)
+  } catch (err) {
+    console.error('[chunkedText] bible pass failed — falling back to single-reduce:', err?.message || err)
+    return reduceFromSummaries({ summaries, genrePreset, language, episodeCount, complete })
+  }
+
+  // ── SECTION passes: one call per chunk → episodes for that section. ─────────
+  const bibleCharacters = Array.isArray(bible.characters) ? bible.characters : []
+  const sectionContext =
+    `SERIES BIBLE (stay consistent with this):\n` +
+    `Title: ${bible.title || ''}\n` +
+    `Logline: ${bible.logline || ''}\n` +
+    `Visual style: ${bible.production_guide?.visual_style || ''}\n` +
+    `Music direction: ${bible.production_guide?.music_direction || ''}\n` +
+    `Established cast (use these ids where they appear):\n` +
+    JSON.stringify(bibleCharacters, null, 2)
+
+  const sectionEpisodeGroups = []   // [{ index, episodes }]
+  const extraCharacters = []
+  const sectionSystem = buildSectionPrompt(genrePreset, language)
+
+  for (let i = 0; i < chunks.length; i++) {
+    try {
+      const raw = await complete({
+        system: sectionSystem,
+        user:
+          `${sectionContext}\n\n` +
+          `Now dramatize SECTION ${i + 1} of ${chunks.length} into episodes from its ACTUAL text below. ` +
+          `Cover this whole section in order:\n\n--- SECTION ${i + 1} TEXT ---\n\n${chunks[i]}`,
+        json: true,
+        maxTokens: config.managed.seriesMaxTokens,
+      })
+      const parsed = parseSeriesJson(raw)
+      const episodes = Array.isArray(parsed.episodes) ? parsed.episodes : []
+      if (episodes.length > 0) {
+        sectionEpisodeGroups.push({ index: i, episodes })
+      } else {
+        console.error(`[chunkedText] section ${i + 1} returned no episodes — skipping`)
+      }
+      if (Array.isArray(parsed.new_characters)) extraCharacters.push(...parsed.new_characters)
+    } catch (err) {
+      console.error(`[chunkedText] section ${i + 1} failed — skipping:`, err?.message || err)
+    }
+  }
+
+  // ── Fallback: if EVERY section failed, use the old single-reduce path. ──────
+  if (sectionEpisodeGroups.length === 0) {
+    console.error('[chunkedText] all sections failed — falling back to single-reduce')
+    return reduceFromSummaries({ summaries, genrePreset, language, episodeCount, complete })
+  }
+
+  return mergeSeries({ bible, bibleCharacters, extraCharacters, sectionEpisodeGroups })
+}
+
+/**
+ * Merge the bible + all sections' episodes into one series object matching
+ * buildSystemPrompt's schema.
+ */
+function mergeSeries({ bible, bibleCharacters, extraCharacters, sectionEpisodeGroups }) {
+  // Episodes: concat in section order, renumber sequentially 1..N.
+  const episodes = []
+  const coverage = []
+  for (const group of sectionEpisodeGroups) {
+    for (const ep of group.episodes) {
+      const number = episodes.length + 1
+      episodes.push({ ...ep, number })
+      coverage.push({
+        episode: number,
+        book_section: `Section ${group.index + 1}`,
+        adapts:
+          (ep.title ? `${ep.title} — ` : '') +
+          `dramatizes part of section ${group.index + 1} of the book.`,
+      })
+    }
+  }
+
+  // Characters: bible cast unioned with any section-introduced characters.
+  // Dedup by id, else by lowercased name; keep bible ids stable / first-wins.
+  const characters = []
+  const seenIds = new Set()
+  const seenNames = new Set()
+  for (const c of [...bibleCharacters, ...extraCharacters]) {
+    if (!c || typeof c !== 'object') continue
+    const id = c.id ? String(c.id) : ''
+    const name = c.name ? String(c.name).toLowerCase().trim() : ''
+    if (id && seenIds.has(id)) continue
+    if (!id && name && seenNames.has(name)) continue
+    if (id) seenIds.add(id)
+    if (name) seenNames.add(name)
+    characters.push(c)
+  }
+
+  return {
+    title: bible.title,
+    author: bible.author,
+    logline: bible.logline,
+    series_hook: bible.series_hook,
+    characters,
+    episodes,
+    production_guide: bible.production_guide,
+    coverage,
+    coverage_note: bible.coverage_note,
+    virality: bible.virality,
+  }
+}
+
+/**
+ * Fallback: the original summarise→single-reduce behaviour. Used when the bible
+ * pass fails or every section call fails, so a large book never hard-fails.
+ */
+async function reduceFromSummaries({ summaries, genrePreset, language, episodeCount, complete }) {
   const combined = summaries
     .map((s, i) => `--- SECTION ${i + 1} ---\n\n${s}`)
     .join('\n\n')
