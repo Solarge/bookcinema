@@ -12,6 +12,7 @@ import { ImageAsset, VideoAsset, AudioAsset } from './MediaAsset'
 import SettingsPanel from './SettingsPanel'
 import StoryboardView from './StoryboardView'
 import SocialCardModal from './SocialCardModal'
+import DirectorChat from './DirectorChat'
 import { useDivModalA11y } from '../hooks/useModalA11y'
 import { series as seriesApi, managed as managedApi, pollJob } from '../lib/api'
 import { planAllows, minPlanFor, planLabel, FEATURE_LABELS } from '../utils/plans'
@@ -164,7 +165,7 @@ function CharacterBible({ characters, seriesTitle, onUpdateChar, plan = 'free', 
 }
 
 // ── Dialogue line ──────────────────────────────────────────────────────────
-function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBilling }) {
+function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBilling, onUpdateLine }) {
   const { settings } = useSettings()
   const { dialogue, generateDialogueVoice, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug } = useMedia()
   const key = `ep${epNum}-s${sceneNum}-d${dIdx}`
@@ -178,7 +179,7 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBil
         {charName(line.character, characters)}
       </div>
       <div className="rs-dialogue-text">
-        "{line.line}"
+        &quot;<Editable value={line.line} onChange={v => onUpdateLine?.(dIdx, v)} multiline />&quot;
       </div>
       <div className="rs-dialogue-direction">{line.voice_direction}</div>
       <AudioAsset
@@ -198,7 +199,7 @@ function DialogueLine({ line, dIdx, epNum, sceneNum, characters, plan, onOpenBil
 }
 
 // ── Scene card ─────────────────────────────────────────────────────────────
-function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generationMode, plan, onOpenBilling }) {
+function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, onUpdateLine, generationMode, plan, onOpenBilling }) {
   const { settings } = useSettings()
   const { scenes, generateSceneVideo, setSceneApproval, cloudEnabled, saveToCloud, deleteFromCloud, saving, seriesSlug, sceneMusic, generateSceneMusic, dialogue, addSceneSound, assembleScene } = useMedia()
   const key = `ep${epNum}-s${scene.scene_number}`
@@ -315,7 +316,7 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, generatio
       {/* Dialogue */}
       <div className="rs-scene-dialogue-wrap">
         {(scene.dialogue || []).map((d, i) => (
-          <DialogueLine key={i} line={d} dIdx={i} epNum={epNum} sceneNum={scene.scene_number} characters={characters} plan={plan} onOpenBilling={onOpenBilling} />
+          <DialogueLine key={i} line={d} dIdx={i} epNum={epNum} sceneNum={scene.scene_number} characters={characters} plan={plan} onOpenBilling={onOpenBilling} onUpdateLine={onUpdateLine} />
         ))}
       </div>
     </div>
@@ -532,6 +533,7 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
           charIds={episode.characters_in_episode || []}
           characters={characters}
           onUpdateKling={v => onUpdate(`scenes.${scene.scene_number - 1}.kling_prompt`, v)}
+          onUpdateLine={(dIdx, v) => onUpdate(`scenes.${scene.scene_number - 1}.dialogue.${dIdx}.line`, v)}
           generationMode={generationMode}
           plan={plan}
           onOpenBilling={onOpenBilling}
@@ -967,16 +969,37 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
   const [showShare, setShowShare] = useState(false)
   const [zipping, setZipping] = useState(false)
   const [savingAll, setSavingAll] = useState(false)
+  const [showDirectorChat, setShowDirectorChat] = useState(false)
 
   const { title, author, logline, series_hook, virality, coverage, coverage_note, characters = [], episodes = [], production_guide } = series
 
   // Coverage data present? (controls the nav entry + section render)
   const hasCoverage = (Array.isArray(coverage) && coverage.length > 0) || !!(coverage_note && coverage_note.trim())
 
+  // Best-effort persistence of an updated series to the cloud library.
+  // Only fires when we have a backing seriesId; otherwise local-only.
+  const persistSeries = useCallback((nextSeries) => {
+    if (!seriesId) return
+    seriesApi.update(seriesId, { fullOutput: nextSeries }).catch(err => {
+      console.warn('Failed to persist series update', err)
+    })
+  }, [seriesId])
+
+  // Apply a full series replacement (from Director's Chat revisions) and persist.
+  const handleSeriesUpdate = useCallback((nextSeries) => {
+    if (!nextSeries) return
+    setSeries(nextSeries)
+    persistSeries(nextSeries)
+  }, [persistSeries])
+
   // Inline edit helpers
   const updateChar = useCallback((charId, field, val) => {
-    setSeries(prev => ({ ...prev, characters: prev.characters.map(c => c.id === charId ? { ...c, [field]: val } : c) }))
-  }, [])
+    setSeries(prev => {
+      const next = { ...prev, characters: prev.characters.map(c => c.id === charId ? { ...c, [field]: val } : c) }
+      persistSeries(next)
+      return next
+    })
+  }, [persistSeries])
 
   const updateEpisode = useCallback((epNum, field, val) => {
     setSeries(prev => {
@@ -988,13 +1011,26 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
         if (parts[0] === 'scenes') {
           const idx = parseInt(parts[1], 10)
           const subField = parts[2]
+          // Dialogue line edit: "scenes.{idx}.dialogue.{di}.line"
+          if (subField === 'dialogue' && parts.length === 5) {
+            const di = parseInt(parts[3], 10)
+            const dlgField = parts[4]
+            return {
+              ...ep,
+              scenes: ep.scenes.map((s, i) => i === idx
+                ? { ...s, dialogue: (s.dialogue || []).map((d, j) => j === di ? { ...d, [dlgField]: val } : d) }
+                : s),
+            }
+          }
           return { ...ep, scenes: ep.scenes.map((s, i) => i === idx ? { ...s, [subField]: val } : s) }
         }
         return ep
       })
-      return { ...prev, episodes }
+      const next = { ...prev, episodes }
+      persistSeries(next)
+      return next
     })
-  }, [])
+  }, [persistSeries])
 
   const mediaState = { characters: charMedia, scenes: sceneMedia, dialogue: dialogueMedia }
 
@@ -1110,6 +1146,14 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
         )}
 
         {/* Actions */}
+        <button
+          onClick={() => setShowDirectorChat(v => !v)}
+          aria-label="Toggle Director's Chat"
+          aria-expanded={showDirectorChat}
+          className="rs-toolbar-btn rs-toolbar-btn--default"
+        >
+          💬 Director&apos;s Chat
+        </button>
         <button onClick={() => setShowStoryboard(true)} className="rs-toolbar-btn rs-toolbar-btn--default">🎞 Storyboard</button>
         <button onClick={() => exportHtml(series)} aria-label="Export as HTML" className="rs-toolbar-btn rs-toolbar-btn--default">HTML</button>
         <button onClick={handleBibleExport} aria-label="Export series bible" className="rs-toolbar-btn rs-toolbar-btn--default">Bible</button>
@@ -1189,6 +1233,16 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
           </div>
         </main>
       </div>
+
+      {/* Director's Chat — docked panel */}
+      {showDirectorChat && (
+        <DirectorChat
+          series={series}
+          onSeriesUpdate={handleSeriesUpdate}
+          tier={settings.managedTier || 'standard'}
+          onClose={() => setShowDirectorChat(false)}
+        />
+      )}
 
       {/* Overlays */}
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
