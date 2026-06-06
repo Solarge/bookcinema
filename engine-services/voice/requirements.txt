@@ -1,0 +1,6 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+pydantic==2.*
+# Maintained Coqui XTTS fork (works on modern Python/torch). If you prefer the
+# original package, swap for `TTS==0.22.0` (older torch pin).
+coqui-tts>=0.24.0
