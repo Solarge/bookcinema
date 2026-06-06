@@ -67,6 +67,24 @@ Two practical configurations:
 
 VRAM rules of thumb: FLUX ~16–20 GB; XTTS ~4–8 GB; MusicGen-large ~8–16 GB; open video models 24–48 GB+; a 70B LLM needs 2× 40 GB or 1× 80 GB (or run a 8–14B on 24 GB to start).
 
+### Deploying on AWS (recommended for production — you're already on S3 there)
+
+The contract is host-agnostic, so AWS works. Because the app's storage (S3) and secrets already live in AWS, deploying the GPU services in the **same account/region/VPC** is a strong production choice. Three options:
+
+- **EC2 GPU instances (simplest — mirrors the RunPod recipe):** run the same Docker containers on
+  - `g5.xlarge` (1× A10G, 24 GB) → image / voice / music,
+  - `g6e.xlarge` (1× L40S, 48 GB) or `p4d`/`p5` (A100/H100) → video + 70B LLM.
+  Reach them over the **private VPC** (no public exposure) or behind an internal ALB; set `ENGINE_*_URL` to those addresses.
+- **SageMaker async inference endpoints:** managed hosting that **idles to zero** and queues long jobs — ideal for slow video renders. Wrap each model as a SageMaker container (or front with API Gateway → Lambda to translate the contract). Most AWS-native; scale-to-zero without babysitting instances.
+- **ECS/EKS with GPU nodes + cluster autoscaler:** container orchestration if you're already on ECS/EKS.
+
+AWS-specific notes:
+- **Quota:** request a Service Quotas increase for the **G/P instance family** (the on-demand vCPU limit is often 0 by default) — do this first, it can take a day.
+- **Cost:** AWS GPU is pricier per hour than RunPod/Vast (`g5.xlarge` ≈ $1/hr on-demand; A100/H100 much more). Use **Spot** (~70% cheaper) for interruptible render workers, or scale an Auto Scaling Group **min=0** off BullMQ queue depth. EC2 has **no native scale-to-zero** — that's why SageMaker async (which idles to zero) is attractive for the expensive video/LLM tier.
+- **Integration win:** same-region S3 = faster uploads + no egress fees; IAM + private subnets = no public GPU endpoints; one bill, one account.
+
+**Recommendation:** prototype cheaply on RunPod to validate quality/cost, then run production on **AWS EC2 (g5/g6e) or SageMaker async** co-located with your S3/VPC.
+
 ---
 
 ## 4. Networking & security
