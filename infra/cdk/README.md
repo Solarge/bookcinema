@@ -22,8 +22,19 @@ Put the same `engineApiKey` as `ENGINE_API_KEY` in `server/.env.server`, add the
 
 ## Context flags
 `engineApiKey` (required), `hfToken`, `instanceType` (default `g5.xlarge`),
+`useSpot` (default `"true"` — Spot one-time, ~70% cheaper; `"false"` = on-demand),
+`spotMaxPrice` (e.g. `"0.5"`; empty = cap at on-demand price),
+`autoShutdownMinutes` (default `60` — self-terminate after build; `0` = never),
 `engineCidr` (default `0.0.0.0/0` — restrict!), `sshCidr`, `repoUrl`, `repoBranch`,
 `rootVolumeGb` (default 300).
+
+**Spot + auto-terminate (matches the Terraform stack):** by default this deploys a
+**one-time Spot** instance via a LaunchTemplate and self-terminates ~`autoShutdownMinutes`
+after the docker build (user-data `shutdown -h`, with shutdown-behavior `terminate` so the
+box + root EBS are destroyed — no lingering cost). The 60-min timer starts *after* the
+build (10–20 min), so it's ~1 hour of warm runtime. For a guaranteed full hour with no
+interruption risk, deploy with `-c useSpot=false`. Run `cdk destroy` afterward to remove
+the leftover security group / IAM role.
 
 ## Notes
 - Same caveats as the Terraform stack (`../terraform/README.md`): first boot is
