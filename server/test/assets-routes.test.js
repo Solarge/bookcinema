@@ -8,6 +8,7 @@ import { startTestDB, stopTestDB, clearTestDB } from './helpers/db.js'
 import assetRoutes from '../routes/assets.js'
 import shareRoutes from '../routes/share.js'
 import Asset from '../models/Asset.js'
+import CharacterAsset from '../models/CharacterAsset.js'
 import Series from '../models/Series.js'
 import Job from '../models/Job.js'
 import { makeAuthedUser } from './helpers/auth.js'
@@ -152,6 +153,64 @@ test('asset approval 404s for an asset in another workspace', async () => {
   const foreign = await Asset.create({ ...assetBase(new mongoose.Types.ObjectId()), userId: user._id, workspaceId: new mongoose.Types.ObjectId() })
   const res = await authed(request(assetsApp()).patch(`/api/assets/${foreign._id}/approval`), token, workspace._id).send({ status: 'approved' })
   assert.equal(res.status, 404)
+})
+
+// ── Character memory: CharacterAsset auto-register + /characters endpoint ─────────
+test('from-job auto-registers a CharacterAsset for a promoted character_image', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const job = await Job.create({
+    workspaceId: workspace._id, createdBy: user._id, type: 'image', tier: 'standard', status: 'done',
+    resultKey: `generated/${workspace._id}/portrait.png`, resultUrl: `https://b.s3.us-east-1.amazonaws.com/generated/${workspace._id}/portrait.png`,
+  })
+  const res = await authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id)
+    .send({ jobId: String(job._id), assetKey: 'char-img:slug:hero:0', provider: 'managed' })
+  assert.equal(res.status, 201)
+  const refs = await CharacterAsset.find({ seriesId: series._id })
+  assert.equal(refs.length, 1)
+  assert.equal(refs[0].characterId, 'hero')
+  assert.equal(refs[0].s3Key, `generated/${workspace._id}/portrait.png`)
+  assert.equal(String(refs[0].workspaceId), String(workspace._id))
+})
+
+test('from-job re-registers (upserts) the CharacterAsset in place on regeneration', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const mk = (n) => Job.create({ workspaceId: workspace._id, createdBy: user._id, type: 'image', tier: 'standard', status: 'done', resultKey: `generated/${workspace._id}/${n}.png`, resultUrl: `https://b.s3.us-east-1.amazonaws.com/generated/${workspace._id}/${n}.png` })
+  const j1 = await mk('a'); const j2 = await mk('b')
+  const send = (jid) => authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id).send({ jobId: String(jid), assetKey: 'char-img:slug:hero:0' })
+  await send(j1._id)
+  await send(j2._id)
+  const refs = await CharacterAsset.find({ seriesId: series._id })
+  assert.equal(refs.length, 1)
+  assert.equal(refs[0].s3Key, `generated/${workspace._id}/b.png`)
+})
+
+test('from-job does NOT register a CharacterAsset for a non-character asset', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const series = await Series.create({ userId: user._id, workspaceId: workspace._id, title: 'T', fullOutput: { title: 'T' } })
+  const job = await Job.create({
+    workspaceId: workspace._id, createdBy: user._id, type: 'video', tier: 'standard', status: 'done',
+    resultKey: `generated/${workspace._id}/clip.mp4`, resultUrl: `https://b.s3.us-east-1.amazonaws.com/generated/${workspace._id}/clip.mp4`,
+  })
+  const res = await authed(request(assetsApp()).post(`/api/assets/${series._id}/from-job`), token, workspace._id)
+    .send({ jobId: String(job._id), assetKey: 'scene-video:slug:ep1:s2', provider: 'managed' })
+  assert.equal(res.status, 201)
+  assert.equal(await CharacterAsset.countDocuments({ seriesId: series._id }), 0)
+})
+
+test('GET /:seriesId/characters returns presigned refs scoped to the workspace', async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const seriesId = new mongoose.Types.ObjectId()
+  await CharacterAsset.create({ workspaceId: workspace._id, seriesId, characterId: 'hero', s3Key: 'generated/x/hero.png', s3Url: 'https://b.s3.us-east-1.amazonaws.com/generated/x/hero.png', createdBy: user._id })
+  // foreign-workspace ref for the same series must be excluded
+  await CharacterAsset.create({ workspaceId: new mongoose.Types.ObjectId(), seriesId, characterId: 'villain', s3Key: 'generated/y/villain.png', s3Url: 'https://b.s3.us-east-1.amazonaws.com/generated/y/villain.png', createdBy: user._id })
+
+  const res = await authed(request(assetsApp()).get(`/api/assets/${seriesId}/characters`), token, workspace._id)
+  assert.equal(res.status, 200)
+  assert.equal(res.body.length, 1)
+  assert.equal(res.body[0].characterId, 'hero')
+  assert.match(res.body[0].s3Url, /X-Amz-Signature=/)
 })
 
 test('public share response excludes workspaceId and userId', async () => {

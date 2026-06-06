@@ -10,6 +10,7 @@ import { estCostFor } from '../generation/registry.js'
 import { debitCredits, refundCredits } from '../utils/credits.js'
 import { planFeatures } from '../plans.js'
 import { validateVideoUrl } from '../utils/urlGuard.js'
+import { getCharacterRefUrl } from './assets.js'
 import { moderateText } from '../utils/moderation.js'
 import { config } from '../config.js'
 import { track } from '../utils/track.js'
@@ -52,6 +53,21 @@ async function enqueueGeneration(req, res, { type, tier, params, payload }) {
   }
   await track('generation', { userId: req.user._id, workspaceId: req.workspace._id, props: { type, tier } })
   return res.status(202).json({ jobId: String(job._id), creditsCharged: cost, creditsRemaining: debit.balance })
+}
+
+// Character consistency: resolve an OPTIONAL reference portrait URL the engine adapter
+// can use to keep a character looking the same across scenes. Accepts an explicit
+// `characterRef` URL, or a `characterId` (+ `seriesId`) to look up the canonical
+// CharacterAsset reference. Validated with the SSRF guard; an invalid/absent value
+// resolves to null (current behavior). Cloud adapters simply ignore characterRef.
+async function resolveCharacterRef({ characterRef, characterId, seriesId, workspaceId }) {
+  let ref = (typeof characterRef === 'string' && characterRef) ? characterRef : null
+  if (!ref && characterId && seriesId) {
+    ref = await getCharacterRefUrl(workspaceId, seriesId, characterId)
+  }
+  if (!ref) return null
+  const check = validateVideoUrl(ref)
+  return check.ok ? ref : null
 }
 
 router.post('/text', managedAccess('text'), async (req, res) => {
@@ -181,7 +197,7 @@ router.post('/music', managedAccess('music'), async (req, res) => {
 // POST /api/generate/image
 router.post('/image', managedAccess('image'), async (req, res) => {
   try {
-    const { prompt, aspectRatio = '9:16', tier = 'standard' } = req.body
+    const { prompt, aspectRatio = '9:16', tier = 'standard', characterRef, characterId, seriesId } = req.body
     if (!prompt) return res.status(400).json({ error: 'prompt is required' })
     if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
 
@@ -194,14 +210,17 @@ router.post('/image', managedAccess('image'), async (req, res) => {
       })
     }
 
-    return await enqueueGeneration(req, res, { type: 'image', tier, params: { prompt, aspectRatio }, payload: { prompt, aspectRatio, tier } })
+    // Optional character-consistency reference (see resolveCharacterRef). null = current behavior.
+    const charRef = await resolveCharacterRef({ characterRef, characterId, seriesId, workspaceId: req.workspace._id })
+
+    return await enqueueGeneration(req, res, { type: 'image', tier, params: { prompt, aspectRatio }, payload: { prompt, aspectRatio, tier, characterRef: charRef } })
   } catch (err) { console.error('generate/image error:', err); res.status(500).json({ error: 'Server error' }) }
 })
 
 // POST /api/generate/video
 router.post('/video', managedAccess('video'), async (req, res) => {
   try {
-    const { prompt, kling_prompt, aspectRatio = '9:16', duration = 5, tier = 'standard' } = req.body
+    const { prompt, kling_prompt, aspectRatio = '9:16', duration = 5, tier = 'standard', characterRef, characterId, seriesId } = req.body
     const effectivePrompt = prompt || kling_prompt
     if (!effectivePrompt) return res.status(400).json({ error: 'prompt is required' })
     if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
@@ -215,10 +234,13 @@ router.post('/video', managedAccess('video'), async (req, res) => {
       })
     }
 
+    // Optional character-consistency reference (see resolveCharacterRef). null = current behavior.
+    const charRef = await resolveCharacterRef({ characterRef, characterId, seriesId, workspaceId: req.workspace._id })
+
     return await enqueueGeneration(req, res, {
       type: 'video', tier,
       params:  { prompt: effectivePrompt, aspectRatio, duration },
-      payload: { prompt: effectivePrompt, aspectRatio, duration, tier },
+      payload: { prompt: effectivePrompt, aspectRatio, duration, tier, characterRef: charRef },
     })
   } catch (err) { console.error('generate/video error:', err); res.status(500).json({ error: 'Server error' }) }
 })

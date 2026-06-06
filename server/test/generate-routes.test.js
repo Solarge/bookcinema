@@ -7,6 +7,8 @@ import { startTestDB, stopTestDB, clearTestDB } from './helpers/db.js'
 import generateRoutes from '../routes/generate.js'
 import Job from '../models/Job.js'
 import Workspace from '../models/Workspace.js'
+import CharacterAsset from '../models/CharacterAsset.js'
+import mongoose from 'mongoose'
 import { makeAuthedUser } from './helpers/auth.js'
 
 before(startTestDB); after(stopTestDB); beforeEach(clearTestDB)
@@ -219,6 +221,73 @@ test('POST /image debits cost-weighted credits (image standard = 4)', async () =
     .send({ prompt: 'a fox', tier: 'standard' })
   assert.equal(res.status, 202)
   assert.equal((await Workspace.findById(workspace._id)).creditBalance, 6)
+})
+
+// ── Character memory: characterRef threading on /image and /video ────────────────
+const REF_URL = 'https://b.s3.us-east-1.amazonaws.com/generated/x/hero.png'
+
+test('POST /image threads an explicit characterRef into the enqueued payload', async () => {
+  const { token, workspace } = await betaUser()
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullci' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/image'), token, workspace._id)
+    .send({ prompt: 'a fox', tier: 'standard', characterRef: REF_URL })
+  assert.equal(res.status, 202)
+  assert.equal(enq[0].payload.characterRef, REF_URL)
+})
+
+test('POST /image leaves characterRef null when none is provided (backward compatible)', async () => {
+  const { token, workspace } = await betaUser()
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullci2' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/image'), token, workspace._id)
+    .send({ prompt: 'a fox', tier: 'standard' })
+  assert.equal(res.status, 202)
+  assert.equal(enq[0].payload.characterRef, null)
+})
+
+test('POST /image drops an invalid (non-https/private) characterRef', async () => {
+  const { token, workspace } = await betaUser()
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullci3' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/image'), token, workspace._id)
+    .send({ prompt: 'a fox', tier: 'standard', characterRef: 'http://127.0.0.1/secret.png' })
+  assert.equal(res.status, 202)
+  assert.equal(enq[0].payload.characterRef, null)
+})
+
+test('POST /image resolves characterId → characterRef from a seeded CharacterAsset', async () => {
+  const { user, token, workspace } = await betaUser()
+  const seriesId = new mongoose.Types.ObjectId()
+  await CharacterAsset.create({ workspaceId: workspace._id, seriesId, characterId: 'hero', s3Key: 'generated/x/hero.png', s3Url: REF_URL, createdBy: user._id })
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullci4' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/image'), token, workspace._id)
+    .send({ prompt: 'a fox', tier: 'standard', characterId: 'hero', seriesId: String(seriesId) })
+  assert.equal(res.status, 202)
+  assert.match(enq[0].payload.characterRef, /X-Amz-Signature=/)
+})
+
+test('POST /video threads an explicit characterRef into the enqueued payload', async () => {
+  const { token, workspace } = await betaUser({ plan: 'pro' })
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullcv' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/video'), token, workspace._id)
+    .send({ prompt: 'a fox runs', tier: 'standard', characterRef: REF_URL })
+  assert.equal(res.status, 202, `expected 202, got ${res.status}: ${JSON.stringify(res.body)}`)
+  assert.equal(enq[0].payload.characterRef, REF_URL)
+})
+
+test('POST /video resolves characterId → characterRef from a seeded CharacterAsset', async () => {
+  const { user, token, workspace } = await betaUser({ plan: 'pro' })
+  const seriesId = new mongoose.Types.ObjectId()
+  await CharacterAsset.create({ workspaceId: workspace._id, seriesId, characterId: 'hero', s3Key: 'generated/x/hero.png', s3Url: REF_URL, createdBy: user._id })
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullcv2' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/video'), token, workspace._id)
+    .send({ prompt: 'a fox runs', tier: 'standard', characterId: 'hero', seriesId: String(seriesId) })
+  assert.equal(res.status, 202)
+  assert.match(enq[0].payload.characterRef, /X-Amz-Signature=/)
 })
 
 // ── Director's Chat: POST /refine ───────────────────────────────────────────────

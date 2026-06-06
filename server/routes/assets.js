@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import mongoose from 'mongoose'
 import Asset from '../models/Asset.js'
+import CharacterAsset from '../models/CharacterAsset.js'
 import Series from '../models/Series.js'
 import Job from '../models/Job.js'
 import UsageLog from '../models/UsageLog.js'
@@ -39,6 +40,30 @@ async function withSignedUrl(asset) {
     return obj
   }
 }
+
+// Resolve the canonical character REFERENCE portrait for (workspace, series, character)
+// as a short-lived presigned URL. Returns null when there's no registered reference
+// (or signing fails). Used by the generate route to plumb `characterRef` to the engine.
+export async function getCharacterRefUrl(workspaceId, seriesId, characterId) {
+  try {
+    if (!workspaceId || !seriesId || !characterId) return null
+    const ref = await CharacterAsset.findOne({ workspaceId, seriesId, characterId })
+    if (!ref?.s3Key) return null
+    return await getPresignedUrl(ref.s3Key, 3600)
+  } catch (err) {
+    console.warn('getCharacterRefUrl failed:', err.message)
+    return null
+  }
+}
+
+// GET /api/assets/:seriesId/characters — list the canonical character REFERENCE
+// portraits for a series in the active workspace, each with a presigned s3Url.
+router.get('/:seriesId/characters', async (req, res) => {
+  try {
+    const refs = await CharacterAsset.find({ seriesId: req.params.seriesId, workspaceId: req.workspace._id }).sort({ createdAt: 1 })
+    res.json(await Promise.all(refs.map(withSignedUrl)))
+  } catch (err) { res.status(500).json({ error: err.message }) }
+})
 
 // GET /api/assets/:seriesId — list assets for a series in the active workspace
 router.get('/:seriesId', async (req, res) => {
@@ -87,6 +112,24 @@ router.post('/:seriesId/from-job', async (req, res) => {
       fields,
       { new: true, upsert: true, setDefaultsOnInsert: true }
     )
+
+    // Character memory: when a character portrait is promoted, register/refresh the
+    // canonical REFERENCE for (seriesId, characterId) so generation can pass it to the
+    // engine. assetKey shape: 'char-img:<slug>:<charId>:<variationIndex>' (variation
+    // segment may be absent). Best-effort — never fail the main request.
+    if (asset.type === 'character_image' && assetKey.startsWith('char-img:')) {
+      try {
+        const characterId = assetKey.split(':')[2]
+        if (characterId) {
+          await CharacterAsset.findOneAndUpdate(
+            { seriesId: req.params.seriesId, characterId },
+            { workspaceId: req.workspace._id, seriesId: req.params.seriesId, characterId, s3Key: asset.s3Key, s3Url: asset.s3Url, createdBy: req.user._id },
+            { upsert: true, setDefaultsOnInsert: true }
+          )
+        }
+      } catch (e) { console.warn('character ref upsert failed (non-fatal):', e.message) }
+    }
+
     res.status(201).json(await withSignedUrl(asset))
   } catch (err) { res.status(500).json({ error: err.message }) }
 })
