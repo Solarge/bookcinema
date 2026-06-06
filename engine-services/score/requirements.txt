@@ -1,0 +1,12 @@
+fastapi==0.115.*
+uvicorn[standard]==0.32.*
+pydantic==2.*
+open_clip_torch>=2.24.0
+pillow>=10.0.0
+numpy>=1.26.0
+requests>=2.31.0
+imageio>=2.34.0
+imageio-ffmpeg>=0.5.1
+# Identity match (ArcFace). Optional — the service degrades gracefully without it.
+insightface>=0.7.3
+onnxruntime>=1.18.0

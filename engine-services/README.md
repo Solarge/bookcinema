@@ -12,6 +12,7 @@ APIs as automatic fallback.
 | Voice   | `voice/` | Coqui XTTS-v2 | 8002 | `POST /generate` → WAV bytes |
 | Music   | `music/` | `facebook/musicgen-large` | 8004 | `POST /generate` → WAV bytes |
 | Video   | `video/` | `Lightricks/LTX-Video` | 8003 | `POST /generate` → MP4 bytes |
+| Score   | `score/` | CLIP + optional ArcFace | 8006 | `POST /score` → `{ score }` |
 
 > Text (LLM) is **not** in this folder — serve it with **vLLM**, which already
 > exposes the OpenAI-compatible `/v1/chat/completions` the `engineText` adapter
@@ -75,6 +76,8 @@ ENGINE_IMAGE_URL=https://<host>:8001        # or RunPod proxy URL / AWS ALB
 ENGINE_VOICE_URL=https://<host>:8002
 ENGINE_MUSIC_URL=https://<host>:8004
 ENGINE_VIDEO_URL=https://<video-host>:8003  # likely a separate, larger-GPU host
+ENGINE_SCORE_URL=https://<host>:8006/score   # enables best-of-N scoring
+ENGINE_BEST_OF_N=3                            # >1 turns on the quality guarantee
 ENGINE_API_KEY=<same token as above>
 ENGINE_TIMEOUT_MS=900000
 ```
@@ -93,5 +96,7 @@ and an end-to-end generation in the app.
 - **Character consistency**: `image/app.py` accepts `character_ref` and `voice/app.py`
   accepts `speaker_ref` (XTTS voice cloning is wired). FLUX IP-Adapter for `character_ref`
   is left as a clearly-marked TODO — add the IP-Adapter pipeline to lock a character's look.
-- **Scoring** (best-of-N): a `score/` service (CLIP + aesthetic + ArcFace) exposing the
-  `ENGINE_SCORE_URL` contract comes with Phase E.
+- **Scoring** (best-of-N): the `score/` service (CLIP prompt-adherence + aesthetic proxy +
+  optional ArcFace identity) implements the `ENGINE_SCORE_URL` contract. Set
+  `ENGINE_SCORE_URL` + `ENGINE_BEST_OF_N>1` in the app to generate N candidates per asset
+  (in-house **and** cloud) and ship the highest-scoring one — the quality guarantee.

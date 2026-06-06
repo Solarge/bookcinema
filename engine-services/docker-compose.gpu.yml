@@ -55,5 +55,19 @@ services:
         reservations:
           devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
 
+  # Scoring service for the best-of-N quality guarantee (CLIP + optional ArcFace).
+  # Light — runs on CPU too. Set ENGINE_SCORE_URL + ENGINE_BEST_OF_N>1 in the app to use it.
+  score:
+    build: ./score
+    ports: ["8006:8006"]
+    environment:
+      ENGINE_API_KEY: ${ENGINE_API_KEY}
+      HF_TOKEN: ${HF_TOKEN}
+    volumes: ["models:/models"]
+    deploy:
+      resources:
+        reservations:
+          devices: [{ driver: nvidia, count: 1, capabilities: [gpu] }]
+
 volumes:
   models:
