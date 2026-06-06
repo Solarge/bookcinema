@@ -29,3 +29,10 @@ chmod 600 .env
 docker compose -f docker-compose.gpu.yml up -d --build
 
 echo "BookFilm Engine services started on ports 8001 (image) 8002 (voice) 8003 (video) 8004 (music)."
+
+# Cost guard: self-terminate after the configured window (0 = never). The timer
+# starts AFTER the build above, so it's ~N minutes of warm runtime. Instance
+# shutdown-behavior is 'terminate', so this destroys the box (and its root EBS).
+if [ "${auto_shutdown_minutes}" -gt 0 ]; then
+  shutdown -h "+${auto_shutdown_minutes}" "BookFilm Engine auto-terminate after ${auto_shutdown_minutes}m"
+fi

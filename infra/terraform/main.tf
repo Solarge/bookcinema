@@ -111,16 +111,35 @@ resource "aws_instance" "engine" {
   iam_instance_profile        = aws_iam_instance_profile.engine.name
   associate_public_ip_address = true
 
+  # When user-data runs `shutdown -h`, terminate (not just stop) so nothing keeps
+  # billing — the root EBS is deleted on terminate by default. Required for the
+  # "run for N minutes then self-destruct" flow.
+  instance_initiated_shutdown_behavior = "terminate"
+
+  # Spot for ~70% cheaper, one-time request (no respawn). Set use_spot=false for on-demand.
+  dynamic "instance_market_options" {
+    for_each = var.use_spot ? [1] : []
+    content {
+      market_type = "spot"
+      spot_options {
+        spot_instance_type             = "one-time"
+        instance_interruption_behavior = "terminate"
+        max_price                      = var.spot_max_price != "" ? var.spot_max_price : null
+      }
+    }
+  }
+
   root_block_device {
     volume_size = var.root_volume_gb
     volume_type = "gp3"
   }
 
   user_data = templatefile("${path.module}/user-data.sh", {
-    repo_url       = var.repo_url
-    repo_branch    = var.repo_branch
-    engine_api_key = var.engine_api_key
-    hf_token       = var.hf_token
+    repo_url              = var.repo_url
+    repo_branch           = var.repo_branch
+    engine_api_key        = var.engine_api_key
+    hf_token              = var.hf_token
+    auto_shutdown_minutes = var.auto_shutdown_minutes
   })
 
   tags = merge(var.tags, { Name = "bookfilm-engine" })
