@@ -1,0 +1,56 @@
+name: infra
+
+# Validates the GPU infra stacks on PRs without needing AWS credentials.
+# - Terraform: fmt (advisory) + init -backend=false + validate
+# - CDK: install + TypeScript compile (the credential-free gate); synth is
+#   advisory because it does a VPC lookup that needs a real AWS account.
+on:
+  pull_request:
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - '.github/workflows/infra.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.5"
+      - name: terraform fmt (advisory)
+        run: terraform fmt -check -recursive
+        continue-on-error: true
+      - name: terraform init
+        run: terraform init -backend=false
+      - name: terraform validate
+        run: terraform validate
+
+  cdk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/cdk
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: install
+        run: npm install
+      - name: typecheck (tsc build)
+        run: npm run build
+      - name: cdk synth (advisory — needs AWS account for VPC lookup)
+        run: npx cdk synth -c engineApiKey=ci-dummy
+        continue-on-error: true
