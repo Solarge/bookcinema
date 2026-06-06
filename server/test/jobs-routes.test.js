@@ -22,6 +22,16 @@ test('GET /:id returns a job in the active workspace', async () => {
   assert.equal(res.body.result.text, '{"title":"X"}')
 })
 
+test("GET /:id returns a refine job's resultText as result.text (like 'text')", async () => {
+  const { user, token, workspace } = await makeAuthedUser()
+  const envelope = '{"mode":"answer","answer":"It covers the book in one arc."}'
+  const job = await Job.create({ workspaceId: workspace._id, createdBy: user._id, type: 'refine', tier: 'standard', status: 'done', resultText: envelope })
+  const res = await authed(request(app()).get(`/api/jobs/${job._id}`), token, workspace._id)
+  assert.equal(res.status, 200)
+  assert.equal(res.body.type, 'refine')
+  assert.equal(res.body.result.text, envelope)
+})
+
 test('GET /:id presigns media result URL (not the raw public bucket URL)', async () => {
   const { user, token, workspace } = await makeAuthedUser()
   const key = `generated/${workspace._id}/abc123.png`
