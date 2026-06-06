@@ -58,6 +58,19 @@ export const config = {
     elevenlabs: process.env.ELEVENLABS_KEY      || null,
   },
 
+  // Self-hosted "BookFilm Engine" endpoints (Phase 0). All optional — the engine
+  // adapters read process.env directly and stay INERT (skipped by the failover loop)
+  // until their *_URL is set. Documented here for operator visibility; never required.
+  engine: {
+    imageUrl: process.env.ENGINE_IMAGE_URL || null,
+    voiceUrl: process.env.ENGINE_VOICE_URL || null,
+    videoUrl: process.env.ENGINE_VIDEO_URL || null, // future
+    musicUrl: process.env.ENGINE_MUSIC_URL || null, // future
+    textUrl:  process.env.ENGINE_TEXT_URL  || null, // future
+    apiKey:   process.env.ENGINE_API_KEY   || null, // optional bearer token
+    timeoutMs: Number(process.env.ENGINE_TIMEOUT_MS) || 600000,
+  },
+
   admin: {
     email: process.env.ADMIN_EMAIL || '',
   },

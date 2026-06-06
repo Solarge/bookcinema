@@ -38,13 +38,16 @@ test('resolve returns video adapters per tier', () => {
   assert.ok(premNames.has('luma'),   'video/premium should include luma fallback')
 })
 
-test('resolve returns voice adapters with openai first in standard, googletts second, elevenlabs third', () => {
+test('resolve returns voice adapters with engine first, then openai/googletts/elevenlabs cloud fallback', () => {
   const std = resolve('voice', 'standard')
-  assert.equal(std.providers[0].provider, 'openai')
-  assert.equal(std.providers[1].provider, 'googletts')
-  assert.equal(std.providers[2].provider, 'elevenlabs')
+  // engine is the inert primary (Phase 0); the cloud chain follows in order
+  assert.equal(std.providers[0].provider, 'engine')
+  assert.equal(std.providers[1].provider, 'openai')
+  assert.equal(std.providers[2].provider, 'googletts')
+  assert.equal(std.providers[3].provider, 'elevenlabs')
   const prem = resolve('voice', 'premium')
-  assert.equal(prem.providers[0].provider, 'elevenlabs')
+  assert.equal(prem.providers[0].provider, 'engine')
+  assert.equal(prem.providers[1].provider, 'elevenlabs')
   // standard chain includes googletts
   const stdNames = new Set(std.providers.map(p => p.provider))
   assert.ok(stdNames.has('googletts'), 'voice/standard should include googletts fallback')
