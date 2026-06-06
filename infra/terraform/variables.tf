@@ -65,6 +65,24 @@ variable "root_volume_gb" {
   default     = 300
 }
 
+variable "use_spot" {
+  description = "Use a Spot instance (~70% cheaper, one-time request). false = on-demand."
+  type        = bool
+  default     = true
+}
+
+variable "spot_max_price" {
+  description = "Max Spot price per hour (USD). Empty = AWS caps at the on-demand price (recommended)."
+  type        = string
+  default     = ""
+}
+
+variable "auto_shutdown_minutes" {
+  description = "Self-terminate this many minutes after the services finish building (cost guard). 0 = never. The timer starts AFTER the docker build, so it's ~N minutes of warm runtime."
+  type        = number
+  default     = 60
+}
+
 variable "tags" {
   description = "Tags applied to all resources."
   type        = map(string)
