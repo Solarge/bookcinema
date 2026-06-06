@@ -6,6 +6,7 @@ import { GENERATION_QUEUE } from '../queue/generationQueue.js'
 import { processGeneration } from './processGeneration.js'
 import { processCompile } from './processCompile.js'
 import { processMux } from './processMux.js'
+import { processRefine } from './processRefine.js'
 import { maybeRefundOnFailure } from './refundOnFailure.js'
 import { SOCIAL_PUBLISH_QUEUE } from '../utils/socialQueue.js'
 import { processSocialPublish } from './processSocialPublish.js'
@@ -42,6 +43,7 @@ await connectDB()
 const worker = new Worker(GENERATION_QUEUE, async (job) => {
   if (job.data?.type === 'compile') return processCompile(job.data)
   if (job.data?.type === 'mux') return processMux(job.data)
+  if (job.data?.type === 'refine') return processRefine(job.data)
   return processGeneration(job.data)
 }, {
   connection,

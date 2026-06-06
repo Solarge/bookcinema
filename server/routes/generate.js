@@ -96,6 +96,42 @@ router.post('/text', managedAccess('text'), async (req, res) => {
   } catch (err) { console.error('generate/text error:', err); res.status(500).json({ error: 'Server error' }) }
 })
 
+// POST /api/generate/refine — "Director's Chat": answer a question about the
+// current series OR revise it per a plain-English instruction. Text op available
+// on every plan that has text, so gate on managedAccess('text'). Mirrors POST
+// /voice for the moderation/debit/validation shape.
+router.post('/refine', managedAccess('text'), async (req, res) => {
+  try {
+    const { instruction, currentSeries, tier = 'standard', language = 'en' } = req.body
+    if (!instruction || typeof instruction !== 'string') return res.status(400).json({ error: 'instruction is required' })
+    if (instruction.length > 2000) return res.status(400).json({ error: 'instruction is too long (max 2000 characters)' })
+    if (!['standard', 'premium'].includes(tier)) return res.status(400).json({ error: 'Invalid tier' })
+
+    // currentSeries must be the full series JSON the client currently holds.
+    if (!currentSeries || typeof currentSeries !== 'object' || Array.isArray(currentSeries)) {
+      return res.status(400).json({ error: 'currentSeries is required (the full series JSON object)' })
+    }
+    if (!currentSeries.title || !Array.isArray(currentSeries.episodes)) {
+      return res.status(400).json({ error: 'currentSeries must include a title and an episodes array' })
+    }
+
+    // Server-side moderation — runs BEFORE credit debit so blocked content is never charged.
+    const mod = await moderateText(instruction)
+    if (mod.flagged) {
+      return res.status(422).json({
+        error: 'This content violates our usage policy and cannot be generated.',
+        code: 'content_blocked',
+      })
+    }
+
+    return await enqueueGeneration(req, res, {
+      type: 'refine', tier,
+      params:  { instruction },
+      payload: { currentSeries, instruction, tier, language },
+    })
+  } catch (err) { console.error('generate/refine error:', err); res.status(500).json({ error: 'Server error' }) }
+})
+
 // POST /api/generate/voice
 router.post('/voice', managedAccess('voice'), async (req, res) => {
   try {

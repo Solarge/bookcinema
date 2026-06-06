@@ -29,7 +29,7 @@ async function mediaUrl(job) {
 
 async function view(job) {
   let result
-  if (job.type === 'text') {
+  if (job.type === 'text' || job.type === 'refine') {
     result = { text: job.resultText }
   } else {
     result = { url: job.status === 'done' ? await mediaUrl(job) : job.resultUrl }

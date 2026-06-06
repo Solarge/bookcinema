@@ -220,3 +220,81 @@ test('POST /image debits cost-weighted credits (image standard = 4)', async () =
   assert.equal(res.status, 202)
   assert.equal((await Workspace.findById(workspace._id)).creditBalance, 6)
 })
+
+// ── Director's Chat: POST /refine ───────────────────────────────────────────────
+const sampleSeries = { title: 'The Fable', author: 'Anon', episodes: [{ title: 'Ep 1', scenes: [] }] }
+
+test('POST /refine creates a queued refine job and enqueues it (202)', async () => {
+  const { token, workspace } = await betaUser()
+  const enq = []
+  const fakeQueue = { add: async (n, d) => { enq.push(d); return { id: 'bullr1' } } }
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/refine'), token, workspace._id)
+    .send({ instruction: 'make episode 1 darker', currentSeries: sampleSeries, tier: 'standard' })
+  assert.equal(res.status, 202, `expected 202, got ${res.status}: ${JSON.stringify(res.body)}`)
+  const job = await Job.findById(res.body.jobId)
+  assert.equal(job.type, 'refine')
+  assert.equal(job.status, 'queued')
+  assert.equal(job.params.instruction, 'make episode 1 darker')
+  assert.equal(enq[0].type, 'refine')
+  assert.equal(enq[0].payload.instruction, 'make episode 1 darker')
+  assert.deepEqual(enq[0].payload.currentSeries, sampleSeries)
+})
+
+test('POST /refine works on a free plan (gated on text, available to all)', async () => {
+  const { token, workspace } = await betaUser({ plan: 'free' })
+  const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/refine'), token, workspace._id)
+    .send({ instruction: 'why only 1 episode?', currentSeries: sampleSeries, tier: 'standard' })
+  assert.equal(res.status, 202)
+})
+
+test('POST /refine 400 on missing instruction', async () => {
+  const { token, workspace } = await betaUser()
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/refine'), token, workspace._id)
+    .send({ currentSeries: sampleSeries, tier: 'standard' })
+  assert.equal(res.status, 400)
+})
+
+test('POST /refine 400 when instruction is too long', async () => {
+  const { token, workspace } = await betaUser()
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/refine'), token, workspace._id)
+    .send({ instruction: 'x'.repeat(2001), currentSeries: sampleSeries, tier: 'standard' })
+  assert.equal(res.status, 400)
+})
+
+test('POST /refine 400 when currentSeries missing', async () => {
+  const { token, workspace } = await betaUser()
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/refine'), token, workspace._id)
+    .send({ instruction: 'add a villain', tier: 'standard' })
+  assert.equal(res.status, 400)
+})
+
+test('POST /refine 400 when currentSeries is not a valid series object', async () => {
+  const { token, workspace } = await betaUser()
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/refine'), token, workspace._id)
+    .send({ instruction: 'add a villain', currentSeries: { foo: 'bar' }, tier: 'standard' })
+  assert.equal(res.status, 400)
+})
+
+test('POST /refine 400 when currentSeries is an array', async () => {
+  const { token, workspace } = await betaUser()
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/refine'), token, workspace._id)
+    .send({ instruction: 'add a villain', currentSeries: [], tier: 'standard' })
+  assert.equal(res.status, 400)
+})
+
+test('POST /refine 403 when workspace not allowlisted', async () => {
+  const { token, workspace } = await makeAuthedUser()
+  const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/refine'), token, workspace._id)
+    .send({ instruction: 'add a villain', currentSeries: sampleSeries, tier: 'standard' })
+  assert.equal(res.status, 403)
+})
+
+test('POST /refine debits refine credits (standard = 2)', async () => {
+  const { token, workspace } = await betaUser()
+  const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
+  await Workspace.findByIdAndUpdate(workspace._id, { monthlyCredits: 5, purchasedCredits: 0, creditPeriod: period })
+  const res = await authed(request(app({ add: async () => ({ id: 'b' }) })).post('/api/generate/refine'), token, workspace._id)
+    .send({ instruction: 'make it darker', currentSeries: sampleSeries, tier: 'standard' })
+  assert.equal(res.status, 202)
+  assert.equal((await Workspace.findById(workspace._id)).creditBalance, 3)
+})

@@ -54,6 +54,26 @@ export const MANAGED_PROVIDERS = {
       ],
     },
   },
+  // Refine = "Director's Chat": a text op (same text adapters) that answers a
+  // question about the series or returns a revised series JSON. Small flat credit
+  // cost on both tiers — it's a single LLM call, not a full generation.
+  refine: {
+    standard: {
+      credits: 2, estCostUsd: 0.02,
+      providers: [
+        { provider: 'groq',     adapter: groqText,     model: groqText.DEFAULT_MODEL },
+        { provider: 'gemini',   adapter: geminiText,   model: geminiText.DEFAULT_MODEL },
+        { provider: 'deepseek', adapter: deepseekText, model: deepseekText.DEFAULT_MODEL },
+      ],
+    },
+    premium: {
+      credits: 2, estCostUsd: 0.02,
+      providers: [
+        { provider: 'anthropic', adapter: anthropicText, model: anthropicText.DEFAULT_MODEL },
+        { provider: 'groq',      adapter: groqText,      model: groqText.DEFAULT_MODEL },
+      ],
+    },
+  },
   image: {
     standard: {
       credits: 4, estCostUsd: 0.003,
