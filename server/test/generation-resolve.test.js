@@ -5,30 +5,34 @@ import { resolve, resolveProviders } from '../generation/resolve.js'
 test('resolve returns the tier entry with providers array for text/standard', () => {
   const std = resolve('text', 'standard')
   assert.ok(Array.isArray(std.providers), 'providers should be an array')
-  assert.equal(std.providers[0].provider, 'groq')
-  assert.equal(typeof std.providers[0].adapter.generate, 'function')
-  // groq is first (free tier), gemini is second fallback, deepseek is third
+  // engine is the inert primary (BookFilm Engine); the cloud chain follows: groq, gemini, deepseek
+  assert.equal(std.providers[0].provider, 'engine')
+  assert.equal(std.providers[1].provider, 'groq')
+  assert.equal(typeof std.providers[1].adapter.generate, 'function')
   const providerNames = new Set(std.providers.map(p => p.provider))
   assert.ok(providerNames.has('gemini'), 'text/standard should include gemini fallback')
   assert.ok(providerNames.has('deepseek'), 'text/standard should include deepseek fallback')
-  assert.equal(std.providers[0].provider, 'groq', 'groq should be first in text/standard')
 })
 
 test('resolve returns the tier entry with providers array for text/premium', () => {
   const prem = resolve('text', 'premium')
   assert.ok(Array.isArray(prem.providers))
-  assert.equal(prem.providers[0].provider, 'anthropic')
-  assert.equal(typeof prem.providers[0].adapter.generate, 'function')
+  assert.equal(prem.providers[0].provider, 'engine')
+  assert.equal(prem.providers[1].provider, 'anthropic')
+  assert.equal(typeof prem.providers[1].adapter.generate, 'function')
 })
 
 test('resolve returns video adapters per tier', () => {
   const std = resolve('video', 'standard')
   assert.ok(Array.isArray(std.providers))
-  assert.equal(std.providers[0].provider, 'replicate')
-  assert.equal(typeof std.providers[0].adapter.generate, 'function')
+  // engine is the inert primary; cloud chain follows (replicate first for standard, falai for premium)
+  assert.equal(std.providers[0].provider, 'engine')
+  assert.equal(std.providers[1].provider, 'replicate')
+  assert.equal(typeof std.providers[1].adapter.generate, 'function')
   const prem = resolve('video', 'premium')
-  assert.equal(prem.providers[0].provider, 'falai')
-  assert.equal(typeof prem.providers[0].adapter.generate, 'function')
+  assert.equal(prem.providers[0].provider, 'engine')
+  assert.equal(prem.providers[1].provider, 'falai')
+  assert.equal(typeof prem.providers[1].adapter.generate, 'function')
   // both tiers include runway and luma as fallbacks
   const stdNames = new Set(std.providers.map(p => p.provider))
   const premNames = new Set(prem.providers.map(p => p.provider))
@@ -67,7 +71,7 @@ test('resolve entries carry credits', () => {
 test('resolveProviders is a convenience shorthand returning the providers array', () => {
   const providers = resolveProviders('text', 'standard')
   assert.ok(Array.isArray(providers))
-  assert.equal(providers[0].provider, 'groq')
+  assert.equal(providers[0].provider, 'engine')
 })
 
 test('resolve throws on unknown type or tier', () => {

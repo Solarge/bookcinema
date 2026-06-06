@@ -52,8 +52,10 @@ test('falai video: falls back to DEFAULT_MODEL when no model passed', async () =
 
 test('registry: premium video leads with Pro model and ends with a standard falai fallback', () => {
   const providers = MANAGED_PROVIDERS.video.premium.providers
-  assert.equal(providers[0].provider, 'falai')
-  assert.equal(providers[0].model, PRO_MODEL)
+  // engine is the inert primary; the cloud chain leads with the falai Pro model
+  assert.equal(providers[0].provider, 'engine')
+  assert.equal(providers[1].provider, 'falai')
+  assert.equal(providers[1].model, PRO_MODEL)
   const last = providers[providers.length - 1]
   assert.equal(last.provider, 'falai')
   assert.equal(last.model, DEFAULT_MODEL)

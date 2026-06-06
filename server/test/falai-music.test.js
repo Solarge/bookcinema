@@ -92,7 +92,8 @@ test('registry: music tiers include falai as a second provider whose adapter is 
     const falai = providers.find(p => p.provider === 'falai')
     assert.ok(falai, `music/${tier} should include a falai provider`)
     assert.equal(falai.adapter, falaiMusic, `music/${tier} falai adapter should be falaiMusic`)
-    // replicate stays first (primary), falai is the appended fallback
-    assert.equal(providers[0].provider, 'replicate')
+    // engine is the inert primary; replicate leads the cloud chain, falai is the appended fallback
+    assert.equal(providers[0].provider, 'engine')
+    assert.equal(providers[1].provider, 'replicate')
   }
 })

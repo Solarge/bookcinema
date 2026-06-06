@@ -3,10 +3,16 @@ import { test, afterEach } from 'node:test'
 import assert from 'node:assert/strict'
 import * as engineImage from '../generation/providers/engineImage.js'
 import * as engineVoice from '../generation/providers/engineVoice.js'
+import * as engineVideo from '../generation/providers/engineVideo.js'
+import * as engineMusic from '../generation/providers/engineMusic.js'
+import * as engineText from '../generation/providers/engineText.js'
 import { MANAGED_PROVIDERS } from '../generation/registry.js'
 
 const realFetch = globalThis.fetch
-const ENGINE_ENV = ['ENGINE_IMAGE_URL', 'ENGINE_VOICE_URL', 'ENGINE_API_KEY', 'ENGINE_TIMEOUT_MS']
+const ENGINE_ENV = [
+  'ENGINE_IMAGE_URL', 'ENGINE_VOICE_URL', 'ENGINE_VIDEO_URL', 'ENGINE_MUSIC_URL', 'ENGINE_TEXT_URL',
+  'ENGINE_API_KEY', 'ENGINE_TIMEOUT_MS',
+]
 afterEach(() => {
   globalThis.fetch = realFetch
   for (const k of ENGINE_ENV) delete process.env[k]

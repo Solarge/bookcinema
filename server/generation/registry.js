@@ -16,6 +16,9 @@ import * as replicateMusic from './providers/replicateMusic.js'
 import * as falaiMusic from './providers/falaiMusic.js'
 import * as engineImage from './providers/engineImage.js'
 import * as engineVoice from './providers/engineVoice.js'
+import * as engineVideo from './providers/engineVideo.js'
+import * as engineMusic from './providers/engineMusic.js'
+import * as engineText from './providers/engineText.js'
 
 // Fixed estimated cost for job types that don't go through the provider registry
 // (e.g. compile = server-side ffmpeg; small fixed cost for CPU/egress).
@@ -43,6 +46,7 @@ export const MANAGED_PROVIDERS = {
     standard: {
       credits: 1, estCostUsd: 0,
       providers: [
+        { provider: 'engine',   adapter: engineText,   model: engineText.DEFAULT_MODEL },
         { provider: 'groq',     adapter: groqText,     model: groqText.DEFAULT_MODEL },
         { provider: 'gemini',   adapter: geminiText,   model: geminiText.DEFAULT_MODEL },
         { provider: 'deepseek', adapter: deepseekText, model: deepseekText.DEFAULT_MODEL },
@@ -51,6 +55,7 @@ export const MANAGED_PROVIDERS = {
     premium: {
       credits: 3, estCostUsd: 0.03,
       providers: [
+        { provider: 'engine',    adapter: engineText,    model: engineText.DEFAULT_MODEL },
         { provider: 'anthropic', adapter: anthropicText, model: anthropicText.DEFAULT_MODEL },
         { provider: 'groq',      adapter: groqText,      model: groqText.DEFAULT_MODEL },
       ],
@@ -63,6 +68,7 @@ export const MANAGED_PROVIDERS = {
     standard: {
       credits: 2, estCostUsd: 0.02,
       providers: [
+        { provider: 'engine',   adapter: engineText,   model: engineText.DEFAULT_MODEL },
         { provider: 'groq',     adapter: groqText,     model: groqText.DEFAULT_MODEL },
         { provider: 'gemini',   adapter: geminiText,   model: geminiText.DEFAULT_MODEL },
         { provider: 'deepseek', adapter: deepseekText, model: deepseekText.DEFAULT_MODEL },
@@ -71,6 +77,7 @@ export const MANAGED_PROVIDERS = {
     premium: {
       credits: 2, estCostUsd: 0.02,
       providers: [
+        { provider: 'engine',    adapter: engineText,    model: engineText.DEFAULT_MODEL },
         { provider: 'anthropic', adapter: anthropicText, model: anthropicText.DEFAULT_MODEL },
         { provider: 'groq',      adapter: groqText,      model: groqText.DEFAULT_MODEL },
       ],
@@ -124,6 +131,7 @@ export const MANAGED_PROVIDERS = {
     standard: {
       credits: 40, estCostUsd: 0.6,
       providers: [
+        { provider: 'engine',    adapter: engineVideo,    model: engineVideo.DEFAULT_MODEL },
         { provider: 'replicate', adapter: replicateVideo, model: replicateVideo.DEFAULT_MODEL },
         { provider: 'runway',    adapter: runwayVideo,    model: runwayVideo.DEFAULT_MODEL },
         { provider: 'luma',      adapter: lumaVideo,      model: lumaVideo.DEFAULT_MODEL },
@@ -133,6 +141,7 @@ export const MANAGED_PROVIDERS = {
     premium: {
       credits: 80, estCostUsd: 1.2,
       providers: [
+        { provider: 'engine',    adapter: engineVideo,    model: engineVideo.DEFAULT_MODEL },
         { provider: 'falai',     adapter: falaiVideo,     model: falaiVideo.PRO_MODEL },
         { provider: 'runway',    adapter: runwayVideo,    model: runwayVideo.DEFAULT_MODEL },
         { provider: 'luma',      adapter: lumaVideo,      model: lumaVideo.DEFAULT_MODEL },
@@ -148,6 +157,7 @@ export const MANAGED_PROVIDERS = {
     standard: {
       credits: 10, estCostUsd: 0.1,
       providers: [
+        { provider: 'engine',    adapter: engineMusic,    model: engineMusic.DEFAULT_MODEL },
         { provider: 'replicate', adapter: replicateMusic, model: replicateMusic.DEFAULT_MODEL },
         { provider: 'falai',     adapter: falaiMusic,     model: falaiMusic.DEFAULT_MODEL },
       ],
@@ -155,6 +165,7 @@ export const MANAGED_PROVIDERS = {
     premium: {
       credits: 15, estCostUsd: 0.15,
       providers: [
+        { provider: 'engine',    adapter: engineMusic,    model: engineMusic.DEFAULT_MODEL },
         { provider: 'replicate', adapter: replicateMusic, model: replicateMusic.DEFAULT_MODEL },
         { provider: 'falai',     adapter: falaiMusic,     model: falaiMusic.DEFAULT_MODEL },
       ],
