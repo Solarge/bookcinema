@@ -575,7 +575,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       const soundtrackUrl = scoreSlot.serverUrl || scoreSlot.audioUrl || null
 
       // 4) Compile via the managed API (same call CompileEpisodeControl used).
-      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: epNum, clips, ...(soundtrackUrl ? { soundtrackUrl } : {}) })
+      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: epNum, clips, title: `Episode ${episode.number} — ${episode.title || ''}`.trim(), ...(soundtrackUrl ? { soundtrackUrl } : {}) })
       const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
       if (job.status !== 'done' || !job.result?.url) {
         const errMsg = job.error || job.errorMessage || 'Compile failed'
@@ -644,7 +644,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
 
       // 3) Concatenate the sounded episode videos into one movie. Each episode video
       //    already carries its audio, so no extra soundtrack is needed.
-      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: 0, clips: episodeUrls })
+      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: 0, clips: episodeUrls, title: `${series.title || 'Series'} — Full Movie` })
       const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
       if (job.status !== 'done' || !job.result?.url) {
         const errMsg = job.error || job.errorMessage || 'Merging episodes failed'
