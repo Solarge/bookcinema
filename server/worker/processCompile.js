@@ -149,14 +149,17 @@ export async function processCompile(data, deps = {}) {
   const uploadFn = deps.uploadFn || defaultUpload
 
   const { jobId, workspaceId, createdBy, payload } = data
-  const { clips, soundtrackUrl = null } = payload
+  const { clips, soundtrackUrl = null, title = null } = payload
 
   await Job.findByIdAndUpdate(jobId, { status: 'active' })
 
   try {
     const videoBuffer = await concatVideos(clips, soundtrackUrl)
 
-    const key = `generated/${workspaceId}/${jobId}-compiled.mp4`
+    // Prefix the S3 key with a readable slug of the episode title when present, keeping
+    // ${jobId} for uniqueness (e.g. episode-1-the-golden-cage-<jobId>-compiled.mp4).
+    const slug = String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
+    const key = `generated/${workspaceId}/${slug ? slug + '-' : ''}${jobId}-compiled.mp4`
     const resultUrl = await uploadFn(key, videoBuffer, 'video/mp4')
 
     await Job.findByIdAndUpdate(jobId, { status: 'done', resultUrl, errorMessage: null })
