@@ -198,11 +198,14 @@ test('GET /config returns providers, managed, stripe, plans, redis without secre
     assert.ok(typeof p.configured === 'boolean')
   }
 
-  // social array present
+  // social array present — platforms supported (configured is per-workspace now,
+  // so the admin/system view lists platforms + their credential field descriptors)
   assert.ok(Array.isArray(body.social))
   for (const s of body.social) {
     assert.ok(typeof s.key === 'string')
-    assert.ok(typeof s.configured === 'boolean')
+    assert.ok(typeof s.label === 'string')
+    assert.ok(Array.isArray(s.credentialFields))
+    assert.ok(!('configured' in s), 'system view must not carry a global configured flag')
   }
 
   // managed guardrails present with correct shape

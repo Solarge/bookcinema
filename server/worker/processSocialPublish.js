@@ -10,8 +10,23 @@
  */
 import ScheduledPost from '../models/ScheduledPost.js'
 import SocialAccount from '../models/SocialAccount.js'
+import SocialAppCredential from '../models/SocialAppCredential.js'
 import { decryptToken, encryptToken } from '../utils/cryptoTokens.js'
 import { getProvider as defaultGetProvider } from '../social/index.js'
+
+/**
+ * Load + decrypt the workspace's own app credentials for a platform.
+ * Returns the values object or null if missing/undecryptable.
+ */
+async function loadWorkspaceCreds(workspaceId, platform) {
+  const row = await SocialAppCredential.findOne({ workspaceId, platform })
+  if (!row) return null
+  try {
+    return JSON.parse(decryptToken(row.valuesEnc))
+  } catch {
+    return null
+  }
+}
 
 /**
  * Process a scheduled post.
@@ -58,8 +73,16 @@ export async function processSocialPublish(postId, { getProvider } = {}) {
     // Refresh if expired and a refreshToken is available
     const provider = getProviderFn(target.platform)
     if (account.expiresAt && account.expiresAt < new Date() && refreshToken) {
+      // Load the workspace's own app credentials — required to call the
+      // platform's token endpoint. Without them, the connected account is orphaned.
+      const creds = await loadWorkspaceCreds(account.workspaceId, target.platform)
+      if (!creds) {
+        target.status = 'failed'
+        target.error  = 'app credentials missing'
+        continue
+      }
       try {
-        const refreshed = await provider.refresh({ refreshToken })
+        const refreshed = await provider.refresh({ creds, refreshToken })
         // Persist newly encrypted tokens
         account.accessTokenEnc  = encryptToken(refreshed.accessToken)
         if (refreshed.refreshToken) {

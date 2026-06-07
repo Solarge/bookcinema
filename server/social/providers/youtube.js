@@ -1,16 +1,17 @@
 /**
  * YouTube social provider — Google OAuth 2.0 + YouTube Data API v3.
  *
- * Required env vars:
- *   YOUTUBE_CLIENT_ID      — Google OAuth2 client ID
- *   YOUTUBE_CLIENT_SECRET  — Google OAuth2 client secret
+ * Per-workspace credentials (creds object keys):
+ *   client_id      — Google OAuth2 client ID
+ *   client_secret  — Google OAuth2 client secret
  *
  * Scopes requested:
  *   https://www.googleapis.com/auth/youtube.upload   — upload videos
  *   https://www.googleapis.com/auth/youtube.readonly  — read channel info
  *
- * isConfigured() reads process.env directly at call time so tests can
- * set/unset env vars and see immediate effect without re-importing config.
+ * Credentials are supplied per-workspace (decrypted from SocialAppCredential)
+ * and passed into getAuthUrl/exchangeCode/refresh as `creds`. There is no
+ * global/env app — each tenant configures their own Google OAuth app.
  */
 
 import { postForm, fetchJson, downloadBytes, qs, expiresAt } from './_util.js'
@@ -24,27 +25,32 @@ export const meta = {
   key:       'youtube',
   label:     'YouTube',
   configEnv: ['YOUTUBE_CLIENT_ID', 'YOUTUBE_CLIENT_SECRET'],
+  credentialFields: [
+    { key: 'client_id',     label: 'Client ID' },
+    { key: 'client_secret', label: 'Client Secret', secret: true },
+  ],
   scopes:    [
     'https://www.googleapis.com/auth/youtube.upload',
     'https://www.googleapis.com/auth/youtube.readonly',
   ],
 }
 
-export function isConfigured() {
-  return !!(process.env.YOUTUBE_CLIENT_ID && process.env.YOUTUBE_CLIENT_SECRET)
+/** Credential keys the tenant must supply for this platform. */
+export function requiredKeys() {
+  return meta.credentialFields.map(f => f.key)
 }
 
 /**
  * Build the Google OAuth2 authorization URL.
  * Uses access_type=offline + prompt=consent to receive a refresh token every time.
  *
- * @param {{ redirectUri: string, state: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, redirectUri: string, state: string }} opts
  * @returns {string}
  */
-export function getAuthUrl({ redirectUri, state }) {
-  if (!isConfigured()) throw new Error('YouTube not configured')
+export function getAuthUrl({ creds, redirectUri, state }) {
+  if (!creds) throw new Error('YouTube not configured')
   const params = qs({
-    client_id:     process.env.YOUTUBE_CLIENT_ID,
+    client_id:     creds.client_id,
     redirect_uri:  redirectUri,
     response_type: 'code',
     scope:         meta.scopes.join(' '),
@@ -58,19 +64,19 @@ export function getAuthUrl({ redirectUri, state }) {
 /**
  * Exchange an authorization code for tokens and fetch channel info.
  *
- * @param {{ code: string, redirectUri: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, code: string, redirectUri: string }} opts
  * @returns {Promise<{
  *   account: { externalId: string, displayName: string, scopes: string[] },
  *   tokens:  { accessToken: string, refreshToken: string, expiresAt: Date }
  * }>}
  */
-export async function exchangeCode({ code, redirectUri }) {
-  if (!isConfigured()) throw new Error('YouTube not configured')
+export async function exchangeCode({ creds, code, redirectUri }) {
+  if (!creds) throw new Error('YouTube not configured')
 
   const tokenData = await postForm(GOOGLE_TOKEN_URL, {
     code,
-    client_id:     process.env.YOUTUBE_CLIENT_ID,
-    client_secret: process.env.YOUTUBE_CLIENT_SECRET,
+    client_id:     creds.client_id,
+    client_secret: creds.client_secret,
     redirect_uri:  redirectUri,
     grant_type:    'authorization_code',
   })
@@ -99,15 +105,15 @@ export async function exchangeCode({ code, redirectUri }) {
 /**
  * Refresh an access token using a stored refresh token.
  *
- * @param {{ refreshToken: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, refreshToken: string }} opts
  * @returns {Promise<{ accessToken: string, refreshToken: string, expiresAt: Date }>}
  */
-export async function refresh({ refreshToken }) {
-  if (!isConfigured()) throw new Error('YouTube not configured')
+export async function refresh({ creds, refreshToken }) {
+  if (!creds) throw new Error('YouTube not configured')
 
   const tokenData = await postForm(GOOGLE_TOKEN_URL, {
-    client_id:     process.env.YOUTUBE_CLIENT_ID,
-    client_secret: process.env.YOUTUBE_CLIENT_SECRET,
+    client_id:     creds.client_id,
+    client_secret: creds.client_secret,
     refresh_token: refreshToken,
     grant_type:    'refresh_token',
   })
@@ -136,8 +142,6 @@ export async function refresh({ refreshToken }) {
  * @returns {Promise<{ externalId: string, url: string }>}
  */
 export async function publishVideo({ tokens, videoUrl, caption, title }) {
-  if (!isConfigured()) throw new Error('YouTube not configured')
-
   const { accessToken } = tokens
 
   // Step 1 — Initialise the resumable upload session

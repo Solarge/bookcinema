@@ -1,9 +1,9 @@
 /**
  * TikTok social provider — TikTok OAuth 2.0 + Content Posting API.
  *
- * Required env vars:
- *   TIKTOK_CLIENT_KEY     — TikTok developer app client key
- *   TIKTOK_CLIENT_SECRET  — TikTok developer app client secret
+ * Per-workspace credentials (creds object keys):
+ *   client_key     — TikTok developer app client key
+ *   client_secret  — TikTok developer app client secret
  *
  * Scopes requested:
  *   user.info.basic    — read user identity (openid is implicit)
@@ -16,8 +16,8 @@
  * Content Posting API reference (PULL_FROM_URL):
  *   https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
  *
- * isConfigured() reads process.env directly at call time so tests can
- * set/unset env vars and see immediate effect without re-importing config.
+ * Credentials are supplied per-workspace (decrypted from SocialAppCredential)
+ * and passed into getAuthUrl/exchangeCode/refresh as `creds`.
  */
 
 import { postForm, fetchJson, qs, expiresAt } from './_util.js'
@@ -31,23 +31,28 @@ export const meta = {
   key:       'tiktok',
   label:     'TikTok',
   configEnv: ['TIKTOK_CLIENT_KEY', 'TIKTOK_CLIENT_SECRET'],
+  credentialFields: [
+    { key: 'client_key',    label: 'Client Key' },
+    { key: 'client_secret', label: 'Client Secret', secret: true },
+  ],
   scopes:    ['user.info.basic', 'video.upload', 'video.publish'],
 }
 
-export function isConfigured() {
-  return !!(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET)
+/** Credential keys the tenant must supply for this platform. */
+export function requiredKeys() {
+  return meta.credentialFields.map(f => f.key)
 }
 
 /**
  * Build the TikTok OAuth 2.0 authorization URL.
  *
- * @param {{ redirectUri: string, state: string }} opts
+ * @param {{ creds: { client_key: string, client_secret: string }, redirectUri: string, state: string }} opts
  * @returns {string}
  */
-export function getAuthUrl({ redirectUri, state }) {
-  if (!isConfigured()) throw new Error('TikTok not configured')
+export function getAuthUrl({ creds, redirectUri, state }) {
+  if (!creds) throw new Error('TikTok not configured')
   const params = qs({
-    client_key:    process.env.TIKTOK_CLIENT_KEY,
+    client_key:    creds.client_key,
     redirect_uri:  redirectUri,
     response_type: 'code',
     scope:         meta.scopes.join(','),
@@ -59,19 +64,19 @@ export function getAuthUrl({ redirectUri, state }) {
 /**
  * Exchange an authorization code for tokens and fetch creator info.
  *
- * @param {{ code: string, redirectUri: string }} opts
+ * @param {{ creds: { client_key: string, client_secret: string }, code: string, redirectUri: string }} opts
  * @returns {Promise<{
  *   account: { externalId: string, displayName: string, scopes: string[] },
  *   tokens:  { accessToken: string, refreshToken: string, expiresAt: Date }
  * }>}
  */
-export async function exchangeCode({ code, redirectUri }) {
-  if (!isConfigured()) throw new Error('TikTok not configured')
+export async function exchangeCode({ creds, code, redirectUri }) {
+  if (!creds) throw new Error('TikTok not configured')
 
   const tokenData = await postForm(TIKTOK_TOKEN_URL, {
     code,
-    client_key:    process.env.TIKTOK_CLIENT_KEY,
-    client_secret: process.env.TIKTOK_CLIENT_SECRET,
+    client_key:    creds.client_key,
+    client_secret: creds.client_secret,
     redirect_uri:  redirectUri,
     grant_type:    'authorization_code',
   })
@@ -100,15 +105,15 @@ export async function exchangeCode({ code, redirectUri }) {
 /**
  * Refresh a TikTok access token.
  *
- * @param {{ refreshToken: string }} opts
+ * @param {{ creds: { client_key: string, client_secret: string }, refreshToken: string }} opts
  * @returns {Promise<{ accessToken: string, refreshToken: string, expiresAt: Date }>}
  */
-export async function refresh({ refreshToken }) {
-  if (!isConfigured()) throw new Error('TikTok not configured')
+export async function refresh({ creds, refreshToken }) {
+  if (!creds) throw new Error('TikTok not configured')
 
   const tokenData = await postForm(TIKTOK_TOKEN_URL, {
-    client_key:    process.env.TIKTOK_CLIENT_KEY,
-    client_secret: process.env.TIKTOK_CLIENT_SECRET,
+    client_key:    creds.client_key,
+    client_secret: creds.client_secret,
     refresh_token: refreshToken,
     grant_type:    'refresh_token',
   })
@@ -136,8 +141,6 @@ export async function refresh({ refreshToken }) {
  * @returns {Promise<{ externalId: string }>}
  */
 export async function publishVideo({ tokens, videoUrl, caption }) {
-  if (!isConfigured()) throw new Error('TikTok not configured')
-
   const { accessToken } = tokens
 
   const res = await fetch(TIKTOK_POST_URL, {

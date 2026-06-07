@@ -18,6 +18,9 @@ export const SOCIAL_PROVIDERS = new Map([
   ['linkedin',  linkedin],
 ])
 
+/** Ordered list of every supported platform key. */
+export const PLATFORM_KEYS = Array.from(SOCIAL_PROVIDERS.keys())
+
 /**
  * Get a provider module by platform key.
  * Throws on unknown keys so callers never silently get undefined.
@@ -29,26 +32,37 @@ export function getProvider(key) {
 }
 
 /**
- * Returns an array of EVERY supported platform with its configured state, as
- * { key, label, configured }. Unlike a "configured-only" filter, this always
- * lists all platforms so the UI can render unconfigured ones (greyed out with
- * a "needs admin setup" affordance) instead of silently hiding them.
- *
- * Used by GET /api/social/providers.
+ * The credential-field descriptors a tenant must supply for a platform —
+ * an array of { key, label, secret? }. Pure (no env / no DB); the route layer
+ * decides "configured" per-workspace by checking stored SocialAppCredentials.
  */
-export function listAll() {
-  return Array.from(SOCIAL_PROVIDERS.entries()).map(([key, provider]) => ({
-    key,
-    label:      provider.meta.label,
-    configured: provider.isConfigured(),
-  }))
+export function credentialFields(platform) {
+  return getProvider(platform).meta.credentialFields || []
 }
 
 /**
- * Backward-compatible alias of listAll(). Historically this returned every
- * platform with a `configured` flag (NOT a filtered list), so the shape is
- * identical — kept so existing callers/tests keep working.
+ * The credential keys a tenant must supply for a platform (e.g. ['client_id',
+ * 'client_secret']). Prefers the provider's requiredKeys() export; falls back
+ * to deriving from credentialFields.
  */
-export function listConfigured() {
-  return listAll()
+export function requiredKeys(platform) {
+  const provider = getProvider(platform)
+  if (typeof provider.requiredKeys === 'function') return provider.requiredKeys()
+  return credentialFields(platform).map(f => f.key)
+}
+
+/**
+ * Returns metadata for EVERY supported platform as { key, label, credentialFields }.
+ * "configured" is NOT included here because it is per-workspace — the route
+ * computes it from stored SocialAppCredentials. Used by GET /api/social/providers.
+ */
+export function listAll() {
+  return PLATFORM_KEYS.map((key) => {
+    const provider = SOCIAL_PROVIDERS.get(key)
+    return {
+      key,
+      label:            provider.meta.label,
+      credentialFields: provider.meta.credentialFields || [],
+    }
+  })
 }

@@ -11,7 +11,7 @@ import { startTestDB, stopTestDB, clearTestDB } from './helpers/db.js'
 import { encryptToken, decryptToken } from '../utils/cryptoTokens.js'
 import SocialAccount from '../models/SocialAccount.js'
 import ScheduledPost from '../models/ScheduledPost.js'
-import { getProvider, listConfigured, listAll, SOCIAL_PROVIDERS } from '../social/index.js'
+import { getProvider, listAll, requiredKeys, credentialFields, SOCIAL_PROVIDERS } from '../social/index.js'
 
 before(startTestDB)
 after(stopTestDB)
@@ -102,7 +102,7 @@ test('getProvider returns a module for each known platform', () => {
     assert.ok(provider,                  `${key}: module returned`)
     assert.ok(provider.meta,             `${key}: meta exported`)
     assert.equal(provider.meta.key, key, `${key}: meta.key matches`)
-    assert.ok(typeof provider.isConfigured === 'function', `${key}: isConfigured is a function`)
+    assert.ok(typeof provider.requiredKeys === 'function', `${key}: requiredKeys is a function`)
     assert.ok(typeof provider.getAuthUrl  === 'function', `${key}: getAuthUrl is a function`)
     assert.ok(typeof provider.publishVideo === 'function', `${key}: publishVideo is a function`)
   }
@@ -112,17 +112,7 @@ test('getProvider throws on an unknown platform key', () => {
   assert.throws(() => getProvider('snapchat'), /Unknown social platform/)
 })
 
-test('listConfigured returns 6 entries', () => {
-  const list = listConfigured()
-  assert.equal(list.length, 6)
-  for (const entry of list) {
-    assert.ok(entry.key,   'key present')
-    assert.ok(entry.label, 'label present')
-    assert.ok('configured' in entry, 'configured present')
-  }
-})
-
-test('listAll returns ALL 6 platforms with { key, label, configured }', () => {
+test('listAll returns ALL 6 platforms with { key, label, credentialFields }', () => {
   const list = listAll()
   assert.equal(list.length, 6, 'every supported platform is listed')
   const keys = list.map(e => e.key).sort()
@@ -130,133 +120,41 @@ test('listAll returns ALL 6 platforms with { key, label, configured }', () => {
   for (const entry of list) {
     assert.ok(entry.key,   'key present')
     assert.ok(entry.label, 'label present')
-    assert.equal(typeof entry.configured, 'boolean', 'configured is a boolean')
+    assert.ok(Array.isArray(entry.credentialFields), 'credentialFields is an array')
+    assert.ok(entry.credentialFields.length >= 2, 'has at least 2 credential fields')
+    // listAll must NOT leak any env/global "configured" flag — that's per-workspace now.
+    assert.ok(!('configured' in entry), 'configured must NOT be present (per-workspace now)')
   }
 })
 
-test('listConfigured is a backward-compatible alias of listAll', () => {
-  assert.deepEqual(listConfigured(), listAll())
-})
-
-test('isConfigured() is false when env vars are not set', () => {
-  // Env pairs: [idKey, secretKey, platformKey]
-  const envPairs = [
-    ['YOUTUBE_CLIENT_ID',  'YOUTUBE_CLIENT_SECRET',  'youtube'],
-    ['TIKTOK_CLIENT_KEY',  'TIKTOK_CLIENT_SECRET',   'tiktok'],
-    ['META_APP_ID',        'META_APP_SECRET',         'instagram'],
-    ['META_APP_ID',        'META_APP_SECRET',         'facebook'],
-    ['X_CLIENT_ID',        'X_CLIENT_SECRET',         'x'],
-    ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET',  'linkedin'],
-  ]
-  for (const [idKey, secretKey, platformKey] of envPairs) {
-    const saved = { id: process.env[idKey], secret: process.env[secretKey] }
-    delete process.env[idKey]
-    delete process.env[secretKey]
-    // Also clear legacy Twitter env names when testing x
-    let savedTwitterId, savedTwitterSecret
-    if (platformKey === 'x') {
-      savedTwitterId     = process.env.TWITTER_CLIENT_ID
-      savedTwitterSecret = process.env.TWITTER_CLIENT_SECRET
-      delete process.env.TWITTER_CLIENT_ID
-      delete process.env.TWITTER_CLIENT_SECRET
-    }
-    const provider = getProvider(platformKey)
-    assert.equal(provider.isConfigured(), false, `${platformKey}: isConfigured() false when env unset`)
-    // Restore
-    if (saved.id     !== undefined) process.env[idKey]    = saved.id
-    if (saved.secret !== undefined) process.env[secretKey] = saved.secret
-    if (platformKey === 'x') {
-      if (savedTwitterId     !== undefined) process.env.TWITTER_CLIENT_ID     = savedTwitterId
-      if (savedTwitterSecret !== undefined) process.env.TWITTER_CLIENT_SECRET = savedTwitterSecret
-    }
+test('requiredKeys + credentialFields match per-platform descriptors', () => {
+  const expected = {
+    youtube:   ['client_id', 'client_secret'],
+    tiktok:    ['client_key', 'client_secret'],
+    instagram: ['app_id', 'app_secret'],
+    facebook:  ['app_id', 'app_secret'],
+    x:         ['client_id', 'client_secret'],
+    linkedin:  ['client_id', 'client_secret'],
+  }
+  for (const [platform, keys] of Object.entries(expected)) {
+    assert.deepEqual(requiredKeys(platform), keys, `${platform}: requiredKeys`)
+    const fields = credentialFields(platform)
+    assert.deepEqual(fields.map(f => f.key), keys, `${platform}: credentialFields keys`)
+    // Every secret field must be flagged so the UI masks it.
+    const secretField = fields.find(f => /secret/i.test(f.key))
+    assert.ok(secretField?.secret === true, `${platform}: secret field flagged secret:true`)
+    // Each field carries a human label.
+    for (const f of fields) assert.ok(f.label, `${platform}.${f.key}: label present`)
   }
 })
 
-test('isConfigured() becomes true after env vars are set, false after deletion', () => {
-  const youtube = getProvider('youtube')
-
-  const savedId     = process.env.YOUTUBE_CLIENT_ID
-  const savedSecret = process.env.YOUTUBE_CLIENT_SECRET
-  delete process.env.YOUTUBE_CLIENT_ID
-  delete process.env.YOUTUBE_CLIENT_SECRET
-
-  assert.equal(youtube.isConfigured(), false, 'false when env vars absent')
-
-  process.env.YOUTUBE_CLIENT_ID     = 'test-yt-client-id'
-  process.env.YOUTUBE_CLIENT_SECRET = 'test-yt-client-secret'
-  assert.equal(youtube.isConfigured(), true, 'true after env vars set')
-
-  delete process.env.YOUTUBE_CLIENT_ID
-  delete process.env.YOUTUBE_CLIENT_SECRET
-  assert.equal(youtube.isConfigured(), false, 'false again after deletion')
-
-  // Restore
-  if (savedId     !== undefined) process.env.YOUTUBE_CLIENT_ID     = savedId
-  if (savedSecret !== undefined) process.env.YOUTUBE_CLIENT_SECRET = savedSecret
-})
-
-test('instagram + facebook isConfigured() toggle on META_APP_ID + META_APP_SECRET', () => {
-  const instagram = getProvider('instagram')
-  const facebook  = getProvider('facebook')
-
-  const savedId     = process.env.META_APP_ID
-  const savedSecret = process.env.META_APP_SECRET
-  delete process.env.META_APP_ID
-  delete process.env.META_APP_SECRET
-
-  assert.equal(instagram.isConfigured(), false, 'instagram: false when META vars absent')
-  assert.equal(facebook.isConfigured(),  false, 'facebook: false when META vars absent')
-
-  process.env.META_APP_ID     = 'test-meta-app-id'
-  process.env.META_APP_SECRET = 'test-meta-app-secret'
-  assert.equal(instagram.isConfigured(), true, 'instagram: true after META vars set')
-  assert.equal(facebook.isConfigured(),  true, 'facebook: true after META vars set')
-
-  delete process.env.META_APP_ID
-  delete process.env.META_APP_SECRET
-  assert.equal(instagram.isConfigured(), false, 'instagram: false after META vars deleted')
-  assert.equal(facebook.isConfigured(),  false, 'facebook: false after META vars deleted')
-
-  // Restore
-  if (savedId     !== undefined) process.env.META_APP_ID     = savedId
-  if (savedSecret !== undefined) process.env.META_APP_SECRET = savedSecret
-})
-
-test('x isConfigured() accepts both X_CLIENT_* and legacy TWITTER_CLIENT_* env names', () => {
-  const xProvider = getProvider('x')
-
-  // Clear all variants
-  const saved = {
-    X_CLIENT_ID:          process.env.X_CLIENT_ID,
-    X_CLIENT_SECRET:      process.env.X_CLIENT_SECRET,
-    TWITTER_CLIENT_ID:    process.env.TWITTER_CLIENT_ID,
-    TWITTER_CLIENT_SECRET: process.env.TWITTER_CLIENT_SECRET,
-  }
-  for (const k of Object.keys(saved)) delete process.env[k]
-
-  assert.equal(xProvider.isConfigured(), false, 'false when all X/Twitter env vars absent')
-
-  // New-style env names
-  process.env.X_CLIENT_ID     = 'x-id'
-  process.env.X_CLIENT_SECRET = 'x-secret'
-  assert.equal(xProvider.isConfigured(), true, 'true with X_CLIENT_* vars')
-
-  delete process.env.X_CLIENT_ID
-  delete process.env.X_CLIENT_SECRET
-
-  // Legacy env names
-  process.env.TWITTER_CLIENT_ID     = 'tw-id'
-  process.env.TWITTER_CLIENT_SECRET = 'tw-secret'
-  assert.equal(xProvider.isConfigured(), true, 'true with legacy TWITTER_CLIENT_* vars')
-
-  delete process.env.TWITTER_CLIENT_ID
-  delete process.env.TWITTER_CLIENT_SECRET
-  assert.equal(xProvider.isConfigured(), false, 'false after all vars deleted')
-
-  // Restore
-  for (const [k, v] of Object.entries(saved)) {
-    if (v !== undefined) process.env[k] = v
-  }
+test('provider getAuthUrl uses creds (not env) and throws without creds', () => {
+  const yt = getProvider('youtube')
+  // No env vars; creds supplied directly.
+  const url = yt.getAuthUrl({ creds: { client_id: 'CID', client_secret: 'CSEC' }, redirectUri: 'https://app/cb', state: 'ST' })
+  assert.ok(url.includes('CID'), 'auth url contains creds client_id')
+  assert.ok(url.includes('ST'),  'auth url contains state')
+  assert.throws(() => yt.getAuthUrl({ redirectUri: 'https://app/cb', state: 'ST' }), /not configured/)
 })
 
 // ---------------------------------------------------------------------------

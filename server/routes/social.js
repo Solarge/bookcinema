@@ -2,8 +2,12 @@
  * Social distribution routes.
  *
  * Provider injection: req.app.locals.socialProviders (for tests) is a
- * registry-like object with { getProvider(key), listConfigured() }.
- * Falls back to the real server/social/index.js registry.
+ * registry-like object with { getProvider(key), listAll(), requiredKeys(),
+ * credentialFields() }. Falls back to the real server/social/index.js registry.
+ *
+ * Per-tenant credentials: each workspace supplies its OWN platform app's
+ * client id/secret (stored encrypted in SocialAppCredential). There is no
+ * shared/global env app — "configured" is computed per-workspace from creds.
  *
  * Queue injection: req.app.locals.socialPublishQueue (for tests) is a
  * fake queue with { add(), remove() }.  Falls back to the real BullMQ queue.
@@ -14,9 +18,10 @@ import { requireAuth } from '../middleware/auth.js'
 import { resolveWorkspace } from '../middleware/workspace.js'
 import SocialAccount from '../models/SocialAccount.js'
 import ScheduledPost from '../models/ScheduledPost.js'
+import SocialAppCredential from '../models/SocialAppCredential.js'
 import { encryptToken, decryptToken } from '../utils/cryptoTokens.js'
 import { config } from '../config.js'
-import { getProvider, listConfigured, listAll } from '../social/index.js'
+import { getProvider, listAll, requiredKeys as registryRequiredKeys, credentialFields as registryCredentialFields } from '../social/index.js'
 import { getSocialPublishQueue } from '../utils/socialQueue.js'
 import { validateVideoUrl } from '../utils/urlGuard.js'
 import { planFeatureError } from '../middleware/managedAccess.js'
@@ -32,7 +37,44 @@ export const socialRouter = Router()
 
 /** Returns the provider registry to use — injected fake or real. */
 function registryFor(req) {
-  return req.app.locals.socialProviders || { getProvider, listConfigured, listAll }
+  return req.app.locals.socialProviders || { getProvider, listAll, requiredKeys: registryRequiredKeys, credentialFields: registryCredentialFields }
+}
+
+/** Resolve the credentialFields descriptor for a platform (injected fake or real). */
+function credentialFieldsFor(req, platform) {
+  const registry = registryFor(req)
+  if (typeof registry.credentialFields === 'function') return registry.credentialFields(platform) || []
+  // Fallback: read directly off the provider meta.
+  try { return registry.getProvider(platform).meta?.credentialFields || [] } catch { return [] }
+}
+
+/** Resolve the required credential keys for a platform (injected fake or real). */
+function requiredKeysFor(req, platform) {
+  return credentialFieldsFor(req, platform).map(f => f.key)
+}
+
+/**
+ * Load and decrypt the stored app credentials for a workspace+platform.
+ * Returns the values object (keyed by credentialFields keys) or null if none/invalid.
+ */
+async function loadCreds(workspaceId, platform) {
+  const row = await SocialAppCredential.findOne({ workspaceId, platform })
+  if (!row) return null
+  try {
+    return JSON.parse(decryptToken(row.valuesEnc))
+  } catch (err) {
+    console.error(`social loadCreds decrypt error (${platform}):`, err.message)
+    return null
+  }
+}
+
+/**
+ * True when `creds` contains a non-empty value for every required key of `platform`.
+ * requiredKeys is the resolved list of keys for that platform.
+ */
+function credsConfigured(creds, requiredKeys) {
+  if (!creds) return false
+  return requiredKeys.length > 0 && requiredKeys.every(k => typeof creds[k] === 'string' && creds[k].trim() !== '')
 }
 
 /** Returns the social publish queue — injected fake or real BullMQ queue. */
@@ -62,19 +104,30 @@ function buildRedirectUri(req, platform) {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/social/providers  (requireAuth)
+// GET /api/social/providers  (requireAuth + resolveWorkspace)
 // ---------------------------------------------------------------------------
-// Returns the FULL platform list — every supported platform with a `configured`
-// boolean — so the UI can surface unconfigured platforms (greyed "not set up
-// yet") rather than hiding them. Prefers listAll(); falls back to
-// listConfigured() for injected fakes that predate listAll().
-socialRouter.get('/providers', requireAuth, (req, res) => {
+// Returns the FULL platform list. `configured` is now PER-WORKSPACE — true only
+// when THIS workspace has stored valid app credentials for the platform. Each
+// entry also carries credentialFields (so the UI can render the setup form) and
+// the redirectUri the tenant must whitelist in their own developer app.
+socialRouter.get('/providers', requireAuth, resolveWorkspace, async (req, res) => {
   try {
-    const registry = registryFor(req)
-    const list = typeof registry.listAll === 'function'
-      ? registry.listAll()
-      : registry.listConfigured()
-    res.json(list)
+    const list = listAll()
+    const out = await Promise.all(list.map(async ({ key, label, credentialFields }) => {
+      const fields = credentialFields && credentialFields.length
+        ? credentialFields
+        : credentialFieldsFor(req, key)
+      const reqKeys = fields.map(f => f.key)
+      const creds = await loadCreds(req.workspace._id, key)
+      return {
+        key,
+        label,
+        configured:       credsConfigured(creds, reqKeys),
+        credentialFields: fields,
+        redirectUri:      buildRedirectUri(req, key),
+      }
+    }))
+    res.json(out)
   } catch (err) {
     console.error('social/providers error:', err)
     res.status(500).json({ error: 'Server error' })
@@ -82,9 +135,99 @@ socialRouter.get('/providers', requireAuth, (req, res) => {
 })
 
 // ---------------------------------------------------------------------------
+// GET /api/social/:platform/credentials  (requireAuth + resolveWorkspace)
+// ---------------------------------------------------------------------------
+// Returns whether this workspace has configured the platform and WHICH keys are
+// set — but NEVER the secret values themselves.
+socialRouter.get('/:platform/credentials', requireAuth, resolveWorkspace, async (req, res) => {
+  try {
+    const { platform } = req.params
+    if (!VALID_PLATFORMS.includes(platform)) {
+      return res.status(400).json({ error: `Unknown platform: ${platform}` })
+    }
+    const reqKeys = requiredKeysFor(req, platform)
+    const creds = await loadCreds(req.workspace._id, platform)
+    const setKeys = creds
+      ? Object.keys(creds).filter(k => typeof creds[k] === 'string' && creds[k].trim() !== '')
+      : []
+    res.json({
+      platform,
+      configured: credsConfigured(creds, reqKeys),
+      setKeys,
+    })
+  } catch (err) {
+    console.error('social/credentials GET error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// PUT /api/social/:platform/credentials  (requireAuth + resolveWorkspace)
+// ---------------------------------------------------------------------------
+// Body: { values: { <key>: <string> } }. Stores the tenant's own app creds,
+// encrypted at rest. Plan-gated like connect. Validates all required keys.
+socialRouter.put('/:platform/credentials', requireAuth, resolveWorkspace, async (req, res) => {
+  try {
+    const plan = req.workspace?.plan || 'free'
+    if (!planAllows(plan, 'social')) return planFeatureError(res, 'social')
+
+    const { platform } = req.params
+    if (!VALID_PLATFORMS.includes(platform)) {
+      return res.status(400).json({ error: `Unknown platform: ${platform}` })
+    }
+
+    const values = req.body?.values
+    if (!values || typeof values !== 'object' || Array.isArray(values)) {
+      return res.status(400).json({ error: 'values object is required' })
+    }
+
+    const reqKeys = requiredKeysFor(req, platform)
+    const missing = reqKeys.filter(k => typeof values[k] !== 'string' || values[k].trim() === '')
+    if (missing.length > 0) {
+      return res.status(400).json({ error: 'Missing required credential fields', missing })
+    }
+
+    // Persist ONLY the required keys (trimmed), encrypted.
+    const clean = {}
+    for (const k of reqKeys) clean[k] = values[k].trim()
+    const valuesEnc = encryptToken(JSON.stringify(clean))
+
+    await SocialAppCredential.findOneAndUpdate(
+      { workspaceId: req.workspace._id, platform },
+      { $set: { valuesEnc, createdBy: req.user._id } },
+      { upsert: true, new: true },
+    )
+
+    res.json({ configured: true })
+  } catch (err) {
+    console.error('social/credentials PUT error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// DELETE /api/social/:platform/credentials  (requireAuth + resolveWorkspace)
+// ---------------------------------------------------------------------------
+// Removes the workspace's stored app creds for the platform. Already-connected
+// SocialAccounts remain but can no longer refresh (worker will fail those).
+socialRouter.delete('/:platform/credentials', requireAuth, resolveWorkspace, async (req, res) => {
+  try {
+    const { platform } = req.params
+    if (!VALID_PLATFORMS.includes(platform)) {
+      return res.status(400).json({ error: `Unknown platform: ${platform}` })
+    }
+    await SocialAppCredential.findOneAndDelete({ workspaceId: req.workspace._id, platform })
+    res.json({ ok: true })
+  } catch (err) {
+    console.error('social/credentials DELETE error:', err)
+    res.status(500).json({ error: 'Server error' })
+  }
+})
+
+// ---------------------------------------------------------------------------
 // GET /api/social/:platform/connect  (requireAuth + resolveWorkspace)
 // ---------------------------------------------------------------------------
-socialRouter.get('/:platform/connect', requireAuth, resolveWorkspace, (req, res) => {
+socialRouter.get('/:platform/connect', requireAuth, resolveWorkspace, async (req, res) => {
   try {
     const plan = req.workspace?.plan || 'free'
     if (!planAllows(plan, 'social')) return planFeatureError(res, 'social')
@@ -95,13 +238,16 @@ socialRouter.get('/:platform/connect', requireAuth, resolveWorkspace, (req, res)
     let provider
     try {
       provider = registry.getProvider(platform)
-    } catch (_) {
+    } catch {
       return res.status(400).json({ error: `Unknown platform: ${platform}` })
     }
 
-    if (!provider.isConfigured()) {
+    // Configured is now per-workspace: requires stored, valid app credentials.
+    const reqKeys = requiredKeysFor(req, platform)
+    const creds = await loadCreds(req.workspace._id, platform)
+    if (!credsConfigured(creds, reqKeys)) {
       const label = provider.meta?.label || platform
-      return res.status(503).json({ error: `${label} not configured`, code: 'not_configured' })
+      return res.status(400).json({ error: `${label} not configured`, code: 'not_configured' })
     }
 
     const state = signState({
@@ -112,7 +258,7 @@ socialRouter.get('/:platform/connect', requireAuth, resolveWorkspace, (req, res)
     })
 
     const redirectUri = buildRedirectUri(req, platform)
-    const url = provider.getAuthUrl({ redirectUri, state })
+    const url = provider.getAuthUrl({ creds, redirectUri, state })
     res.json({ url })
   } catch (err) {
     console.error('social/connect error:', err)
@@ -148,15 +294,22 @@ socialRouter.get('/:platform/callback', async (req, res) => {
   let provider
   try {
     provider = registry.getProvider(platform)
-  } catch (_) {
+  } catch {
     return res.status(400).json({ error: `Unknown platform: ${platform}` })
+  }
+
+  // Load the workspace's own app credentials (from the signed state's workspaceId).
+  const reqKeys = requiredKeysFor(req, platform)
+  const creds = await loadCreds(workspaceId, platform)
+  if (!credsConfigured(creds, reqKeys)) {
+    return res.status(400).json({ error: `${provider.meta?.label || platform} not configured`, code: 'not_configured' })
   }
 
   // 2. Exchange the authorization code
   let exchanged
   try {
     const redirectUri = buildRedirectUri(req, platform)
-    exchanged = await provider.exchangeCode({ code, redirectUri })
+    exchanged = await provider.exchangeCode({ creds, code, redirectUri })
   } catch (err) {
     console.error(`social/${platform}/callback exchangeCode error:`, err)
     return res.status(502).json({ error: 'Failed to exchange code with provider' })
@@ -270,15 +423,16 @@ socialRouter.post('/posts', requireAuth, resolveWorkspace, async (req, res) => {
         invalidTargets.push({ platform, reason: 'unknown platform' })
         continue
       }
-      // Provider not configured
-      let provider
+      // Provider not configured for THIS workspace (no stored app credentials)
       try {
-        provider = registry.getProvider(platform)
-      } catch (_) {
+        registry.getProvider(platform)
+      } catch {
         invalidTargets.push({ platform, reason: 'unknown platform' })
         continue
       }
-      if (!provider.isConfigured()) {
+      const reqKeys = requiredKeysFor(req, platform)
+      const creds = await loadCreds(req.workspace._id, platform)
+      if (!credsConfigured(creds, reqKeys)) {
         invalidTargets.push({ platform, reason: 'provider not configured' })
         continue
       }

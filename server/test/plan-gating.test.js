@@ -11,6 +11,7 @@ import generateRoutes from '../routes/generate.js'
 import { socialRouter } from '../routes/social.js'
 import Workspace from '../models/Workspace.js'
 import SocialAccount from '../models/SocialAccount.js'
+import SocialAppCredential from '../models/SocialAppCredential.js'
 import { makeAuthedUser } from './helpers/auth.js'
 import { encryptToken } from '../utils/cryptoTokens.js'
 
@@ -44,11 +45,15 @@ async function betaUserWithPlan(plan) {
   return { user, token, workspace: ws }
 }
 
-/** Minimal fake social provider registry. */
-function makeRegistry(configured = true) {
+const FIELDS = [
+  { key: 'client_id',     label: 'Client ID' },
+  { key: 'client_secret', label: 'Client Secret', secret: true },
+]
+
+/** Minimal fake social provider registry (per-workspace creds model). */
+function makeRegistry() {
   const prov = {
-    meta:        { key: 'youtube', label: 'YouTube' },
-    isConfigured: () => configured,
+    meta:        { key: 'youtube', label: 'YouTube', credentialFields: FIELDS },
     getAuthUrl:  ({ state }) => `https://fake.test/auth?state=${state}`,
     exchangeCode: async () => ({ account: { externalId: 'e1', displayName: 'Ch' }, tokens: { accessToken: 'AT', refreshToken: null, expiresAt: null } }),
     publishVideo: async () => ({ externalId: 'v1', url: 'https://youtube.com/v1' }),
@@ -58,8 +63,19 @@ function makeRegistry(configured = true) {
       if (k === 'youtube') return prov
       throw new Error(`Unknown social platform: ${k}`)
     },
-    listConfigured: () => [{ key: 'youtube', label: 'YouTube', configured }],
+    credentialFields: () => FIELDS,
+    requiredKeys:     () => FIELDS.map(f => f.key),
+    listAll: () => [{ key: 'youtube', label: 'YouTube', credentialFields: FIELDS }],
   }
+}
+
+/** Seed a workspace's own app credentials so the platform is "configured". */
+async function seedCreds(workspaceId, platform = 'youtube') {
+  return SocialAppCredential.create({
+    workspaceId,
+    platform,
+    valuesEnc: encryptToken(JSON.stringify({ client_id: 'CID', client_secret: 'CSEC' })),
+  })
 }
 
 // ===========================================================================
@@ -156,6 +172,7 @@ test('free plan → GET /social/:platform/connect → 403 plan_feature social', 
 
 test('pro plan → GET /social/:platform/connect → 200', async () => {
   const { token, workspace } = await makeAuthedUser({ plan: 'pro' })
+  await seedCreds(workspace._id, 'youtube')
   const registry = makeRegistry()
   const res = await authedSoc(
     request(socialApp({ registry })).get('/api/social/youtube/connect'),
@@ -185,6 +202,7 @@ test('free plan → POST /social/posts → 403 plan_feature social', async () =>
 
 test('pro plan → POST /social/posts with connected account → 202', async () => {
   const { token, workspace } = await makeAuthedUser({ plan: 'pro' })
+  await seedCreds(workspace._id, 'youtube')
   // Seed a connected account
   await SocialAccount.create({
     workspaceId:    workspace._id,
@@ -213,11 +231,11 @@ test('pro plan → POST /social/posts with connected account → 202', async () 
 
 // Providers list is plan-ungated (free plan can see available providers)
 test('free plan → GET /social/providers → 200 (listing is not gated)', async () => {
-  const { token } = await makeAuthedUser({ plan: 'free' })
+  const { token, workspace } = await makeAuthedUser({ plan: 'free' })
   const registry = makeRegistry()
-  const res = request(socialApp({ registry }))
+  const r = await request(socialApp({ registry }))
     .get('/api/social/providers')
     .set('Authorization', `Bearer ${token}`)
-  const r = await res
+    .set('X-Workspace-Id', workspace._id.toString())
   assert.equal(r.status, 200)
 })
