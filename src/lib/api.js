@@ -170,11 +170,20 @@ export const billing = {
 
 // ── Social Distribution ───────────────────────────────────────────────────────
 export const social = {
-  // Returns EVERY supported platform: [{ key, label, configured }]. Unconfigured
-  // platforms (configured:false) are still listed so the UI can show them as
-  // "not set up yet" instead of hiding them.
+  // Returns EVERY supported platform, per-workspace:
+  //   [{ key, label, configured, credentialFields: [{ key, label, secret? }], redirectUri }]
+  // `configured` is per-workspace; `redirectUri` is the callback URL the tenant
+  // must whitelist in their own developer app. Unconfigured platforms are still
+  // listed so the UI can offer self-serve setup.
   providers:  ()         => get('/api/social/providers'),
-  // 503 { code:'not_configured' } if the platform has no server-side API keys.
+  // Per-workspace credential status — never returns secret values.
+  //   -> { platform, configured, setKeys: string[] }
+  credentials:       (platform)         => get(`/api/social/${platform}/credentials`),
+  // Save this workspace's developer-app keys for a platform.
+  //   400 { error, missing: [] } / 403 { code:'plan_feature', requiredPlan }
+  saveCredentials:   (platform, values) => put(`/api/social/${platform}/credentials`, { values }),
+  deleteCredentials: (platform)         => del(`/api/social/${platform}/credentials`),
+  // 400 { code:'not_configured' } if the platform has no workspace credentials yet.
   connect:    (platform) => get(`/api/social/${platform}/connect`),
   accounts:   ()         => get('/api/social/accounts'),
   disconnect: (id)       => del(`/api/social/accounts/${id}`),
