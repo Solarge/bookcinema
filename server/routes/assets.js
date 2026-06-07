@@ -16,7 +16,7 @@ const router = Router()
 router.use(requireAuth, resolveWorkspace)
 
 // Managed generation job type → Asset type
-const JOB_TYPE_TO_ASSET = { image: 'character_image', video: 'scene_video', voice: 'dialogue_audio', audio: 'dialogue_audio', music: 'scene_music', mux: 'scene_video' }
+const JOB_TYPE_TO_ASSET = { image: 'character_image', video: 'scene_video', voice: 'dialogue_audio', audio: 'dialogue_audio', music: 'scene_music', mux: 'scene_video', compile: 'episode_compiled' }
 
 // Valid Asset.type enum values — used to validate an optional caller-supplied assetType override.
 const ASSET_TYPES = new Set(Asset.schema.path('type').enumValues)
