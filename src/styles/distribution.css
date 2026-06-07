@@ -239,6 +239,62 @@
   margin-top: 2px;
 }
 
+/* ── Collapsible "how to get these keys" guidance ─────────────────────────── */
+.dist-cred-howto {
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  padding: 0 12px;
+}
+.dist-cred-howto__summary {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 9px 0;
+  outline: none;
+}
+.dist-cred-howto__summary:hover { color: var(--gold); }
+.dist-cred-howto[open] .dist-cred-howto__summary { color: var(--cream); }
+.dist-cred-howto__body {
+  padding-bottom: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.dist-cred-howto__link {
+  display: inline-block;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--gold);
+  text-decoration: underline;
+  margin-bottom: 8px;
+}
+.dist-cred-howto__steps {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 1.7;
+  color: var(--cream);
+  margin: 0 0 8px;
+  padding-left: 18px;
+}
+.dist-cred-howto__steps li { margin-bottom: 3px; }
+.dist-cred-howto__scopes {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 1.6;
+  color: var(--muted);
+  word-break: break-word;
+}
+.dist-cred-howto__note {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-top: 8px;
+  opacity: 0.85;
+}
+
 /* ── Schedule form ───────────────────────────────────────────────────────── */
 .dist-form-section { margin-bottom: 28px; }
 .dist-form {

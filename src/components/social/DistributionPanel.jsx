@@ -15,6 +15,73 @@ const PLATFORM_META = {
   linkedin:  { label: 'LinkedIn',  icon: '💼' },
 }
 
+// Per-platform "how to get these keys" guidance (dev console + steps + scopes)
+const PLATFORM_SETUP = {
+  youtube: {
+    console: 'https://console.cloud.google.com/apis/credentials',
+    steps: [
+      'Create / pick a Google Cloud project',
+      'Enable "YouTube Data API v3"',
+      'Configure the OAuth consent screen',
+      'Create an OAuth client ID → type "Web application"',
+      'Add the redirect URL above to "Authorized redirect URIs"',
+      'Copy the Client ID and Client Secret here',
+    ],
+    scopes: 'youtube.upload, youtube.readonly',
+  },
+  tiktok: {
+    console: 'https://developers.tiktok.com/',
+    steps: [
+      'Create an app in the TikTok developer portal',
+      'Add the "Login Kit" and "Content Posting API" products',
+      'Add the redirect URL above as a redirect URI',
+      'Copy the Client Key and Client Secret here',
+    ],
+    scopes: 'user.info.basic, video.publish',
+  },
+  instagram: {
+    console: 'https://developers.facebook.com/apps',
+    steps: [
+      'Create a Meta app (type: Business)',
+      'Add the "Instagram Graph API" + "Facebook Login" products',
+      'Under Facebook Login → Settings, add the redirect URL above to "Valid OAuth Redirect URIs"',
+      'Copy the App ID and App Secret here',
+      'Note: you need an Instagram Business/Creator account linked to a Facebook Page',
+    ],
+    scopes: 'instagram_basic, instagram_content_publish, pages_show_list, pages_read_engagement',
+  },
+  facebook: {
+    console: 'https://developers.facebook.com/apps',
+    steps: [
+      'Create a Meta app (type: Business)',
+      'Add the "Facebook Login" product',
+      'Add the redirect URL above to "Valid OAuth Redirect URIs"',
+      'Copy the App ID and App Secret here',
+    ],
+    scopes: 'pages_show_list, pages_read_engagement, pages_manage_posts',
+  },
+  x: {
+    console: 'https://developer.twitter.com/en/portal/dashboard',
+    steps: [
+      'Create a Project and an App',
+      'Open "User authentication settings" → enable OAuth 2.0, app type "Web App"',
+      'Add the redirect URL above as a Callback URI',
+      'Copy the OAuth 2.0 Client ID and Client Secret here',
+    ],
+    scopes: 'tweet.read, tweet.write, users.read, offline.access, media.write',
+  },
+  linkedin: {
+    console: 'https://www.linkedin.com/developers/apps',
+    steps: [
+      'Create an app',
+      'Request the "Share on LinkedIn" + "Sign In with LinkedIn" products',
+      'On the Auth tab, add the redirect URL above as an authorized redirect URL',
+      'Copy the Client ID and Client Secret here',
+    ],
+    scopes: 'openid, profile, w_member_social',
+  },
+}
+
 const STATUS_COLORS = {
   scheduled:  { bg: '#0a1a2a', border: '#3a6a9a', text: '#7ab0d8' },
   processing: { bg: '#1a1a0a', border: '#9a8a3a', text: '#d8c070' },
@@ -44,6 +111,7 @@ const SETUP_GUIDE_URL = 'https://github.com/Solarge/bookcinema/blob/main/docs/SO
 // ── Per-platform credential setup form (inline, expandable) ────────────────
 function CredentialForm({ provider, prefill, onSaved, onCancel, onMsg }) {
   const meta   = PLATFORM_META[provider.key] ?? { label: provider.label, icon: '📡' }
+  const setup  = PLATFORM_SETUP[provider.key]
   const fields = provider.credentialFields ?? []
   const [values, setValues] = useState(() =>
     Object.fromEntries(fields.map(f => [f.key, prefill?.[f.key] ?? '']))
@@ -122,6 +190,30 @@ function CredentialForm({ provider, prefill, onSaved, onCancel, onMsg }) {
             className="dist-cred-help__link">Setup guide</a>
         </div>
       </div>
+
+      {/* Collapsible per-platform "how to get these keys" guidance */}
+      {setup && (
+        <details className="dist-cred-howto">
+          <summary className="dist-cred-howto__summary">How to get these keys</summary>
+          <div className="dist-cred-howto__body">
+            <a href={setup.console} target="_blank" rel="noopener noreferrer"
+              className="dist-cred-howto__link">
+              Open {meta.label} developer console ↗
+            </a>
+            <ol className="dist-cred-howto__steps">
+              {setup.steps.map((step, i) => (
+                <li key={i}>{step}</li>
+              ))}
+            </ol>
+            <div className="dist-cred-howto__scopes">
+              Scopes/permissions to enable: {setup.scopes}
+            </div>
+            <div className="dist-cred-howto__note">
+              Each platform requires app review before it will allow posting to real accounts.
+            </div>
+          </div>
+        </details>
+      )}
 
       {/* One input per credential field */}
       {fields.map(field => (
