@@ -5,7 +5,7 @@ const assetSchema = new mongoose.Schema({
   seriesId: { type: mongoose.Schema.Types.ObjectId, ref: 'Series', required: true, index: true },
   workspaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workspace', required: true, index: true },
 
-  type:    { type: String, enum: ['character_image', 'scene_video', 'dialogue_audio', 'scene_music', 'episode_score', 'export'], required: true },
+  type:    { type: String, enum: ['character_image', 'scene_video', 'dialogue_audio', 'scene_music', 'episode_score', 'episode_compiled', 'export'], required: true },
   assetKey:{ type: String, required: true }, // e.g., 'char:sarah', 'ep1-s2', 'ep1-s2-d0'
 
   // S3 storage
