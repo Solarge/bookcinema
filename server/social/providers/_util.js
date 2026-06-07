@@ -67,7 +67,15 @@ export async function fetchJson(url, accessToken, extra = {}) {
  * @returns {Promise<{ buffer: Buffer, contentType: string, contentLength: number }>}
  */
 export async function downloadBytes(url) {
-  const res = await fetch(url)
+  // Some CDNs (e.g. Google storage) 403 requests that have no User-Agent; send a
+  // browser-like UA so arbitrary public video URLs are downloadable too. (S3
+  // presigned URLs from BookFilm work either way.)
+  const res = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (compatible; BookFilmBot/1.0; +https://bookfilm.studio)',
+      Accept: '*/*',
+    },
+  })
   if (!res.ok) {
     throw new Error(`downloadBytes: failed to fetch ${url} → ${res.status}`)
   }
