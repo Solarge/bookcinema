@@ -65,6 +65,8 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
   // Music: per-scene beds keyed `ep<n>-s<m>`; per-episode scores keyed `ep<n>`.
   const [sceneMusic,   setSceneMusic]   = useState({})
   const [episodeScore, setEpisodeScore] = useState({})
+  // Compiled episode reels keyed `ep<n>`: { status:'idle'|'compiling'|'done'|'error', url, serverId, error, note }
+  const [episodeCompiled, setEpisodeCompiled] = useState({})
   const [sessionCost, setSessionCost] = useState(() => loadSessionCost())
   // Per-slot saving state: { [storeKey]: 'saving' | 'error' | undefined }
   const [saving, setSaving] = useState({})
@@ -90,11 +92,13 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
   const sceneMusicRef   = useRef(sceneMusic)
   const charactersRef   = useRef(characters)
   const episodeScoreRef = useRef(episodeScore)
-  scenesRef.current       = scenes
-  dialogueRef.current     = dialogue
-  sceneMusicRef.current   = sceneMusic
-  charactersRef.current   = characters
-  episodeScoreRef.current = episodeScore
+  const episodeCompiledRef = useRef(episodeCompiled)
+  scenesRef.current        = scenes
+  dialogueRef.current      = dialogue
+  sceneMusicRef.current    = sceneMusic
+  charactersRef.current    = characters
+  episodeScoreRef.current  = episodeScore
+  episodeCompiledRef.current = episodeCompiled
 
   // Cloud sync is only active when authenticated AND a backend seriesId is available.
   const cloudEnabled = !!(user && seriesId)
@@ -162,6 +166,14 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
             setEpisodeScore(prev => ({
               ...prev,
               [key]: { ...(prev[key] ?? IDLE), ...cloudPatch, audioUrl: s3Url },
+            }))
+          } else if (prefix === 'episode-compiled') {
+            // mediaKey('episode-compiled', slug, 'ep<n>')
+            const key = parts[2] // 'ep1'
+            if (!key) continue
+            setEpisodeCompiled(prev => ({
+              ...prev,
+              [key]: { ...(prev[key] ?? {}), status: 'done', url: s3Url, serverId: _id, error: null },
             }))
           }
         }
@@ -509,6 +521,89 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     }
   }, [generateSceneVideo, generateDialogueVoice, generateSceneMusic, muxSceneWithUrls])
 
+  // ── Compile an episode WITH sound (voices + music) and persist the reel ──────
+  // Ensures every scene is assembled (video + each dialogue voice + scene music, muxed)
+  // and the episode soundtrack exists, then stitches the SOUNDED scene clips into one
+  // reel via the managed compile API. The result is promoted to an 'episode_compiled'
+  // Asset so it rehydrates on reopen instead of vanishing on refresh.
+  const compileEpisode = useCallback(async (series, episode) => {
+    const epNum = episode.number
+    const key = `ep${epNum}`
+    const charIds = episode.characters_in_episode ?? []
+    setEpisodeCompiled(prev => ({ ...prev, [key]: { ...(prev[key] ?? {}), status: 'compiling', error: null, note: null } }))
+    try {
+      const epScenes = episode.scenes ?? []
+
+      // 1) Ensure every scene has SOUND (voices + music). Assemble any that are
+      //    missing or not yet sounded. Per-scene failures are logged + skipped.
+      for (const scene of epScenes) {
+        const slot = scenesRef.current[`ep${epNum}-s${scene.scene_number}`]
+        if (!slot || !slot.hasSound) {
+          try {
+            await assembleScene(epNum, scene, charIds)
+          } catch (err) {
+            console.warn(`[MediaContext] compileEpisode: scene ${scene.scene_number} assemble failed:`, err)
+          }
+        }
+      }
+
+      // 2) Ensure the episode soundtrack score.
+      if (episode.soundtrack?.music_prompt && episodeScoreRef.current[key]?.status !== 'done') {
+        try {
+          await generateEpisodeSoundtrack(epNum, episode)
+        } catch (err) {
+          console.warn(`[MediaContext] compileEpisode: soundtrack failed:`, err)
+        }
+      }
+
+      // 3) Gather the SOUNDED muxed clips in scene order.
+      const clips = epScenes
+        .map(scene => {
+          const slot = scenesRef.current[`ep${epNum}-s${scene.scene_number}`] ?? {}
+          return slot.status === 'done' ? (slot.serverUrl || slot.remoteUrl || slot.localUrl || null) : null
+        })
+        .filter(Boolean)
+
+      if (clips.length < 2) {
+        setEpisodeCompiled(prev => ({ ...prev, [key]: { ...(prev[key] ?? {}), status: 'error', note: 'Need at least 2 scenes with video' } }))
+        return
+      }
+
+      const scoreSlot = episodeScoreRef.current[key] ?? {}
+      const soundtrackUrl = scoreSlot.serverUrl || scoreSlot.audioUrl || null
+
+      // 4) Compile via the managed API (same call CompileEpisodeControl used).
+      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: epNum, clips, ...(soundtrackUrl ? { soundtrackUrl } : {}) })
+      const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
+      if (job.status !== 'done' || !job.result?.url) {
+        const errMsg = job.error || job.errorMessage || 'Compile failed'
+        throw Object.assign(new Error(errMsg), { code: job.errorCode })
+      }
+      setEpisodeCompiled(prev => ({ ...prev, [key]: { ...(prev[key] ?? {}), status: 'done', url: job.result.url, error: null, note: null } }))
+
+      // 5) Persist as an 'episode_compiled' Asset so it survives refresh (best-effort).
+      if (cloudEnabled && seriesId) {
+        try {
+          const r = await assetsApi.fromJob(seriesId, {
+            jobId,
+            assetKey:  mediaKey('episode-compiled', seriesSlug, key),
+            assetType: 'episode_compiled',
+            prompt:    episode.title,
+          })
+          setEpisodeCompiled(prev => ({ ...prev, [key]: { ...prev[key], url: r.s3Url || prev[key]?.url, serverId: r._id } }))
+        } catch (e) {
+          // best-effort; keep the presigned job url
+          console.warn('[MediaContext] compileEpisode: persist failed:', e)
+        }
+      }
+    } catch (err) {
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Compiling the episode requires a higher plan. Upgrade to unlock.')
+        : (err.message || 'Compile failed')
+      setEpisodeCompiled(prev => ({ ...prev, [key]: { ...(prev[key] ?? {}), status: 'error', error: displayMsg } }))
+    }
+  }, [assembleScene, generateEpisodeSoundtrack, seriesId, seriesSlug, cloudEnabled])
+
   // ── One-click orchestration: Make Episode / Make Movie ──────────────────────
   // Pure orchestration over the existing single-asset methods. Each runs the same
   // pipeline a careful user would click through: portraits → assemble every scene
@@ -574,28 +669,19 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
         }
       }
 
-      // d) Compile — reuse the exact call CompileEpisodeControl makes. Needs a
-      // backend seriesId and >= 2 ready scene clips. Gather clip URLs in scene order.
-      if (!cancelRef.current) {
+      // d) Compile — reuse the shared compileEpisode path so the movie reel also gets
+      // voices + music (re-checks hasSound), is persisted, and rehydrates on reopen.
+      if (!cancelRef.current && seriesId) {
         bump({ phase: 'compile', label: `Episode ${epNum} · compiling` })
-        const readyClips = scenes
-          .map(scene => {
-            const slot = scenesRef.current[`ep${epNum}-s${scene.scene_number}`] ?? {}
-            return slot.status === 'done' ? (slot.remoteUrl || slot.serverUrl || null) : null
-          })
-          .filter(Boolean)
-        const scoreSlot = episodeScoreRef.current[`ep${epNum}`] ?? {}
-        const soundtrackUrl = scoreSlot.serverUrl || scoreSlot.audioUrl || null
-        if (seriesId && readyClips.length >= 2) {
-          try {
-            const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: epNum, clips: readyClips, ...(soundtrackUrl ? { soundtrackUrl } : {}) })
-            await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
-          } catch (err) {
-            console.warn(`[MediaContext] makeEpisode: compile failed:`, err)
-            bump({ note: `Episode ${epNum}: compile failed (${err.message || 'error'})` })
+        try {
+          await compileEpisode(series, episode)
+          const compiled = episodeCompiledRef.current[`ep${epNum}`]
+          if (compiled?.status === 'error') {
+            bump({ note: `Episode ${epNum}: ${compiled.note || compiled.error || 'compile failed'}` })
           }
-        } else {
-          bump({ note: `Episode ${epNum}: not enough scene clips to compile (need 2, have ${readyClips.length}).` })
+        } catch (err) {
+          console.warn(`[MediaContext] makeEpisode: compile failed:`, err)
+          bump({ note: `Episode ${epNum}: compile failed (${err.message || 'error'})` })
         }
       }
     } finally {
@@ -604,7 +690,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
         setTimeout(() => setMovieProgress(null), 4000)
       }
     }
-  }, [countEpisodeWork, generateCharacterImage, assembleScene, generateEpisodeSoundtrack, seriesId])
+  }, [countEpisodeWork, generateCharacterImage, assembleScene, generateEpisodeSoundtrack, compileEpisode, seriesId])
 
   const makeMovie = useCallback(async (series) => {
     cancelRef.current = false
@@ -770,6 +856,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       generateSceneMusic, generateEpisodeSoundtrack,
       addSceneSound,
       assembleScene,
+      compileEpisode, episodeCompiled,
       makeEpisode, makeMovie, movieProgress, cancelMovie,
       setCharApproval, setSceneApproval,
       portraitRefs,
