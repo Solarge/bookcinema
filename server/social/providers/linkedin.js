@@ -1,9 +1,9 @@
 /**
  * LinkedIn social provider — LinkedIn OAuth 2.0 + LinkedIn APIs (video + UGC posts).
  *
- * Required env vars:
- *   LINKEDIN_CLIENT_ID     — LinkedIn app client ID
- *   LINKEDIN_CLIENT_SECRET — LinkedIn app client secret
+ * Per-workspace credentials (creds object keys):
+ *   client_id      — LinkedIn app client ID
+ *   client_secret  — LinkedIn app client secret
  *
  * Scopes requested:
  *   openid          — OIDC identity
@@ -29,8 +29,8 @@
  *     in the App settings. If not enabled, refresh() will fail gracefully.
  *   - Video upload requires the app to have "Video APIs" product enabled.
  *
- * isConfigured() reads process.env directly at call time so tests can
- * set/unset env vars and see immediate effect without re-importing config.
+ * Credentials are supplied per-workspace (decrypted from SocialAppCredential)
+ * and passed into getAuthUrl/exchangeCode/refresh as `creds`.
  */
 
 import { postForm, fetchJson, downloadBytes, qs, expiresAt } from './_util.js'
@@ -44,23 +44,28 @@ export const meta = {
   key:       'linkedin',
   label:     'LinkedIn',
   configEnv: ['LINKEDIN_CLIENT_ID', 'LINKEDIN_CLIENT_SECRET'],
+  credentialFields: [
+    { key: 'client_id',     label: 'Client ID' },
+    { key: 'client_secret', label: 'Client Secret', secret: true },
+  ],
   scopes:    ['openid', 'profile', 'w_member_social', 'r_basicprofile'],
 }
 
-export function isConfigured() {
-  return !!(process.env.LINKEDIN_CLIENT_ID && process.env.LINKEDIN_CLIENT_SECRET)
+/** Credential keys the tenant must supply for this platform. */
+export function requiredKeys() {
+  return meta.credentialFields.map(f => f.key)
 }
 
 /**
  * Build the LinkedIn OAuth 2.0 authorization URL.
  *
- * @param {{ redirectUri: string, state: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, redirectUri: string, state: string }} opts
  * @returns {string}
  */
-export function getAuthUrl({ redirectUri, state }) {
-  if (!isConfigured()) throw new Error('LinkedIn not configured')
+export function getAuthUrl({ creds, redirectUri, state }) {
+  if (!creds) throw new Error('LinkedIn not configured')
   const params = qs({
-    client_id:     process.env.LINKEDIN_CLIENT_ID,
+    client_id:     creds.client_id,
     redirect_uri:  redirectUri,
     response_type: 'code',
     scope:         meta.scopes.join(' '),
@@ -72,21 +77,21 @@ export function getAuthUrl({ redirectUri, state }) {
 /**
  * Exchange an authorization code for tokens and fetch the member's profile.
  *
- * @param {{ code: string, redirectUri: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, code: string, redirectUri: string }} opts
  * @returns {Promise<{
  *   account: { externalId: string, displayName: string, scopes: string[] },
  *   tokens:  { accessToken: string, refreshToken: string|null, expiresAt: Date }
  * }>}
  */
-export async function exchangeCode({ code, redirectUri }) {
-  if (!isConfigured()) throw new Error('LinkedIn not configured')
+export async function exchangeCode({ creds, code, redirectUri }) {
+  if (!creds) throw new Error('LinkedIn not configured')
 
   const tokenData = await postForm(LI_TOKEN_URL, {
     grant_type:    'authorization_code',
     code,
     redirect_uri:  redirectUri,
-    client_id:     process.env.LINKEDIN_CLIENT_ID,
-    client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+    client_id:     creds.client_id,
+    client_secret: creds.client_secret,
   })
 
   const { access_token, refresh_token, expires_in } = tokenData
@@ -110,17 +115,17 @@ export async function exchangeCode({ code, redirectUri }) {
  * Refresh a LinkedIn access token.
  * Only works if the LinkedIn app has Refresh Token support enabled.
  *
- * @param {{ refreshToken: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, refreshToken: string }} opts
  * @returns {Promise<{ accessToken: string, refreshToken: string, expiresAt: Date }>}
  */
-export async function refresh({ refreshToken }) {
-  if (!isConfigured()) throw new Error('LinkedIn not configured')
+export async function refresh({ creds, refreshToken }) {
+  if (!creds) throw new Error('LinkedIn not configured')
 
   const tokenData = await postForm(LI_TOKEN_URL, {
     grant_type:    'refresh_token',
     refresh_token: refreshToken,
-    client_id:     process.env.LINKEDIN_CLIENT_ID,
-    client_secret: process.env.LINKEDIN_CLIENT_SECRET,
+    client_id:     creds.client_id,
+    client_secret: creds.client_secret,
   })
 
   return {
@@ -150,8 +155,6 @@ export async function refresh({ refreshToken }) {
  * @returns {Promise<{ externalId: string, url: string }>}
  */
 export async function publishVideo({ tokens, videoUrl, caption }) {
-  if (!isConfigured()) throw new Error('LinkedIn not configured')
-
   const { accessToken } = tokens
 
   // Step 0 — get the member's LinkedIn URN (sub) for the owner field

@@ -12,7 +12,7 @@ import { grantCredits } from '../utils/credits.js'
 import { config } from '../config.js'
 import { PLANS } from '../plans.js'
 import { MANAGED_PROVIDERS } from '../generation/registry.js'
-import { listConfigured as listSocialConfigured } from '../social/index.js'
+import { listAll as listSocialPlatforms } from '../social/index.js'
 import { encryptToken, decryptToken } from '../utils/cryptoTokens.js'
 import { authenticator } from 'otplib'
 
@@ -266,8 +266,10 @@ router.get('/config', async (req, res) => {
       configured: typeof adapter.isConfigured === 'function' ? adapter.isConfigured() : false,
     }))
 
-    // Social providers configured status (no secrets).
-    const social = listSocialConfigured()
+    // Social platforms supported. "configured" is now PER-WORKSPACE (each tenant
+    // supplies their own app credentials), so the system view only lists the
+    // supported platforms + their credential field descriptors (no secrets).
+    const social = listSocialPlatforms()
 
     // Managed guardrails — values, not secrets.
     const managed = {

@@ -1,9 +1,9 @@
 /**
  * X (formerly Twitter) social provider — X API v2, OAuth 2.0 PKCE.
  *
- * Required env vars (accepts either name):
- *   X_CLIENT_ID / TWITTER_CLIENT_ID         — X OAuth2 app client ID
- *   X_CLIENT_SECRET / TWITTER_CLIENT_SECRET — X OAuth2 app client secret
+ * Per-workspace credentials (creds object keys):
+ *   client_id      — X OAuth2 app client ID
+ *   client_secret  — X OAuth2 app client secret
  *
  * Scopes requested:
  *   tweet.read     — read tweets
@@ -33,8 +33,8 @@
  *   Media upload: https://developer.x.com/en/docs/x-api/v1/media/upload-media/api-reference/post-media-upload
  *   Tweets: https://developer.x.com/en/docs/x-api/tweets/manage-tweets/api-reference/post-tweets
  *
- * isConfigured() reads process.env directly at call time so tests can
- * set/unset env vars and see immediate effect without re-importing config.
+ * Credentials are supplied per-workspace (decrypted from SocialAppCredential)
+ * and passed into getAuthUrl/exchangeCode/refresh as `creds`.
  */
 
 import { fetchJson, downloadBytes, qs, expiresAt } from './_util.js'
@@ -47,32 +47,33 @@ const X_ME_URL      = 'https://api.twitter.com/2/users/me'
 
 const CHUNK_SIZE = 5 * 1024 * 1024   // 5 MB per APPEND segment
 
-/** Resolve the active client ID, preferring new-style env names. */
-function clientId()     { return process.env.X_CLIENT_ID     || process.env.TWITTER_CLIENT_ID     }
-function clientSecret() { return process.env.X_CLIENT_SECRET || process.env.TWITTER_CLIENT_SECRET }
-
 export const meta = {
   key:       'x',
   label:     'X',
   configEnv: ['X_CLIENT_ID', 'X_CLIENT_SECRET'],
+  credentialFields: [
+    { key: 'client_id',     label: 'Client ID' },
+    { key: 'client_secret', label: 'Client Secret', secret: true },
+  ],
   scopes:    ['tweet.read', 'tweet.write', 'users.read', 'offline.access', 'media.write'],
 }
 
-export function isConfigured() {
-  return !!(clientId() && clientSecret())
+/** Credential keys the tenant must supply for this platform. */
+export function requiredKeys() {
+  return meta.credentialFields.map(f => f.key)
 }
 
 /**
  * Build the X OAuth 2.0 PKCE authorization URL.
  * Uses code_challenge_method=plain with state as the verifier.
  *
- * @param {{ redirectUri: string, state: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, redirectUri: string, state: string }} opts
  * @returns {string}
  */
-export function getAuthUrl({ redirectUri, state }) {
-  if (!isConfigured()) throw new Error('X not configured')
+export function getAuthUrl({ creds, redirectUri, state }) {
+  if (!creds) throw new Error('X not configured')
   const params = qs({
-    client_id:             clientId(),
+    client_id:             creds.client_id,
     redirect_uri:          redirectUri,
     response_type:         'code',
     scope:                 meta.scopes.join(' '),
@@ -87,21 +88,21 @@ export function getAuthUrl({ redirectUri, state }) {
  * Exchange an authorization code for tokens.
  * The code_verifier must match the code_challenge sent in getAuthUrl.
  *
- * @param {{ code: string, redirectUri: string, codeVerifier?: string, state?: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, code: string, redirectUri: string, codeVerifier?: string, state?: string }} opts
  *   Pass codeVerifier (or state, which equals the verifier with plain PKCE).
  * @returns {Promise<{
  *   account: { externalId: string, displayName: string, scopes: string[] },
  *   tokens:  { accessToken: string, refreshToken: string, expiresAt: Date }
  * }>}
  */
-export async function exchangeCode({ code, redirectUri, codeVerifier, state }) {
-  if (!isConfigured()) throw new Error('X not configured')
+export async function exchangeCode({ creds, code, redirectUri, codeVerifier, state }) {
+  if (!creds) throw new Error('X not configured')
 
   // With plain PKCE the verifier is the state value
   const verifier = codeVerifier ?? state ?? ''
 
   // X token endpoint requires HTTP Basic auth (client_id:client_secret)
-  const basicAuth = Buffer.from(`${clientId()}:${clientSecret()}`).toString('base64')
+  const basicAuth = Buffer.from(`${creds.client_id}:${creds.client_secret}`).toString('base64')
 
   const body = new URLSearchParams({
     code,
@@ -144,13 +145,13 @@ export async function exchangeCode({ code, redirectUri, codeVerifier, state }) {
 /**
  * Refresh an X access token.
  *
- * @param {{ refreshToken: string }} opts
+ * @param {{ creds: { client_id: string, client_secret: string }, refreshToken: string }} opts
  * @returns {Promise<{ accessToken: string, refreshToken: string, expiresAt: Date }>}
  */
-export async function refresh({ refreshToken }) {
-  if (!isConfigured()) throw new Error('X not configured')
+export async function refresh({ creds, refreshToken }) {
+  if (!creds) throw new Error('X not configured')
 
-  const basicAuth = Buffer.from(`${clientId()}:${clientSecret()}`).toString('base64')
+  const basicAuth = Buffer.from(`${creds.client_id}:${creds.client_secret}`).toString('base64')
 
   const body = new URLSearchParams({
     grant_type:    'refresh_token',
@@ -197,8 +198,6 @@ export async function refresh({ refreshToken }) {
  * @returns {Promise<{ externalId: string, url: string }>}
  */
 export async function publishVideo({ tokens, videoUrl, caption }) {
-  if (!isConfigured()) throw new Error('X not configured')
-
   const { accessToken } = tokens
 
   // Download video bytes from S3

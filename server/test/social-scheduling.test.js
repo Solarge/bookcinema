@@ -12,6 +12,7 @@ import { makeAuthedUser } from './helpers/auth.js'
 import { socialRouter } from '../routes/social.js'
 import ScheduledPost from '../models/ScheduledPost.js'
 import SocialAccount from '../models/SocialAccount.js'
+import SocialAppCredential from '../models/SocialAppCredential.js'
 import { processSocialPublish } from '../worker/processSocialPublish.js'
 import { encryptToken } from '../utils/cryptoTokens.js'
 
@@ -40,11 +41,15 @@ const bearer  = (req, token)    => req.set('Authorization', `Bearer ${token}`)
 const authed  = (req, token, ws) =>
   req.set('Authorization', `Bearer ${token}`).set('X-Workspace-Id', ws.toString())
 
-/** A configured fake provider that succeeds at publishVideo. */
+const FIELDS = [
+  { key: 'client_id',     label: 'Client ID' },
+  { key: 'client_secret', label: 'Client Secret', secret: true },
+]
+
+/** A fake provider that succeeds at publishVideo. (No isConfigured — per-workspace now.) */
 function makeFakeProvider(overrides = {}) {
   return {
-    meta:         { key: 'youtube', label: 'YouTube' },
-    isConfigured: () => true,
+    meta:         { key: 'youtube', label: 'YouTube', credentialFields: FIELDS },
     getAuthUrl:   ({ state }) => `https://fake.test/auth?state=${state}`,
     exchangeCode: async () => ({ account: { externalId: 'ext1', displayName: 'Ch' }, tokens: { accessToken: 'AT', refreshToken: 'RT', expiresAt: FUTURE() } }),
     refresh:      async ({ refreshToken }) => ({ accessToken: 'NEW_AT', refreshToken: 'NEW_RT', expiresAt: FUTURE() }),
@@ -57,7 +62,7 @@ function makeFakeProvider(overrides = {}) {
 function makeFakeRegistry(providerMap) {
   const defaults = {}
   for (const p of ['youtube', 'tiktok', 'instagram', 'facebook', 'x', 'linkedin']) {
-    defaults[p] = makeFakeProvider({ meta: { key: p, label: p }, isConfigured: () => false })
+    defaults[p] = makeFakeProvider({ meta: { key: p, label: p, credentialFields: FIELDS } })
   }
   const merged = { ...defaults, ...providerMap }
   return {
@@ -65,10 +70,21 @@ function makeFakeRegistry(providerMap) {
       if (!merged[k]) throw new Error(`Unknown social platform: ${k}`)
       return merged[k]
     },
-    listConfigured: () => Object.entries(merged).map(([key, p]) => ({
-      key, label: p.meta.label, configured: p.isConfigured(),
+    credentialFields: (k) => merged[k]?.meta.credentialFields || [],
+    requiredKeys:     (k) => (merged[k]?.meta.credentialFields || []).map(f => f.key),
+    listAll: () => Object.entries(merged).map(([key, p]) => ({
+      key, label: p.meta.label, credentialFields: p.meta.credentialFields,
     })),
   }
+}
+
+/** Seed a workspace's own app credentials for a platform (so it is "configured"). */
+async function seedCreds(workspaceId, platform = 'youtube', values = { client_id: 'CID', client_secret: 'CSEC' }) {
+  return SocialAppCredential.create({
+    workspaceId,
+    platform,
+    valuesEnc: encryptToken(JSON.stringify(values)),
+  })
 }
 
 /** Seed a SocialAccount with real encrypted tokens for processor tests. */
@@ -173,9 +189,10 @@ test('processor: mixed targets (one posted, one failed) → post status "partial
   assert.equal(tk.status, 'failed')
 })
 
-test('processor: expired token triggers provider.refresh and new tokens persisted', async () => {
+test('processor: expired token triggers provider.refresh with WORKSPACE creds, new tokens persisted', async () => {
   const wsId   = new mongoose.Types.ObjectId()
   const userId = new mongoose.Types.ObjectId()
+  await seedCreds(wsId, 'youtube', { client_id: 'WS-CID', client_secret: 'WS-CSEC' })
   const account = await seedAccount(wsId, 'youtube', {
     accessToken:  'OLD_AT',
     refreshToken: 'OLD_RT',
@@ -185,9 +202,11 @@ test('processor: expired token triggers provider.refresh and new tokens persiste
   const post = await seedPost(wsId, userId, account._id)
 
   let refreshCalled = false
+  let credsSeen = null
   const provider = makeFakeProvider({
-    refresh: async ({ refreshToken }) => {
+    refresh: async ({ creds, refreshToken }) => {
       refreshCalled = true
+      credsSeen = creds
       assert.equal(refreshToken, 'OLD_RT', 'refresh called with old refreshToken')
       return { accessToken: 'NEW_AT', refreshToken: 'NEW_RT', expiresAt: FUTURE() }
     },
@@ -195,10 +214,32 @@ test('processor: expired token triggers provider.refresh and new tokens persiste
   await processSocialPublish(post._id.toString(), { getProvider: () => provider })
 
   assert.ok(refreshCalled, 'provider.refresh was called for expired token')
+  assert.equal(credsSeen?.client_id, 'WS-CID', 'refresh received the workspace creds')
 
   // Token in DB must have changed
   const updatedAccount = await SocialAccount.findById(account._id)
   assert.notEqual(updatedAccount.accessTokenEnc, originalEnc, 'accessTokenEnc changed after refresh')
+})
+
+test('processor: expired token but NO workspace creds → target failed "app credentials missing"', async () => {
+  const wsId   = new mongoose.Types.ObjectId()
+  const userId = new mongoose.Types.ObjectId()
+  // No SocialAppCredential seeded for this workspace.
+  const account = await seedAccount(wsId, 'youtube', {
+    accessToken:  'OLD_AT',
+    refreshToken: 'OLD_RT',
+    expiresAt:    PAST(),
+  })
+  const post = await seedPost(wsId, userId, account._id)
+
+  let refreshCalled = false
+  const provider = makeFakeProvider({ refresh: async () => { refreshCalled = true; return {} } })
+  await processSocialPublish(post._id.toString(), { getProvider: () => provider })
+
+  assert.ok(!refreshCalled, 'refresh must NOT be called without workspace creds')
+  const updated = await ScheduledPost.findById(post._id)
+  assert.equal(updated.targets[0].status, 'failed')
+  assert.match(updated.targets[0].error, /app credentials missing/)
 })
 
 test('processor: deleted SocialAccount → target failed with "account disconnected"', async () => {
@@ -300,7 +341,8 @@ test('processor: uses perPlatformCaption over post.caption when present', async 
 test('POST /api/social/posts 202 with future scheduledAt + connected account, jobId saved', async () => {
   const { user, workspace, token } = await makeAuthedUser({ plan: 'pro' })
 
-  // Seed a connected account in this workspace
+  // Configure youtube for this workspace + seed a connected account
+  await seedCreds(workspace._id, 'youtube')
   const account = await seedAccount(workspace._id, 'youtube')
 
   const captured = {}
@@ -400,7 +442,8 @@ test('POST /api/social/posts 400 when videoUrl is missing', async () => {
 
 test('POST /api/social/posts 422 when target platform has no connected account', async () => {
   const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
-  // No SocialAccount seeded for this workspace
+  // youtube is configured (creds present) but NO SocialAccount is connected.
+  await seedCreds(workspace._id, 'youtube')
   const fakeQueue = { add: async () => ({ id: 'j' }), remove: async () => {} }
   const registry  = makeFakeRegistry({ youtube: makeFakeProvider() })
   const app       = buildApp({ queue: fakeQueue, registry })
@@ -416,16 +459,15 @@ test('POST /api/social/posts 422 when target platform has no connected account',
   assert.equal(res.status, 422)
   assert.ok(Array.isArray(res.body.invalidTargets), 'invalidTargets array present')
   assert.equal(res.body.invalidTargets[0].platform, 'youtube')
+  assert.equal(res.body.invalidTargets[0].reason, 'no connected account')
 })
 
-test('POST /api/social/posts 422 when target provider is not configured', async () => {
+test('POST /api/social/posts 422 when target provider is not configured for this workspace', async () => {
   const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
   await seedAccount(workspace._id, 'youtube')
+  // NO SocialAppCredential seeded → youtube is not configured for this workspace.
   const fakeQueue  = { add: async () => ({ id: 'j' }), remove: async () => {} }
-  // youtube is NOT configured in this registry
-  const registry = makeFakeRegistry({
-    youtube: makeFakeProvider({ isConfigured: () => false }),
-  })
+  const registry = makeFakeRegistry({ youtube: makeFakeProvider() })
   const app = buildApp({ queue: fakeQueue, registry })
 
   const res = await authed(
@@ -588,6 +630,7 @@ test('DELETE /api/social/posts/:id 401 without auth', async () => {
 
 test('POST /api/social/posts creates post even when queue is null (no Redis)', async () => {
   const { workspace, token } = await makeAuthedUser({ plan: 'pro' })
+  await seedCreds(workspace._id, 'youtube')
   await seedAccount(workspace._id, 'youtube')
 
   // No queue injected → getSocialPublishQueue() returns null (no REDIS_URL)

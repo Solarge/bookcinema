@@ -1,9 +1,9 @@
 /**
  * Facebook social provider — Meta Graph API (Facebook Pages).
  *
- * Required env vars:
- *   META_APP_ID     — Meta developer app ID (shared with instagram.js)
- *   META_APP_SECRET — Meta developer app secret (shared with instagram.js)
+ * Per-workspace credentials (creds object keys):
+ *   app_id      — Meta developer app ID
+ *   app_secret  — Meta developer app secret
  *
  * Scopes requested:
  *   pages_manage_posts    — create posts and videos on Pages
@@ -19,8 +19,8 @@
  *   https://developers.facebook.com/docs/video-api/guides/reels-publishing
  *   https://developers.facebook.com/docs/graph-api/reference/page/videos
  *
- * isConfigured() reads process.env directly at call time so tests can
- * set/unset env vars and see immediate effect without re-importing config.
+ * Credentials are supplied per-workspace (decrypted from SocialAppCredential)
+ * and passed into getAuthUrl/exchangeCode/refresh as `creds`.
  */
 
 import { postForm, fetchJson, qs, expiresAt } from './_util.js'
@@ -38,23 +38,28 @@ export const meta = {
   key:       'facebook',
   label:     'Facebook',
   configEnv: ['META_APP_ID', 'META_APP_SECRET'],
+  credentialFields: [
+    { key: 'app_id',     label: 'Meta App ID' },
+    { key: 'app_secret', label: 'Meta App Secret', secret: true },
+  ],
   scopes:    ['pages_manage_posts', 'pages_read_engagement', 'pages_show_list'],
 }
 
-export function isConfigured() {
-  return !!(process.env.META_APP_ID && process.env.META_APP_SECRET)
+/** Credential keys the tenant must supply for this platform. */
+export function requiredKeys() {
+  return meta.credentialFields.map(f => f.key)
 }
 
 /**
  * Build the Meta (Facebook) OAuth dialog URL.
  *
- * @param {{ redirectUri: string, state: string }} opts
+ * @param {{ creds: { app_id: string, app_secret: string }, redirectUri: string, state: string }} opts
  * @returns {string}
  */
-export function getAuthUrl({ redirectUri, state }) {
-  if (!isConfigured()) throw new Error('Facebook not configured')
+export function getAuthUrl({ creds, redirectUri, state }) {
+  if (!creds) throw new Error('Facebook not configured')
   const params = qs({
-    client_id:     process.env.META_APP_ID,
+    client_id:     creds.app_id,
     redirect_uri:  redirectUri,
     response_type: 'code',
     scope:         meta.scopes.join(','),
@@ -68,19 +73,19 @@ export function getAuthUrl({ redirectUri, state }) {
  * Fetches the /me/accounts list to find the first managed Page.
  * Stores the Page access token (long-lived) in accessToken.
  *
- * @param {{ code: string, redirectUri: string }} opts
+ * @param {{ creds: { app_id: string, app_secret: string }, code: string, redirectUri: string }} opts
  * @returns {Promise<{
  *   account: { externalId: string, displayName: string, scopes: string[] },
  *   tokens:  { accessToken: string, refreshToken: null, expiresAt: Date }
  * }>}
  */
-export async function exchangeCode({ code, redirectUri }) {
-  if (!isConfigured()) throw new Error('Facebook not configured')
+export async function exchangeCode({ creds, code, redirectUri }) {
+  if (!creds) throw new Error('Facebook not configured')
 
   // Step 1 — short-lived user token
   const shortToken = await postForm(TOKEN_URL, {
-    client_id:     process.env.META_APP_ID,
-    client_secret: process.env.META_APP_SECRET,
+    client_id:     creds.app_id,
+    client_secret: creds.app_secret,
     redirect_uri:  redirectUri,
     code,
     grant_type:    'authorization_code',
@@ -90,8 +95,8 @@ export async function exchangeCode({ code, redirectUri }) {
   const longToken = await fetchJson(
     `${LONG_TOKEN_URL}?${qs({
       grant_type:        'fb_exchange_token',
-      client_id:         process.env.META_APP_ID,
-      client_secret:     process.env.META_APP_SECRET,
+      client_id:         creds.app_id,
+      client_secret:     creds.app_secret,
       fb_exchange_token: shortToken.access_token,
     })}`,
     shortToken.access_token,
@@ -126,18 +131,18 @@ export async function exchangeCode({ code, redirectUri }) {
  * Refresh a Meta long-lived token.
  * Meta Page access tokens typically never expire, but user tokens can be refreshed.
  *
- * @param {{ refreshToken: string | null }} opts
+ * @param {{ creds: { app_id: string, app_secret: string }, refreshToken: string | null }} opts
  * @returns {Promise<{ accessToken: string, refreshToken: null, expiresAt: Date }>}
  */
-export async function refresh({ refreshToken }) {
-  if (!isConfigured()) throw new Error('Facebook not configured')
+export async function refresh({ creds, refreshToken }) {
+  if (!creds) throw new Error('Facebook not configured')
 
   const currentToken = refreshToken
   const data = await fetchJson(
     `${META_GRAPH_URL}/oauth/access_token?${qs({
       grant_type:        'fb_exchange_token',
-      client_id:         process.env.META_APP_ID,
-      client_secret:     process.env.META_APP_SECRET,
+      client_id:         creds.app_id,
+      client_secret:     creds.app_secret,
       fb_exchange_token: currentToken,
     })}`,
     currentToken,
@@ -169,8 +174,6 @@ export async function refresh({ refreshToken }) {
  * @returns {Promise<{ externalId: string, url: string }>}
  */
 export async function publishVideo({ tokens, videoUrl, caption, title }) {
-  if (!isConfigured()) throw new Error('Facebook not configured')
-
   const { accessToken } = tokens
 
   // Resolve pageId — callers store this from exchangeCode (as account.externalId)
