@@ -24,8 +24,8 @@ function stubFalVideoFetch() {
       return { ok: true, status: 200, json: async () => ({ status_url: 'https://queue.fal.run/status/xyz' }) }
     }
     if (phase === 2) {
-      // poll — COMPLETED immediately so the adapter waits only once
-      return { ok: true, status: 200, json: async () => ({ status: 'COMPLETED', response_url: 'https://cdn.fal/video.mp4' }) }
+      // poll — COMPLETED with an inline media URL (no result-endpoint round-trip needed)
+      return { ok: true, status: 200, json: async () => ({ status: 'COMPLETED', result: { video: { url: 'https://cdn.fal/video.mp4' } } }) }
     }
     // download
     return { ok: true, status: 200, arrayBuffer: async () => new TextEncoder().encode('VIDEOBYTES').buffer }
@@ -48,6 +48,26 @@ test('falai video: falls back to DEFAULT_MODEL when no model passed', async () =
   await generate({ prompt: 'a dragon', aspectRatio: '16:9', duration: 5 })
   assert.equal(calls.submitUrl, 'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/text-to-video')
   assert.equal(calls.submitUrl, `https://queue.fal.run/${DEFAULT_MODEL}`)
+})
+
+test('falai video: resolves media via the response_url result endpoint WITH auth (the 401 fix)', async () => {
+  process.env.FALAI_KEY = 'fal_test'
+  let resultFetchedWithAuth = false
+  let phase = 0
+  globalThis.fetch = async (url, opts) => {
+    phase += 1
+    if (phase === 1) return { ok: true, status: 200, json: async () => ({ status_url: 'https://queue.fal.run/status/xyz', response_url: 'https://queue.fal.run/result/xyz' }) }
+    if (phase === 2) return { ok: true, status: 200, json: async () => ({ status: 'COMPLETED', response_url: 'https://queue.fal.run/result/xyz' }) }
+    if (phase === 3) {
+      // result endpoint MUST carry the API key (this is what was previously missing → 401)
+      resultFetchedWithAuth = opts?.headers?.Authorization === 'Key fal_test'
+      return { ok: true, status: 200, json: async () => ({ video: { url: 'https://cdn.fal/v.mp4' } }) }
+    }
+    return { ok: true, status: 200, arrayBuffer: async () => new TextEncoder().encode('BYTES').buffer }
+  }
+  const r = await generate({ prompt: 'x', model: PRO_MODEL })
+  assert.ok(resultFetchedWithAuth, 'result endpoint should be fetched with Authorization')
+  assert.ok(Buffer.isBuffer(r.buffer))
 })
 
 test('registry: premium video leads with Pro model and ends with a standard falai fallback', () => {

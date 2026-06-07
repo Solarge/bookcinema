@@ -27,7 +27,7 @@ async function pollFalQueue(statusUrl, apiKey, maxAttempts = 100) {
     }
     if (!res.ok) throw new Error(`fal.ai video poll error ${res.status}`)
     const d = await res.json()
-    if (d.status === 'COMPLETED') return d.response_url || d.result?.video?.url || null
+    if (d.status === 'COMPLETED') return d   // return the full payload; caller resolves the media URL
     if (d.status === 'FAILED') throw new Error(d.error || 'fal.ai video generation failed')
     // statuses: IN_QUEUE, IN_PROGRESS — keep polling
   }
@@ -65,15 +65,35 @@ export async function generate({ prompt, aspectRatio = '9:16', duration = 5, mod
   const statusUrl = submitData.status_url
   if (!statusUrl) throw new Error('fal.ai video submit did not return a status_url')
 
-  // Poll until done
-  const videoUrl = await pollFalQueue(statusUrl, apiKey)
+  // Poll until done — returns the COMPLETED status payload.
+  const completed = await pollFalQueue(statusUrl, apiKey)
 
-  if (!videoUrl) throw new Error('fal.ai video returned no video URL')
+  // Resolve the actual media URL. The fal queue's `response_url` is the RESULT
+  // endpoint (returns JSON, requires the API key) — NOT the video. Fetch it with
+  // auth and extract the public media URL. Use an inline result if present.
+  let mediaUrl = completed?.result?.video?.url || completed?.video?.url || null
+  const responseUrl = completed?.response_url || submitData.response_url
+  if (!mediaUrl && responseUrl) {
+    let rr
+    try {
+      rr = await fetch(responseUrl, { headers: { Authorization: `Key ${apiKey}` }, signal: AbortSignal.timeout(30000) })
+    } catch (err) {
+      if (err.name === 'TimeoutError' || err.name === 'AbortError') throw new Error('fal.ai video result fetch timed out (30s)')
+      throw err
+    }
+    if (!rr.ok) throw new Error(`fal.ai video result fetch failed ${rr.status}`)
+    const rj = await rr.json()
+    mediaUrl = rj?.video?.url || rj?.result?.video?.url || rj?.video_url || rj?.url || null
+  }
+  if (!mediaUrl) throw new Error('fal.ai video: no media URL in completed result')
 
-  // Download the video bytes
+  // Download the video bytes (fal.media URLs are public; retry with the key on a 401 just in case).
   let videoRes
   try {
-    videoRes = await fetch(videoUrl, { signal: AbortSignal.timeout(300000) })
+    videoRes = await fetch(mediaUrl, { signal: AbortSignal.timeout(300000) })
+    if (videoRes.status === 401 || videoRes.status === 403) {
+      videoRes = await fetch(mediaUrl, { headers: { Authorization: `Key ${apiKey}` }, signal: AbortSignal.timeout(300000) })
+    }
   } catch (err) {
     if (err.name === 'TimeoutError' || err.name === 'AbortError') throw new Error('fal.ai video download timed out (300s)')
     throw err
