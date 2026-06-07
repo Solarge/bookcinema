@@ -14,7 +14,7 @@ import StoryboardView from './StoryboardView'
 import SocialCardModal from './SocialCardModal'
 import DirectorChat from './DirectorChat'
 import { useDivModalA11y } from '../hooks/useModalA11y'
-import { series as seriesApi, managed as managedApi, pollJob } from '../lib/api'
+import { series as seriesApi } from '../lib/api'
 import { planAllows, minPlanFor, planLabel, FEATURE_LABELS } from '../utils/plans'
 import '../styles/results.css'
 import '../styles/virality.css'
@@ -324,19 +324,20 @@ function SceneCard({ scene, epNum, charIds, characters, onUpdateKling, onUpdateL
 }
 
 // ── Compile Episode Video control ──────────────────────────────────────────
-function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBilling, soundtrackUrl }) {
-  const [compileState, setCompileState] = useState('idle') // idle | compiling | done | error
-  const [compiledUrl, setCompiledUrl] = useState(null)
-  const [errorMsg, setErrorMsg] = useState(null)
+function CompileEpisodeControl({ episode, seriesId, seriesRef, sceneMedia, plan, onOpenBilling }) {
+  const { compileEpisode, episodeCompiled, movieProgress } = useMedia()
+  const compiled = episodeCompiled[`ep${episode.number}`] ?? {}
+  const status = compiled.status ?? 'idle'
 
-  // Gather ready scene video URLs (remoteUrl = S3/provider url, status === 'done')
+  // Count scenes that currently have a finished video clip — drives the >= 2 gate.
   const readyClips = (episode.scenes || [])
     .map(scene => {
       const key = `ep${episode.number}-s${scene.scene_number}`
       const asset = sceneMedia[key] ?? {}
-      return asset.status === 'done' ? (asset.remoteUrl || asset.serverUrl || null) : null
+      return asset.status === 'done' ? (asset.serverUrl || asset.remoteUrl || asset.localUrl || null) : null
     })
     .filter(Boolean)
+  const sceneCount = (episode.scenes || []).length
 
   const videoPlanAllowed = planAllows(plan, 'video')
 
@@ -362,41 +363,23 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
     )
   }
 
-  async function handleCompile() {
-    if (!seriesId) return
-    if (readyClips.length < 2) return
-    setCompileState('compiling')
-    setErrorMsg(null)
-    setCompiledUrl(null)
-    try {
-      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: episode.number, clips: readyClips, ...(soundtrackUrl ? { soundtrackUrl } : {}) })
-      const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
-      if (job.status === 'done' && job.resultUrl) {
-        setCompiledUrl(job.resultUrl)
-        setCompileState('done')
-      } else {
-        throw new Error(job.errorMessage || 'Compile failed')
-      }
-    } catch (err) {
-      let msg = err.message || 'Compile failed'
-      if (err.status === 403 && err.code === 'plan_feature') msg = `Your plan does not include video. Upgrade to ${err.requiredPlan || minPlanFor('video')}.`
-      else if (err.status === 402) msg = 'Insufficient credits to compile. Purchase more credits.'
-      setErrorMsg(msg)
-      setCompileState('error')
-    }
-  }
+  const handleCompile = () => { compileEpisode(seriesRef, episode) }
 
-  const isDisabledNoClips = readyClips.length < 2
+  const compiledUrl = compiled.url
+  // Compile needs a backend seriesId and at least 2 scenes (compileEpisode will
+  // auto-generate any missing scene video while assembling sound).
   const isDisabledNoSeries = !seriesId
-  const isDisabled = isDisabledNoClips || isDisabledNoSeries || compileState === 'compiling'
+  const isDisabledNoScenes = sceneCount < 2
+  const isCompiling = status === 'compiling' || !!movieProgress?.running
+  const isDisabled = isDisabledNoSeries || isDisabledNoScenes || isCompiling
 
   let hintText = null
   if (isDisabledNoSeries) hintText = 'Save the series first to enable compilation.'
-  else if (isDisabledNoClips) hintText = `Generate at least 2 scene videos first (${readyClips.length} ready).`
+  else if (isDisabledNoScenes) hintText = 'This episode needs at least 2 scenes to compile.'
 
   return (
     <div className="rs-compile-panel">
-      <div className="rs-compile-panel-inner" style={{ marginBottom: compileState === 'done' || errorMsg ? '14px' : 0 }}>
+      <div className="rs-compile-panel-inner" style={{ marginBottom: (status === 'done' && compiledUrl) || status === 'error' ? '14px' : 0 }}>
         <div>
           <span className="rs-compile-label">
             Compile Episode Video
@@ -404,21 +387,21 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
           {hintText && (
             <p className="rs-compile-hint">{hintText}</p>
           )}
-          {!hintText && compileState === 'idle' && (
+          {!hintText && status !== 'compiling' && (
             <p className="rs-compile-hint">
-              {readyClips.length} scene clip{readyClips.length !== 1 ? 's' : ''} ready — stitch into a 2–3 min reel (5 credits)
+              Generates each character&apos;s dialogue voice + music into every scene, then compiles the episode into one video with sound. ({readyClips.length}/{sceneCount} scene clips ready)
             </p>
           )}
-          {compileState === 'compiling' && (
+          {status === 'compiling' && (
             <p className="rs-compile-compiling-hint">
-              Compiling… this can take a few minutes
+              🎬 Adding voices &amp; music, then compiling… (1–3 min)
             </p>
           )}
         </div>
         <button
           onClick={handleCompile}
           disabled={isDisabled}
-          aria-label={isDisabled ? (hintText || 'Compiling…') : `Compile episode ${episode.number} video`}
+          aria-label={isDisabled ? (hintText || 'Compiling…') : `Compile episode ${episode.number} video with sound`}
           className="rs-compile-btn"
           style={{
             border: `1px solid ${isDisabled ? 'var(--border)' : 'var(--gold)'}`,
@@ -427,20 +410,20 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
             opacity: isDisabled ? 0.55 : 1,
           }}
         >
-          {compileState === 'compiling' ? '⏳ Compiling…' : 'Compile Episode Video (2–3 min)'}
+          {status === 'compiling' ? '⏳ Compiling…' : 'Compile Episode (with voices + music)'}
         </button>
       </div>
 
       {/* Error state */}
-      {compileState === 'error' && errorMsg && (
+      {status === 'error' && (compiled.error || compiled.note) && (
         <div className="rs-compile-error">
-          {errorMsg}{' '}
-          <button onClick={() => { setCompileState('idle'); setErrorMsg(null) }} className="rs-compile-retry-btn">Retry</button>
+          {compiled.note || compiled.error}{' '}
+          <button onClick={handleCompile} className="rs-compile-retry-btn">Retry</button>
         </div>
       )}
 
-      {/* Done — compiled video player + download */}
-      {compileState === 'done' && compiledUrl && (
+      {/* Done — compiled video player + download (persisted + rehydrated on reopen) */}
+      {status === 'done' && compiledUrl && (
         <div className="rs-compile-done">
           <video
             src={compiledUrl}
@@ -459,7 +442,8 @@ function CompileEpisodeControl({ episode, seriesId, sceneMedia, plan, onOpenBill
               Download MP4
             </a>
             <button
-              onClick={() => { setCompileState('idle'); setCompiledUrl(null) }}
+              onClick={handleCompile}
+              disabled={isDisabled}
               className="rs-compile-recompile-btn"
             >
               Re-compile
@@ -480,8 +464,6 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
   const scoreAsset = episodeScore[epKey] ?? {}
   const scoreStoreKey = `episode-score:${seriesSlug}:ep${episode.number}`
   const hasSoundtrackPrompt = !!episode.soundtrack?.music_prompt
-  // Prefer the cloud-persisted URL; fall back to the local/presigned audio URL.
-  const soundtrackUrl = scoreAsset.serverUrl || scoreAsset.audioUrl || null
 
   return (
     <section id={`episode-${episode.number}`} className="rs-episode-section">
@@ -568,10 +550,10 @@ function EpisodeSection({ episode, characters, onUpdate, generationMode, seriesR
       <CompileEpisodeControl
         episode={episode}
         seriesId={seriesId}
+        seriesRef={seriesRef}
         sceneMedia={sceneMedia}
         plan={plan}
         onOpenBilling={onOpenBilling}
-        soundtrackUrl={soundtrackUrl}
       />
 
       {/* CTA */}
