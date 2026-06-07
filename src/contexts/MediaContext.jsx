@@ -606,6 +606,76 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     }
   }, [assembleScene, generateEpisodeSoundtrack, seriesId, seriesSlug, cloudEnabled])
 
+  // ── Merge Episodes → Full Movie ─────────────────────────────────────────────
+  // Stitches the per-episode compiled videos (each already sounded) into one
+  // series-level movie file. Compiles any episode that isn't compiled yet, then
+  // concatenates the sounded episode videos via the same managed compile API.
+  // Stored under episodeCompiled.full so the existing 'episode-compiled' hydrate
+  // branch (parts[2] === 'full') restores it on reopen.
+  const mergeEpisodes = useCallback(async (series) => {
+    setEpisodeCompiled(prev => ({ ...prev, full: { ...(prev.full ?? {}), status: 'compiling', error: null, note: null } }))
+    try {
+      const episodes = series.episodes ?? []
+
+      // 1) Ensure each episode has a compiled (sounded) video. Per-episode failures
+      //    are recorded + skipped so one bad episode doesn't abort the whole movie.
+      for (const ep of episodes) {
+        if (episodeCompiledRef.current[`ep${ep.number}`]?.status !== 'done') {
+          try {
+            await compileEpisode(series, ep)
+          } catch (err) {
+            console.warn(`[MediaContext] mergeEpisodes: episode ${ep.number} compile failed:`, err)
+          }
+        }
+      }
+
+      // 2) Gather compiled episode URLs in order.
+      const episodeUrls = episodes
+        .map(ep => {
+          const slot = episodeCompiledRef.current[`ep${ep.number}`] ?? {}
+          return slot.status === 'done' ? (slot.url || null) : null
+        })
+        .filter(Boolean)
+
+      if (episodeUrls.length < 2) {
+        setEpisodeCompiled(prev => ({ ...prev, full: { ...(prev.full ?? {}), status: 'error', note: 'Need at least 2 compiled episodes' } }))
+        return
+      }
+
+      // 3) Concatenate the sounded episode videos into one movie. Each episode video
+      //    already carries its audio, so no extra soundtrack is needed.
+      const { jobId } = await managedApi.compileEpisode({ seriesId, episodeNumber: 0, clips: episodeUrls })
+      const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
+      if (job.status !== 'done' || !job.result?.url) {
+        const errMsg = job.error || job.errorMessage || 'Merging episodes failed'
+        throw Object.assign(new Error(errMsg), { code: job.errorCode })
+      }
+      setEpisodeCompiled(prev => ({ ...prev, full: { ...(prev.full ?? {}), status: 'done', url: job.result.url, error: null, note: null } }))
+
+      // 4) Persist the full movie as an 'episode_compiled' Asset (key 'full') so it
+      //    rehydrates on reopen (best-effort).
+      if (cloudEnabled && seriesId) {
+        try {
+          const r = await assetsApi.fromJob(seriesId, {
+            jobId,
+            assetKey:  mediaKey('episode-compiled', seriesSlug, 'full'),
+            assetType: 'episode_compiled',
+            prompt:    `${series.title} — Full Movie`,
+          })
+          setEpisodeCompiled(prev => ({ ...prev, full: { ...prev.full, url: r.s3Url || prev.full?.url, serverId: r._id } }))
+        } catch (e) {
+          // best-effort; keep the presigned job url
+          console.warn('[MediaContext] mergeEpisodes: persist failed:', e)
+        }
+      }
+    } catch (err) {
+      const displayMsg = err.code === 'plan_feature'
+        ? (err.message || 'Merging episodes requires a higher plan. Upgrade to unlock.')
+        : (err.message || 'Merging episodes failed')
+      setEpisodeCompiled(prev => ({ ...prev, full: { ...(prev.full ?? {}), status: 'error', error: displayMsg } }))
+    }
+  }, [compileEpisode, seriesId, seriesSlug, cloudEnabled])
+
   // ── One-click orchestration: Make Episode / Make Movie ──────────────────────
   // Pure orchestration over the existing single-asset methods. Each runs the same
   // pipeline a careful user would click through: portraits → assemble every scene
@@ -858,7 +928,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
       generateSceneMusic, generateEpisodeSoundtrack,
       addSceneSound,
       assembleScene,
-      compileEpisode, episodeCompiled,
+      compileEpisode, episodeCompiled, mergeEpisodes,
       makeEpisode, makeMovie, movieProgress, cancelMovie,
       setCharApproval, setSceneApproval,
       portraitRefs,

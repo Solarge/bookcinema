@@ -1118,3 +1118,93 @@
   margin-top: 4px;
   line-height: 1.5;
 }
+
+/* ── Merge Episodes → Full Movie (series-level) ───────────────────────────── */
+.rs-fullmovie-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 100%;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: #0a1020;
+  border: 1px solid var(--gold);
+}
+
+.rs-fullmovie-btn {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: #14100a;
+  padding: 8px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: filter 0.15s;
+}
+.rs-fullmovie-btn:hover:not(:disabled) { filter: brightness(1.1); }
+.rs-fullmovie-btn:disabled {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.rs-fullmovie-hint {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.4;
+  letter-spacing: 0.3px;
+}
+
+.rs-fullmovie-error {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: #e06060;
+  line-height: 1.5;
+}
+
+.rs-fullmovie-done {
+  flex: 1 1 100%;
+  margin-top: 4px;
+}
+
+.rs-fullmovie-video {
+  width: 100%;
+  max-width: 640px;
+  display: block;
+  background: #000;
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+
+.rs-fullmovie-done-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.rs-fullmovie-download-link {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 6px 14px;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  text-decoration: none;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.rs-fullmovie-ready {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #6dc87a;
+  text-transform: uppercase;
+}
