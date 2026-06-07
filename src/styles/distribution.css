@@ -180,6 +180,65 @@
   border-color: var(--gold);
 }
 
+/* ── Per-platform row (stacks the inline setup form under the main row) ────── */
+.dist-account-row--col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+.dist-account-row__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.dist-account-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+/* ── Inline credential setup form ─────────────────────────────────────────── */
+.dist-cred-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.dist-cred-field { display: flex; flex-direction: column; }
+.dist-cred-redirect {
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+}
+.dist-cred-redirect__input {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+}
+.dist-cred-copy { flex-shrink: 0; }
+.dist-cred-help {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin-top: 5px;
+}
+.dist-cred-help__link {
+  color: var(--gold);
+  text-decoration: underline;
+}
+.dist-cred-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 2px;
+}
+
 /* ── Schedule form ───────────────────────────────────────────────────────── */
 .dist-form-section { margin-bottom: 28px; }
 .dist-form {

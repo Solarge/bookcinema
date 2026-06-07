@@ -39,99 +39,285 @@ function statusStyle(status) {
   }
 }
 
-// ── Connect Accounts section ───────────────────────────────────────────────
-function ConnectAccounts({ providers, accounts, onMsg, onRefresh }) {
-  const [connecting, setConnecting] = useState(null)
-  const [disconnecting, setDisconnecting] = useState(null)
+const SETUP_GUIDE_URL = 'https://github.com/Solarge/bookcinema/blob/main/docs/SOCIAL-SETUP.md'
 
-  async function handleConnect(platform) {
-    setConnecting(platform)
+// ── Per-platform credential setup form (inline, expandable) ────────────────
+function CredentialForm({ provider, prefill, onSaved, onCancel, onMsg }) {
+  const meta   = PLATFORM_META[provider.key] ?? { label: provider.label, icon: '📡' }
+  const fields = provider.credentialFields ?? []
+  const [values, setValues] = useState(() =>
+    Object.fromEntries(fields.map(f => [f.key, prefill?.[f.key] ?? '']))
+  )
+  const [missing, setMissing] = useState([])
+  const [saving,  setSaving]  = useState(false)
+  const [copied,  setCopied]  = useState(false)
+
+  function setField(key, val) {
+    setValues(prev => ({ ...prev, [key]: val }))
+    if (missing.includes(key)) setMissing(prev => prev.filter(k => k !== key))
+  }
+
+  async function copyRedirect() {
     try {
-      const { url } = await socialApi.connect(platform)
-      // Hand off to the platform's OAuth consent screen.
-      window.location.assign(url)
-    } catch (err) {
-      if (err.code === 'not_configured' || err.status === 503) {
-        onMsg(`${PLATFORM_META[platform]?.label ?? platform} isn't available yet — an admin needs to add its API keys. See docs/SOCIAL-SETUP.md.`)
-      } else {
-        onMsg(err.message)
-      }
-      setConnecting(null)
+      await navigator.clipboard.writeText(provider.redirectUri ?? '')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      onMsg('Could not copy — select the URL and copy it manually.')
     }
   }
 
-  async function handleDisconnect(accountId, platform) {
-    setDisconnecting(accountId)
+  async function handleSave(e) {
+    e.preventDefault()
+    setMissing([])
+    setSaving(true)
     try {
-      await socialApi.disconnect(accountId)
-      onMsg(`${PLATFORM_META[platform]?.label ?? platform} disconnected.`)
-      onRefresh()
+      // Drop blank values so editing keys (secrets left blank) doesn't overwrite.
+      const payload = Object.fromEntries(
+        Object.entries(values).filter(([, v]) => String(v).trim() !== '')
+      )
+      await socialApi.saveCredentials(provider.key, payload)
+      onMsg(`${meta.label} keys saved.`)
+      onSaved()
     } catch (err) {
-      onMsg(err.message)
+      if (err.code === 'plan_feature' || err.status === 403) {
+        const reqLabel = err.requiredPlan ? planLabel(err.requiredPlan) : 'a higher'
+        onMsg(`Connecting ${meta.label} requires the ${reqLabel} plan or higher.`)
+      } else if (err.status === 400 && Array.isArray(err.missing)) {
+        setMissing(err.missing)
+        const labels = err.missing
+          .map(k => fields.find(f => f.key === k)?.label ?? k)
+          .join(', ')
+        onMsg(`Missing required ${meta.label} field(s): ${labels}.`)
+      } else {
+        onMsg(err.message)
+      }
     } finally {
-      setDisconnecting(null)
+      setSaving(false)
     }
   }
 
   return (
+    <form className="dist-cred-form" onSubmit={handleSave}>
+      {/* Read-only redirect URL the tenant must whitelist in their own app */}
+      <div className="dist-cred-field">
+        <label className="dist-field-label">Redirect URL</label>
+        <div className="dist-cred-redirect">
+          <input
+            type="text"
+            readOnly
+            value={provider.redirectUri ?? ''}
+            className="dist-input dist-cred-redirect__input"
+            onFocus={e => e.target.select()}
+          />
+          <button
+            type="button"
+            onClick={copyRedirect}
+            className="dist-btn dist-btn--secondary dist-cred-copy"
+          >{copied ? 'Copied' : 'Copy'}</button>
+        </div>
+        <div className="dist-cred-help">
+          Add this redirect URL to your {meta.label} app, then paste your app&apos;s keys here.{' '}
+          <a href={SETUP_GUIDE_URL} target="_blank" rel="noopener noreferrer"
+            className="dist-cred-help__link">Setup guide</a>
+        </div>
+      </div>
+
+      {/* One input per credential field */}
+      {fields.map(field => (
+        <div key={field.key} className="dist-cred-field">
+          <label htmlFor={`dist-cred-${provider.key}-${field.key}`} className="dist-field-label">
+            {field.label}
+          </label>
+          <input
+            id={`dist-cred-${provider.key}-${field.key}`}
+            type={field.secret ? 'password' : 'text'}
+            autoComplete="off"
+            value={values[field.key] ?? ''}
+            onChange={e => setField(field.key, e.target.value)}
+            placeholder={field.secret && prefill ? '•••••• (unchanged)' : field.label}
+            className="dist-input"
+            style={missing.includes(field.key) ? { borderColor: '#8b1a1a' } : undefined}
+          />
+        </div>
+      ))}
+
+      <div className="dist-cred-actions">
+        <button type="submit" disabled={saving} className="dist-btn dist-btn--primary">
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+        <button type="button" onClick={onCancel} disabled={saving}
+          className="dist-btn dist-btn--secondary">
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
+CredentialForm.propTypes = {
+  provider: PropTypes.object.isRequired,
+  prefill:  PropTypes.object,
+  onSaved:  PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onMsg:    PropTypes.func.isRequired,
+}
+
+// ── A single platform row (3-state: not configured → configured → connected) ─
+function PlatformRow({ provider, account, onMsg, onRefresh }) {
+  const meta = PLATFORM_META[provider.key] ?? { label: provider.label, icon: '📡' }
+  const [editing,       setEditing]       = useState(false)
+  const [connecting,    setConnecting]    = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+  const [removing,      setRemoving]      = useState(false)
+
+  // Non-secret keys already set, used to prefill the edit form (secrets stay blank).
+  const [prefill, setPrefill] = useState(null)
+
+  async function openEdit() {
+    setPrefill(null)
+    try {
+      const { setKeys = [] } = await socialApi.credentials(provider.key)
+      const fields = provider.credentialFields ?? []
+      // Prefill only non-secret fields that are already set.
+      const pf = {}
+      for (const f of fields) {
+        if (!f.secret && setKeys.includes(f.key)) pf[f.key] = ''
+      }
+      setPrefill(pf)
+    } catch {
+      setPrefill({})
+    }
+    setEditing(true)
+  }
+
+  async function handleConnect() {
+    setConnecting(true)
+    try {
+      const { url } = await socialApi.connect(provider.key)
+      window.location.assign(url) // hand off to the platform OAuth consent screen
+    } catch (err) {
+      if (err.code === 'not_configured' || err.status === 400) {
+        onMsg(`${meta.label} isn't set up yet — add your developer-app keys first.`)
+      } else {
+        onMsg(err.message)
+      }
+      setConnecting(false)
+    }
+  }
+
+  async function handleDisconnect() {
+    setDisconnecting(true)
+    try {
+      await socialApi.disconnect(account.id)
+      onMsg(`${meta.label} disconnected.`)
+      onRefresh()
+    } catch (err) {
+      onMsg(err.message)
+    } finally {
+      setDisconnecting(false)
+    }
+  }
+
+  async function handleRemoveKeys() {
+    if (!window.confirm(`Remove your ${meta.label} developer-app keys? You'll need to re-enter them to connect again.`)) return
+    setRemoving(true)
+    try {
+      await socialApi.deleteCredentials(provider.key)
+      onMsg(`${meta.label} keys removed.`)
+      onRefresh()
+    } catch (err) {
+      onMsg(err.message)
+    } finally {
+      setRemoving(false)
+    }
+  }
+
+  return (
+    <div className="dist-account-row dist-account-row--col">
+      <div className="dist-account-row__main">
+        <span className="dist-account-icon">{meta.icon}</span>
+        <div className="dist-account-meta">
+          <div className="dist-account-label">{meta.label}</div>
+          {account && (
+            <div className="dist-account-connected">{account.displayName}</div>
+          )}
+        </div>
+
+        {/* Actions vary by state */}
+        <div className="dist-account-actions">
+          {!provider.configured ? (
+            !editing && (
+              <button onClick={() => { setPrefill(null); setEditing(true) }}
+                className="dist-btn dist-btn--secondary">
+                ⚙ Set up
+              </button>
+            )
+          ) : account ? (
+            <>
+              <button onClick={openEdit} disabled={editing}
+                className="dist-btn dist-btn--secondary">Edit keys</button>
+              <button onClick={handleDisconnect} disabled={disconnecting}
+                className="dist-btn dist-btn--danger">
+                {disconnecting ? '…' : 'Disconnect'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={handleConnect} disabled={connecting}
+                className="dist-btn dist-btn--secondary">
+                {connecting ? 'Connecting…' : 'Connect'}
+              </button>
+              <button onClick={openEdit} disabled={editing}
+                className="dist-btn dist-btn--secondary">Edit keys</button>
+              <button onClick={handleRemoveKeys} disabled={removing}
+                className="dist-btn dist-btn--danger">
+                {removing ? '…' : 'Remove keys'}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {editing && (
+        <CredentialForm
+          provider={provider}
+          prefill={prefill}
+          onMsg={onMsg}
+          onCancel={() => setEditing(false)}
+          onSaved={() => { setEditing(false); onRefresh() }}
+        />
+      )}
+    </div>
+  )
+}
+
+PlatformRow.propTypes = {
+  provider:  PropTypes.object.isRequired,
+  account:   PropTypes.object,
+  onMsg:     PropTypes.func.isRequired,
+  onRefresh: PropTypes.func.isRequired,
+}
+
+// ── Connect Accounts section ───────────────────────────────────────────────
+function ConnectAccounts({ providers, accounts, onMsg, onRefresh }) {
+  return (
     <div className="dist-accounts">
       <div className="dist-section-head">Connected Accounts</div>
       <p className="dist-accounts-intro">
-        Connect your accounts to auto-post finished videos. Platforms marked
-        {' '}<span className="dist-accounts-intro__tag">Not set up yet</span> need an
-        admin to add API keys.
+        Connect your accounts to auto-post finished videos. Set up each platform
+        with your own developer-app keys, then connect.
       </p>
       <div className="dist-accounts-list">
-        {providers.map(p => {
-          const meta    = PLATFORM_META[p.key] ?? { label: p.label, icon: '📡' }
-          const account = accounts.find(a => a.platform === p.key)
-          const isBusy  = connecting === p.key || disconnecting === account?.id
-
-          return (
-            <div key={p.key} className="dist-account-row">
-              {/* Icon + label */}
-              <span className="dist-account-icon">{meta.icon}</span>
-              <div className="dist-account-meta">
-                <div className="dist-account-label">{meta.label}</div>
-                {account && (
-                  <div className="dist-account-connected">
-                    {account.displayName}
-                  </div>
-                )}
-              </div>
-
-              {/* Action button */}
-              {!p.configured ? (
-                <span
-                  className="dist-account-setup"
-                  title="This platform needs API keys added by an admin — see setup guide."
-                >
-                  Not set up yet
-                  <a
-                    href="https://github.com/Solarge/bookcinema/blob/main/docs/SOCIAL-SETUP.md"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="dist-account-setup__help"
-                    title="This platform needs API keys added by an admin — see setup guide."
-                    aria-label={`${meta.label} needs an admin to add API keys — open the setup guide`}
-                  >?</a>
-                </span>
-              ) : account ? (
-                <button
-                  onClick={() => handleDisconnect(account.id, p.key)}
-                  disabled={isBusy}
-                  className="dist-btn dist-btn--danger"
-                >{isBusy ? '…' : 'Disconnect'}</button>
-              ) : (
-                <button
-                  onClick={() => handleConnect(p.key)}
-                  disabled={isBusy}
-                  className="dist-btn dist-btn--secondary"
-                >{isBusy ? 'Connecting…' : 'Connect'}</button>
-              )}
-            </div>
-          )
-        })}
+        {providers.map(p => (
+          <PlatformRow
+            key={p.key}
+            provider={p}
+            account={accounts.find(a => a.platform === p.key)}
+            onMsg={onMsg}
+            onRefresh={onRefresh}
+          />
+        ))}
       </div>
     </div>
   )
