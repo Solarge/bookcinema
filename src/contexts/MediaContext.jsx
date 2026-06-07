@@ -288,7 +288,9 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
           duration:    settings.videoDuration,
           tier:        settings.managedVideoTier || 'premium',
         }))
-        const job = await pollJob(jobId)
+        // Video generation is slow (Kling/Runway/Luma can take several minutes);
+        // poll up to 10 min so the UI doesn't error out while the worker is still rendering.
+        const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
         if (job.status !== 'done' || !job.result?.url) {
           const errMsg = job.error || 'Managed video generation failed'
           throw Object.assign(new Error(errMsg), { code: job.errorCode })
@@ -431,7 +433,7 @@ export function MediaProvider({ children, seriesSlug = 'default', seriesId = nul
     setScenes(prev => ({ ...prev, [key]: { ...(prev[key] ?? IDLE), status: 'generating', error: null } }))
     try {
       const { jobId } = await managedApi.mux({ videoUrl, voiceUrls, musicUrl })
-      const job = await pollJob(jobId)
+      const job = await pollJob(jobId, { intervalMs: 3000, timeoutMs: 600000 })
       if (job.status !== 'done' || !job.result?.url) {
         const errMsg = job.error || 'Adding sound failed'
         throw Object.assign(new Error(errMsg), { code: job.errorCode })
