@@ -165,14 +165,16 @@ export async function processMux(data, deps = {}) {
   const uploadFn = deps.uploadFn || defaultUpload
 
   const { jobId, workspaceId, createdBy, payload } = data
-  const { videoUrl, voiceUrls = [], musicUrl = null, musicVolume = 0.3 } = payload
+  const { videoUrl, voiceUrls = [], musicUrl = null, musicVolume = 0.3, title = null } = payload
 
   await Job.findByIdAndUpdate(jobId, { status: 'active' })
 
   try {
     const videoBuffer = await mux(videoUrl, voiceUrls, musicUrl, musicVolume)
 
-    const key = `generated/${workspaceId}/${jobId}-muxed.mp4`
+    // Prefix the S3 key with a readable slug of the title when present (keeps ${jobId} for uniqueness).
+    const slug = String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
+    const key = `generated/${workspaceId}/${slug ? slug + '-' : ''}${jobId}-muxed.mp4`
     const resultUrl = await uploadFn(key, videoBuffer, 'video/mp4')
 
     await Job.findByIdAndUpdate(jobId, { status: 'done', resultUrl, resultKey: key, errorMessage: null })

@@ -248,7 +248,7 @@ router.post('/video', managedAccess('video'), async (req, res) => {
 // POST /api/generate/compile
 router.post('/compile', managedAccess('video'), async (req, res) => {
   try {
-    const { seriesId, episodeNumber, clips, soundtrackUrl } = req.body
+    const { seriesId, episodeNumber, clips, soundtrackUrl, title } = req.body
 
     // Validate clips array
     if (!Array.isArray(clips) || clips.length < 2) {
@@ -275,7 +275,7 @@ router.post('/compile', managedAccess('video'), async (req, res) => {
       type: 'compile',
       tier: 'standard',
       params:  { seriesId: seriesId || null, episodeNumber: episodeNumber ?? null },
-      payload: { clips, soundtrackUrl: soundtrackUrl || null, seriesId: seriesId || null, episodeNumber: episodeNumber ?? null },
+      payload: { clips, soundtrackUrl: soundtrackUrl || null, seriesId: seriesId || null, episodeNumber: episodeNumber ?? null, title: typeof title === 'string' ? title : null },
     })
   } catch (err) {
     console.error('generate/compile error:', err)

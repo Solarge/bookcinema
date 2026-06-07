@@ -39,12 +39,20 @@ test("the 'auto' directive biases strongly toward more + longer episodes", () =>
   const p = buildSystemPrompt('cinematic', 'en', 'auto')
   assert.match(p, /more episodes and longer/i)
   assert.match(p, /10–20/)
-  assert.match(p, /4–8 scenes/)
+  assert.match(p, /8–16/)
+  assert.match(p, /~10-second/)
 })
 
-test('a fixed-count episode directive also asks for 4–8 scenes', () => {
+test('a fixed-count episode directive also asks for 8–16 scenes', () => {
   const p = buildSystemPrompt('cinematic', 'en', 5)
-  assert.match(p, /4–8 scenes/)
+  assert.match(p, /8–16 scenes/)
+})
+
+test('prompt frames each scene as a ~10-second shot that builds episode length', () => {
+  const p = buildSystemPrompt('cinematic', 'en')
+  assert.match(p, /8–16/)
+  assert.match(p, /~10-second|10s/)
+  assert.match(p, /shots/i)
 })
 
 test('prompt includes the music schema fields and a music-direction instruction', () => {

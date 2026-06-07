@@ -91,6 +91,23 @@ test('POST /compile 202 — accepts an optional soundtrackUrl and passes it in t
   assert.equal(enqueued[0].payload.soundtrackUrl, 'https://cdn.example.com/score.mp3')
 })
 
+test('POST /compile 202 — accepts an optional title and passes it in the payload', async () => {
+  const { token, workspace } = await proUser()
+  const period = `${new Date().getUTCFullYear()}-${String(new Date().getUTCMonth() + 1).padStart(2, '0')}`
+  await Workspace.findByIdAndUpdate(workspace._id, { monthlyCredits: 50, purchasedCredits: 0, creditPeriod: period })
+  const ws = await Workspace.findById(workspace._id)
+
+  const enqueued = []
+  const fakeQueue = { add: async (n, d) => { enqueued.push(d); return { id: 'bull-compile-title' } } }
+
+  const res = await authed(request(app(fakeQueue)).post('/api/generate/compile'), token, ws._id)
+    .send({ clips: VALID_CLIPS, title: 'Episode 1 — The Golden Cage' })
+
+  assert.equal(res.status, 202, `expected 202, got ${res.status}: ${JSON.stringify(res.body)}`)
+  assert.equal(enqueued.length, 1)
+  assert.equal(enqueued[0].payload.title, 'Episode 1 — The Golden Cage')
+})
+
 test('POST /compile 400 — invalid soundtrackUrl fails the SSRF guard', async () => {
   const { token, workspace } = await proUser()
   const res = await authed(request(app({ add: async () => ({}) })).post('/api/generate/compile'), token, workspace._id)
@@ -209,6 +226,32 @@ test('processCompile: fake concatVideos → uploads buffer to S3 → job status 
   assert.equal(updated.status, 'done')
   assert.match(updated.resultUrl, /^https:\/\/s3\.example\/generated\//)
   assert.match(uploadedKey, new RegExp(`generated/${wsId}/${job._id}-compiled\\.mp4`))
+})
+
+test('processCompile: payload.title slugifies into the uploaded S3 key', async () => {
+  const wsId = new mongoose.Types.ObjectId()
+  const uid = new mongoose.Types.ObjectId()
+
+  const job = await Job.create({
+    workspaceId: wsId, createdBy: uid, type: 'compile', tier: 'standard', status: 'queued',
+    params: { seriesId: null, episodeNumber: 1 },
+  })
+
+  const fakeConcatVideos = async () => Buffer.from('compiled')
+  let uploadedKey = null
+  const fakeUpload = async (key) => { uploadedKey = key; return `https://s3.example/${key}` }
+
+  await processCompile(
+    {
+      jobId: String(job._id), workspaceId: String(wsId), createdBy: String(uid),
+      payload: { clips: VALID_CLIPS, title: 'Episode 1 — The Golden Cage', seriesId: null, episodeNumber: 1 },
+    },
+    { concatVideos: fakeConcatVideos, uploadFn: fakeUpload },
+  )
+
+  assert.ok(uploadedKey, 'upload should have been called')
+  assert.match(uploadedKey, /episode-1-the-golden-cage-/)
+  assert.match(uploadedKey, new RegExp(`${job._id}-compiled\\.mp4$`))
 })
 
 test('processCompile: passes payload.soundtrackUrl through to concatVideos', async () => {
