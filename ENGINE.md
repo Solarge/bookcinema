@@ -33,6 +33,7 @@ FastAPI + Dockerfiles implementing the HTTP contract, one per modality:
 - **Deployment plan** (RunPod + AWS, sizing, cost, phasing): `docs/GPU-DEPLOYMENT.md`.
 - **Cheap / non-AWS deploy** (own GPU, Vast.ai, RunPod, Modal serverless): `docs/DEPLOY-CHEAP.md`.
 - **RTX 4090 step-by-step** (Ubuntu or Windows/WSL2): `docs/SETUP-4090.md`.
+- **Home GPU datacenter** (multi-GPU + Kubernetes build list): `docs/HOME-DATACENTER.md`.
 - **Infrastructure-as-code** (provision the GPU host + bootstrap the services): `infra/terraform/` and `infra/cdk/` (equivalent; pick one). Validated on PRs by `.github/workflows/infra.yml`.
 
 ## Environment variables (set in `server/.env.server`)
