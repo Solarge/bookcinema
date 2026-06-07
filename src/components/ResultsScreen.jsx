@@ -347,10 +347,10 @@ function CompileEpisodeControl({ episode, seriesId, seriesRef, sceneMedia, plan,
       <div className="rs-compile-locked">
         <div>
           <span className="rs-compile-locked-label">
-            Compile Episode Video
+            🎬 Merge scenes → Episode
           </span>
           <p className="rs-compile-locked-hint">
-            Stitch all scene clips into a 2–3 min reel. Requires {planLabel(minPlanFor('video'))} plan or higher.
+            Combine all scene clips into one episode video with voices + music. Requires {planLabel(minPlanFor('video'))} plan or higher.
           </p>
         </div>
         <button
@@ -382,14 +382,14 @@ function CompileEpisodeControl({ episode, seriesId, seriesRef, sceneMedia, plan,
       <div className="rs-compile-panel-inner" style={{ marginBottom: (status === 'done' && compiledUrl) || status === 'error' ? '14px' : 0 }}>
         <div>
           <span className="rs-compile-label">
-            Compile Episode Video
+            🎬 Merge scenes → Episode
           </span>
           {hintText && (
             <p className="rs-compile-hint">{hintText}</p>
           )}
           {!hintText && status !== 'compiling' && (
             <p className="rs-compile-hint">
-              Generates each character&apos;s dialogue voice + music into every scene, then compiles the episode into one video with sound. ({readyClips.length}/{sceneCount} scene clips ready)
+              Combines S1–S{sceneCount} into one episode video with the characters&apos; voices + music. ({readyClips.length}/{sceneCount} scene clips ready)
             </p>
           )}
           {status === 'compiling' && (
@@ -410,7 +410,7 @@ function CompileEpisodeControl({ episode, seriesId, seriesRef, sceneMedia, plan,
             opacity: isDisabled ? 0.55 : 1,
           }}
         >
-          {status === 'compiling' ? '⏳ Compiling…' : 'Compile Episode (with voices + music)'}
+          {status === 'compiling' ? '⏳ Merging…' : '🎬 Merge scenes → Episode'}
         </button>
       </div>
 
@@ -938,6 +938,81 @@ function MovieProgressBar({ progress, onCancel }) {
   )
 }
 
+// ── Merge Episodes → Full Movie (series-level) ──────────────────────────────
+// Stitches the per-episode compiled videos into one series movie. Drives its UI
+// from episodeCompiled.full, which persists + rehydrates on reopen.
+function FullMovieControl({ series, seriesId }) {
+  const { mergeEpisodes, episodeCompiled, movieProgress } = useMedia()
+  const full = episodeCompiled.full ?? {}
+  const status = full.status ?? 'idle'
+  const episodeCount = (series.episodes || []).length
+
+  const isCompiling = status === 'compiling' || !!movieProgress?.running
+  const tooFewEpisodes = episodeCount < 2
+  const noSeries = !seriesId
+  const isDisabled = isCompiling || tooFewEpisodes || noSeries
+
+  let hint = null
+  if (noSeries) hint = 'Save the series first to enable the full movie.'
+  else if (tooFewEpisodes) hint = 'Need at least 2 episodes to merge into a full movie.'
+
+  return (
+    <div className="rs-fullmovie-wrap">
+      <button
+        type="button"
+        onClick={() => mergeEpisodes(series)}
+        disabled={isDisabled}
+        className="rs-fullmovie-btn"
+        aria-label="Merge all episodes into one full movie"
+        title={hint || 'Compiles each episode if needed, then stitches them into one movie'}
+      >
+        {status === 'compiling' ? '⏳ Merging episodes…' : '🎬 Merge Episodes → Full Movie'}
+      </button>
+
+      {status === 'compiling' && (
+        <span className="rs-fullmovie-hint">
+          Merging episodes… (this compiles each episode first; a few minutes)
+        </span>
+      )}
+      {status !== 'compiling' && hint && (
+        <span className="rs-fullmovie-hint">{hint}</span>
+      )}
+      {status !== 'compiling' && !hint && status !== 'done' && (
+        <span className="rs-fullmovie-hint">
+          Stitches every compiled episode into one series movie (compiles any missing episode first).
+        </span>
+      )}
+
+      {status === 'error' && (full.note || full.error) && (
+        <span className="rs-fullmovie-error">{full.note || full.error}</span>
+      )}
+
+      {status === 'done' && full.url && (
+        <div className="rs-fullmovie-done">
+          <video
+            src={full.url}
+            controls
+            playsInline
+            aria-label="Full movie"
+            className="rs-fullmovie-video"
+          />
+          <div className="rs-fullmovie-done-actions">
+            <a
+              href={full.url}
+              download={`${(series.title || 'full-movie').replace(/\s+/g, '-').toLowerCase()}-full-movie.mp4`}
+              aria-label="Download full movie"
+              className="rs-fullmovie-download-link"
+            >
+              Download MP4
+            </a>
+            <span className="rs-fullmovie-ready">✓ ready to post</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── ResultsScreen root ─────────────────────────────────────────────────────
 export default function ResultsScreen({ series: initialSeries, seriesId, onNewBook, onOpenBilling }) {
   const { settings } = useSettings()
@@ -1119,6 +1194,9 @@ export default function ResultsScreen({ series: initialSeries, seriesId, onNewBo
             </span>
           </div>
         )}
+
+        {/* Series-level: merge the compiled episodes into one full movie */}
+        <FullMovieControl series={series} seriesId={seriesId} />
 
         {/* Batch button (batch or hybrid mode) */}
         {settings.generationMode !== 'on-demand' && (
