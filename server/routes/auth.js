@@ -257,9 +257,20 @@ export function cookieOpts() {
     path:     '/api/auth/refresh',
   }
   // When COOKIE_DOMAIN is set (e.g. ".yourdomain.com"), include it so the
-  // refresh cookie is valid across app. and admin. subdomains.
-  if (config.cookieDomain) opts.domain = config.cookieDomain
+  // refresh cookie is valid across app. and admin. subdomains. Only apply it when
+  // it's a VALID bare hostname (no scheme, port, path, or spaces) — a misconfigured
+  // value (e.g. "http://localhost:3001" or "localhost:3001") would otherwise make
+  // res.cookie throw "option domain is invalid" and break all auth.
+  const d = config.cookieDomain
+  if (d && isValidCookieDomain(d)) opts.domain = d
+  else if (d) console.warn(`[auth] Ignoring invalid COOKIE_DOMAIN="${d}" — use a bare hostname like ".yourdomain.com"`)
   return opts
+}
+
+// A cookie Domain must be a hostname: optional leading dot, then labels, no scheme/
+// port/path/whitespace. localhost is allowed for local dev.
+function isValidCookieDomain(d) {
+  return /^\.?(localhost|([a-z0-9-]+\.)+[a-z]{2,})$/i.test(d)
 }
 
 export default router
